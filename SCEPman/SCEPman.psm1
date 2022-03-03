@@ -119,7 +119,8 @@ function GetSubscriptionDetails {
             Write-Host "$($i + 1): $($subscriptions[$i].name) | Subscription Id: $($subscriptions[$i].id) | Press '$($i + 1)' to use this subscription"
         }
         $selection = Read-Host -Prompt "Please enter your choice and hit enter"
-        if ([Guid]::TryParse($selection, $subscriptionGuid)) {
+        $subscriptionGuid = [System.Guid]::empty
+        if ([System.Guid]::TryParse($selection, [System.Management.Automation.PSReference]$subscriptionGuid)) {
             $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $selection }
         } elseif(0 -eq $selection) {
             $potentialSubscription = GetSubscriptionDetailsUsingSCEPmanAppName -subscriptions $subscriptions
