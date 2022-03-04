@@ -113,12 +113,17 @@ function GetSubscriptionDetails {
   }
   if($null -eq $potentialSubscription) {
     if($subscriptions.count -gt 1){
-        Write-Host "Multiple subscriptions found! Select a subscription where the SCPEman is installed or press '0' to search across all of the subscriptions"
-        Write-Host "0: Search All Subscriptions | Press '0'"
-        for($i = 0; $i -lt $subscriptions.count; $i++){
-            Write-Host "$($i + 1): $($subscriptions[$i].name) | Subscription Id: $($subscriptions[$i].id) | Press '$($i + 1)' to use this subscription"
+        if($SearchAllSubscriptions.IsPresent) {
+            Write-Information "User pre-selected to search all subscriptions"
+            $selection = 0
+        } else {
+            Write-Host "Multiple subscriptions found! Select a subscription where the SCPEman is installed or press '0' to search across all of the subscriptions"
+            Write-Host "0: Search All Subscriptions | Press '0'"
+            for($i = 0; $i -lt $subscriptions.count; $i++){
+                Write-Host "$($i + 1): $($subscriptions[$i].name) | Subscription Id: $($subscriptions[$i].id) | Press '$($i + 1)' to use this subscription"
+            }
+            $selection = Read-Host -Prompt "Please enter your choice and hit enter"
         }
-        $selection = Read-Host -Prompt "Please enter your choice and hit enter"
         $subscriptionGuid = [System.Guid]::empty
         if ([System.Guid]::TryParse($selection, [System.Management.Automation.PSReference]$subscriptionGuid)) {
             $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $selection }
@@ -472,7 +477,7 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
    # Configure SCEPman and ask interactively for the app service
    Configure-SCEPman
 #>
-function Complete-SCEPmanInstallation($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup)
+function Complete-SCEPmanInstallation($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions)
 {
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
     $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
