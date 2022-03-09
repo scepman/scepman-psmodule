@@ -307,6 +307,29 @@ function GetStorageAccount {
     }
 }
 
+function GetExistingStorageAccount ($dataTableEndpoint) {
+    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table == '$dataTableEndpoint' | project name, primaryEndpoints = properties.primaryEndpoints")
+    if ($storageaccounts.count -gt 0) { # must be one because the Table Endpoint is unique
+        return $storageaccounts.data[0]
+    } else {
+        return $null
+    }
+}
+
+function SetStorageAccountPermissions ($ScStorageAccount) {
+    Write-Information "Setting permissions in storage account for SCEPman, SCEPman's deployment slots (if any), and CertMaster"
+
+    $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
+    Write-Verbose "Storage Account Scope: $SAScope"
+    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+    if($true -eq $scHasDeploymentSlots) {
+        ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+            Write-Verbose "Setting Storage account permission for deployment slot with principal id $tempServicePrincial"
+            $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+        }
+    }
+}
 
 function CreateScStorageAccount {
     $ScStorageAccount = GetStorageAccount
@@ -328,14 +351,9 @@ function CreateScStorageAccount {
         }
         Write-Information "Storage account $storageAccountName created"
     }
-    Write-Information "Setting permissions in storage account for SCEPman, SCEPman's deployment slots (if any), and CertMaster"
-    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
-    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
-    if($true -eq $scHasDeploymentSlots) {
-        ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-            $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal.principalId --assignee-principal-type 'ServicePrincipal' --scope "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
-        }
-    }
+
+    SetStorageAccountPermissions -ScStorageAccount $ScStorageAccount
+
     return $ScStorageAccount
 }
 
@@ -363,9 +381,18 @@ function SetTableStorageEndpointsInScAndCmAppSettings {
         $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
     } else {
         Write-Verbose 'Storage account table endpoint found in app settings'
-    }
 
-    #TODO: Grant permissions to the existing storage accounts
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        if ($null -eq $ScStorageAccount) {
+            Write-Warning "Data Table endpoint $storageAccountTableEndpoint is configured in either SCEPman or Certificate Master, but no such storage account could be found"
+
+            $ScStorageAccount = CreateScStorageAccount
+            $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
+        } else {
+            Write-Verbose "Found existing storage account $($ScStorageAccount.Name)"
+            SetStorageAccountPermissions -ScStorageAccount $ScStorageAccount
+        }
+    }
 
     Write-Verbose "Configuring table storage endpoints in SCEPman, SCEPman's deployment slots (if any), and CertMaster"
     $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:AzureStorage:TableStorageEndpoint=$storageAccountTableEndpoint
@@ -477,8 +504,11 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
    # Configure SCEPman and ask interactively for the app service
    Configure-SCEPman
 #>
-function Complete-SCEPmanInstallation($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions)
+function Complete-SCEPmanInstallation
 {
+    [CmdletBinding()]
+    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions)
+
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
     $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
     }
