@@ -308,11 +308,17 @@ function GetStorageAccount {
 }
 
 function GetExistingStorageAccount ($dataTableEndpoint) {
-    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table == '$dataTableEndpoint' | project name, primaryEndpoints = properties.primaryEndpoints")
-    if ($storageaccounts.count -gt 0) { # must be one because the Table Endpoint is unique
-        return $storageaccounts.data[0]
-    } else {
-        return $null
+    $storageAccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, primaryEndpoints = properties.primaryEndpoints")
+    Write-Debug "When searching for Storage Account $dataTableEndpoint, $($storageAccounts.count) accounts look like the searched one"
+    $storageAccounts = $storageAccounts.data | Where-Object { $_.primaryEndpoints.table.TrimEnd('/') -eq $dataTableEndpoint.TrimEnd('/')}
+    if ($null -ne $storageAccounts.count) { # In PS 7 (?), $storageAccounts is an array; In PS 5, $null has a count property with value 0
+        if ($storageAccounts.count -gt 0) { # must be one because the Table Endpoint is unique
+            return $storageAccounts[0]
+        } else {
+            return $null
+        }
+    } else { # In PS 5, $storageAccounts is an object if it is only one
+        return $storageAccounts
     }
 }
 
@@ -320,7 +326,7 @@ function SetStorageAccountPermissions ($ScStorageAccount) {
     Write-Information "Setting permissions in storage account for SCEPman, SCEPman's deployment slots (if any), and CertMaster"
 
     $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
-    Write-Verbose "Storage Account Scope: $SAScope"
+    Write-Debug "Storage Account Scope: $SAScope"
     $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
     $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
     if($true -eq $scHasDeploymentSlots) {
@@ -368,11 +374,11 @@ function SetTableStorageEndpointsInScAndCmAppSettings {
             Write-Error "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"
             throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"
         }
-        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc
+        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc.Trim('"')
     }
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm)) {
-        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingCm
+        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingCm.Trim('"')
     }
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
@@ -510,7 +516,7 @@ function Complete-SCEPmanInstallation
     param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions)
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
-    $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
+        $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
     }
 
     Write-Information "Installing az resource graph extension"
