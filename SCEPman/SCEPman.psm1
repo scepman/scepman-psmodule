@@ -328,7 +328,9 @@ function SetStorageAccountPermissions ($ScStorageAccount) {
     $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
     $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
-    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+    if ($null -ne $serviceprincipalsc) {
+        $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+    }
     if($true -eq $scHasDeploymentSlots) {
         ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
             Write-Verbose "Setting Storage account permission for deployment slot with principal id $tempServicePrincial"
@@ -513,7 +515,7 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
 function Complete-SCEPmanInstallation
 {
     [CmdletBinding()]
-    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions)
+    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName)
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
@@ -543,13 +545,23 @@ function Complete-SCEPmanInstallation
     } else {
         Write-Information "No deployment slots found"
     }
-
+    if ($null -ne $DeploymentSlotName) {
+        if (($deploymentSlots | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
+            Write-Information "Updating only deployment slot $DeploymentSlotName"
+            $deploymentSlots = @($DeploymentSlotName)
+        } else {
+            Write-Error "Only $DeploymentSlotName should be updated, but it was not found among the deployment slots: $([string]::join($deploymentSlots))"
+            throw "Only $DeploymentSlotName should be updated, but it was not found"
+        }
+    }
 
     Write-Information "Getting CertMaster web app"
     $CertMasterAppServiceName = CreateCertMasterAppService
 
-    # Service principal of System-assigned identity of SCEPman
-    $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
+    if ($null -eq $DeploymentSlotName) {
+        # Service principal of System-assigned identity of SCEPman
+        $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
+    }
 
     # Service principal of System-assigned identity of CertMaster
     $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $SCEPmanResourceGroup
@@ -582,8 +594,10 @@ function Complete-SCEPmanInstallation
         [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
         [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
     )
-    Write-Information "Setting up permissions for SCEPman"
-    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+    if ($null -eq $DeploymentSlotName) {
+        Write-Information "Setting up permissions for SCEPman"
+        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+    }
 
     if($true -eq $scHasDeploymentSlots) {
         Write-Information "Setting up permissions for SCEPman deployment slots"
