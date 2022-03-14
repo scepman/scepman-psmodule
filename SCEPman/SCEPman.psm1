@@ -576,10 +576,8 @@ function Complete-SCEPmanInstallation
     Write-Information "Getting CertMaster web app"
     $CertMasterAppServiceName = CreateCertMasterAppService
 
-    if ($null -eq $DeploymentSlotName) {
-        # Service principal of System-assigned identity of SCEPman
-        $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
-    }
+    # Service principal of System-assigned identity of SCEPman
+    $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
 
     # Service principal of System-assigned identity of CertMaster
     $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $SCEPmanResourceGroup
@@ -612,10 +610,9 @@ function Complete-SCEPmanInstallation
         [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
         [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
     )
-    if ($null -eq $DeploymentSlotName) {
-        Write-Information "Setting up permissions for SCEPman"
-        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
-    }
+
+    Write-Information "Setting up permissions for SCEPman"
+    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
     if($true -eq $scHasDeploymentSlots) {
         Write-Information "Setting up permissions for SCEPman deployment slots"
