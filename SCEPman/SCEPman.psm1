@@ -208,6 +208,8 @@ function GetCertMasterAppServiceName {
     #       - Configuration value AppConfig:SCEPman:URL must be present, then it must be a CertMaster
     #       - In a default installation, the URL must contain SCEPman's app service name. We require this.
 
+      $strangeCertMasterFound = $false
+
       $rgwebapps =  ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
       Write-Information "$($rgwebapps.count + 1) web apps found in the resource group $SCEPmanResourceGroup. We are finding if the CertMaster app is already created"
       if($rgwebapps.count -gt 0) {
@@ -215,16 +217,23 @@ function GetCertMasterAppServiceName {
             $scepmanurlsettingcount = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | length(@)"
             if($scepmanurlsettingcount -eq 1) {
                 $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]"
-                $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())
+                $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
                 if($hascorrectscepmanurl -eq $true) {
-                    Write-Information "CertMaster web app $($potentialcmwebapp.name) found."
+                    Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
                     $CertMasterAppServiceName = $potentialcmwebapp.name
                     return $potentialcmwebapp.name
+                } else {
+                    Write-Information "Certificate Master web app $($potentialcmwebapp.name) found, but its setting AppConfig:SCEPman:URL is $scepmanURL, which we could not identify with the SCEPman app service. It may or may not be the correct Certificate Master and we ignore it."
+                    $strangeCertMasterFound = $true
                 }
             }
         }
       }
-      Write-Warning "Unable to determine the Certmaster app service name"
+      if ($strangeCertMasterFound) {
+          Write-Warning "There is at least one Certificate Master App Service in resource group $SCEPmanResourceGroup, but we are not sure whether it belongs to SCEPman $SCEPmanAppServiceName."
+      }
+
+      Write-Warning "Unable to determine the Certificate Master app service name"
       return $null
     }
     return $CertMasterAppServiceName;
@@ -268,10 +277,15 @@ function CreateCertMasterAppService {
     Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
     # Do all the configuration that the ARM template does normally
+    $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
+    if ($null -ne $DeploymentSlotName) {
+        $selectedSlot = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
+        $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
+    }
     $CertmasterAppSettings = @{
       WEBSITE_RUN_FROM_PACKAGE = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip";
       "AppConfig:AuthConfig:TenantId" = $subscription.tenantId;
-      "AppConfig:SCEPman:URL" = "https://$($scwebapp.data.properties.defaultHostName)/";
+      "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
     } | ConvertTo-Json -Compress
     $CertMasterAppSettings = $CertmasterAppSettings.Replace('"', '\"')
 
@@ -367,7 +381,11 @@ function CreateScStorageAccount {
 
 function SetTableStorageEndpointsInScAndCmAppSettings {
 
-    $existingTableStorageEndpointSettingSc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"
+    if ($null -ne $DeploymentSlotName) {
+        $existingTableStorageEndpointSettingSc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"
+    } else {
+        $existingTableStorageEndpointSettingSc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]" --slot $DeploymentSlotName
+    }
     $existingTableStorageEndpointSettingCm = az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]"
     $storageAccountTableEndpoint = $null
 
@@ -641,27 +659,36 @@ function Complete-SCEPmanInstallation
     # Add ApplicationId and some additional defaults in SCEPman web app settings
     
     $ScepManAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$($appregsc.appId)\`",\`"AppConfig:CertMaster:URL\`":\`"$($CertMasterBaseURL)\`",\`"AppConfig:DirectCSRValidation:Enabled\`":\`"true\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings
 
-    if($true -eq $scHasDeploymentSlots) {
-        ForEach($tempDeploymentSlot in $deploymentSlotsSc) {
-            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings --slot $tempDeploymentSlot
-        }
-    }
-
-    $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
-    if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
-        $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
-        $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey
-    }
-
-    if($true -eq $scHasDeploymentSlots) {
-        ForEach($tempDeploymentSlot in $deploymentSlotsSc) {
-            $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
-            if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
-                $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
-                $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --setting-names AppConfig:AuthConfig:ApplicationKey
+    if ($null -ne $DeploymentSlotName) {
+        $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings
+        if($true -eq $scHasDeploymentSlots) {
+            ForEach($tempDeploymentSlot in $deploymentSlotsSc) {
+                $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings --slot $tempDeploymentSlot
             }
+        }
+
+        $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
+        if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
+            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
+            $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey
+        }
+
+        if($true -eq $scHasDeploymentSlots) {
+            ForEach($tempDeploymentSlot in $deploymentSlotsSc) {
+                $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
+                if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
+                    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
+                    $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --setting-names AppConfig:AuthConfig:ApplicationKey
+                }
+            }
+        }
+    } else {
+        $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings --slot $DeploymentSlotName
+        $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
+        if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
+            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
+            $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --setting-names AppConfig:AuthConfig:ApplicationKey
         }
     }
 
