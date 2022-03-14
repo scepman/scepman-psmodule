@@ -564,11 +564,11 @@ function Complete-SCEPmanInstallation
         Write-Information "No deployment slots found"
     }
     if ($null -ne $DeploymentSlotName) {
-        if (($deploymentSlots | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
+        if (($deploymentSlotsSc | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
             Write-Information "Updating only deployment slot $DeploymentSlotName"
-            $deploymentSlots = @($DeploymentSlotName)
+            $deploymentSlotsSc = @($DeploymentSlotName)
         } else {
-            Write-Error "Only $DeploymentSlotName should be updated, but it was not found among the deployment slots: $([string]::join($deploymentSlots))"
+            Write-Error "Only $DeploymentSlotName should be updated, but it was not found among the deployment slots: $([string]::join($deploymentSlotsSc))"
             throw "Only $DeploymentSlotName should be updated, but it was not found"
         }
     }
