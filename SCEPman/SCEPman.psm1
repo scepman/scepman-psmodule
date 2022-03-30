@@ -672,11 +672,11 @@ function Complete-SCEPmanInstallation
 
 
     Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and CertMaster web app settings"
-    
+
     $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
-    
+
     # Add ApplicationId and some additional defaults in SCEPman web app settings
-    
+
     $ScepManAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$($appregsc.appId)\`",\`"AppConfig:CertMaster:URL\`":\`"$($CertMasterBaseURL)\`",\`"AppConfig:DirectCSRValidation:Enabled\`":\`"true\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
 
     if ($null -eq $DeploymentSlotName) {
