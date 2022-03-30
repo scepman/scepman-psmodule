@@ -54,6 +54,29 @@ function ConvertLinesToObject($lines) {
     return ConvertFrom-Json $linesJson
 }
 
+function CheckAzOutput($azOutput) {
+    foreach ($outputElement in $azOutput) {
+        if ($null -ne $outputElement) {
+            if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
+                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
+                    Write-Information "Permission is already assigned when executing $azCommand"
+                } elseif ($outputElement.ToString().StartsWith("WARNING")) {
+                    if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API")) {
+                        # Ignore, we know that
+                    } else {
+                        Write-Warning $outputElement.ToString()
+                    }
+                } else {
+                    Write-Error $outputElement
+                    throw $outputElement
+                }
+            } else {
+                Write-Output $outputElement # add to return value of this function
+            }
+        }
+    }
+}
+
 function AzLogin {
         # Check whether az is available
     $azCommand = Get-Command az 2>&1
@@ -153,16 +176,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
   while ($azErrorCode -ne 0 -and $retryCount -le $MAX_RETRY_COUNT) {
     $lastAzOutput = Invoke-Expression $azCommand 2>&1 # the output is often empty in case of error :-(. az just writes to the console then
     $azErrorCode = $LastExitCode
-    if ($null -ne $lastAzOutput -and $lastAzOutput.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-        if ($lastAzOutput.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
-            Write-Information "Permission is already assigned when executing $azCommand"
-            $azErrorCode = 0
-        } else {
-            if (0 -eq $azErrorCode) {
-                $azErrorCode = 666 # A number not 0 to enforce another iteration of the loop and retry
-            }
-        }
-    } else {
+    try {
+        $lastAzOutput = CheckAzOutput($lastAzOutput)
         if($null -ne $appRoleId -and $azErrorCode -eq 0) {
             $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments")
             $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
@@ -170,6 +185,10 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                 $azErrorCode = 999 # A number not 0
             }
         }
+    }
+    catch {
+        Write-Warning $_
+        $azErrorCode = 654  # a number not 0
     }
     if ($azErrorCode -ne 0) {
       ++$retryCount
@@ -341,14 +360,14 @@ function SetStorageAccountPermissions ($ScStorageAccount) {
 
     $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
-    $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+    $null = CheckAzOutput(az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1)
     if ($null -ne $serviceprincipalsc) {
-        $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+        $null = CheckAzOutput(az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalsc.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1)
     }
     if($true -eq $scHasDeploymentSlots) {
         ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
             Write-Verbose "Setting Storage account permission for deployment slot with principal id $tempServicePrincial"
-            $null = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope
+            $null = CheckAzOutput(az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1)
         }
     }
 }
@@ -444,7 +463,7 @@ function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNam
 }
 
 function GetAzureResourceAppId($appId) {
-    return $(az ad sp list --filter "appId eq '$appId'" --query [0].objectId --out tsv)
+    return $(az ad sp list --filter "appId eq '$appId'" --query [0].objectId --out tsv --only-show-errors) # REVISIT: Show Warnings, too, when MS Graph became standard
 }
 
 function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
@@ -465,7 +484,7 @@ function GetAzureADApp($name) {
 }
 
 function CreateServicePrincipal($appId) {
-    $sp = ConvertLinesToObject -lines $(az ad sp list --filter "appId eq '$appId'" --query "[0]")
+    $sp = ConvertLinesToObject -lines $(az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors)
     if($null -eq $sp) {
         #App Registration SP doesn't exist.
         return ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
@@ -476,7 +495,7 @@ function CreateServicePrincipal($appId) {
 }
 
 function RegisterAzureADApp($name, $manifest, $replyUrls = $null) {
-    $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
+    $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
     if($null -eq $azureAdAppReg) {
         #App Registration doesn't exist.
         if($null -eq $replyUrls) {
@@ -490,18 +509,20 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null) {
 }
 
 function AddDelegatedPermissionToCertMasterApp($appId) {
-    $certMasterPermissions = ConvertLinesToObject -lines $(az ad app permission list --id $appId --query "[0]")
+    $certMasterPermissions = ConvertLinesToObject -lines $(CheckAzOutput (az ad app permission list --id $appId --query "[0]" 2>&1))
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
         $null = ExecuteAzCommandRobustly -azCommand "az ad app permission add --id $appId --api $MSGraphAppId --api-permissions `"$MSGraphUserReadPermission=Scope`" --only-show-errors"
     }
-    $certMasterPermissionsGrantsString = ConvertLinesToObject -lines $(az ad app permission list-grants --id $appId --query "[0].scope")
-    $requiresPermissionGrant = $false
+    $certMasterPermissionsGrantsString = ConvertLinesToObject -lines $(CheckAzOutput(az ad app permission list-grants --id $appId --query "[0].scope" 2>&1))
     if ($null -eq $certMasterPermissionsGrantsString) {
         $requiresPermissionGrant = $true
     } else {
         $certMasterPermissionsGrants = $certMasterPermissionsGrantsString.ToString().Split(" ")
         if(($certMasterPermissionsGrants -contains "User.Read") -eq $false) {
             $requiresPermissionGrant = $true
+        } else {
+            Write-Verbose "CertMaster already has the delegated permission User.Read"
+            $requiresPermissionGrant = $false
         }
     }
     if($true -eq $requiresPermissionGrant) {
@@ -645,6 +666,7 @@ function Complete-SCEPmanInstallation
     $appregcm = RegisterAzureADApp -name $azureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
     $null = CreateServicePrincipal -appId $($appregcm.appId)
 
+    Write-Verbose "Adding Delegated permission to CertMaster App Registration"
     # Add Microsoft Graph's User.Read as delegated permission for CertMaster
     AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId
 
