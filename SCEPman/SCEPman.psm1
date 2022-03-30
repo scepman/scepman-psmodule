@@ -1,13 +1,3 @@
-# for testing
-#$env:SCEPMAN_APP_SERVICE_NAME = "as-scepman-deploytest"
-#$env:CERTMASTER_APP_SERVICE_NAME = "aleen-as-certmaster-askjvljweklraesr"
-#$env:SCEPMAN_RESOURCE_GROUP = "rg-SCEPman" # Optional
-
-$SCEPmanAppServiceName = $env:SCEPMAN_APP_SERVICE_NAME
-$CertMasterAppServiceName = $env:CERTMASTER_APP_SERVICE_NAME
-$SCEPmanResourceGroup = $env:SCEPMAN_RESOURCE_GROUP
-$SubscriptionId = $env:SUBSCRIPTION_ID
-
 # Some hard-coded definitions
 $MSGraphAppId = "00000003-0000-0000-c000-000000000000"
 $MSGraphDirectoryReadAllPermission = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
@@ -124,7 +114,7 @@ function GetSubscriptionDetailsUsingSCEPmanAppName($subscriptions) {
     return $correctSubscription
 }
 
-function GetSubscriptionDetails {
+function GetSubscriptionDetails ($SearchAllSubscriptions, $SubscriptionId) {
   $potentialSubscription = $null
   $subscriptions = ConvertLinesToObject -lines $(az account list)
   if($false -eq [String]::IsNullOrWhiteSpace($SubscriptionId)) {
@@ -554,7 +544,7 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
 function Complete-SCEPmanInstallation
 {
     [CmdletBinding()]
-    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName)
+    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName, $SubscriptionId)
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
@@ -569,7 +559,7 @@ function Complete-SCEPmanInstallation
     AzLogin
 
     Write-Information "Getting subscription details"
-    $subscription = GetSubscriptionDetails
+    $subscription = GetSubscriptionDetails -SearchAllSubscriptions $SearchAllSubscriptions -SubscriptionId $SubscriptionId
     Write-Information "Subscription is set to $($subscription.name)"
 
     Write-Information "Setting resource group"
