@@ -57,6 +57,9 @@ function CheckAzOutput($azOutput) {
                         Write-Warning $outputElement.ToString()
                     }
                 } else {
+                    if($outputElement.ToString().Contains("Forbidden")) {
+                        Write-Error "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
+                    }
                     Write-Error $outputElement
                     throw $outputElement
                 }
@@ -164,7 +167,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
   $azErrorCode = 1234 # A number not null
   $retryCount = 0
   while ($azErrorCode -ne 0 -and $retryCount -le $MAX_RETRY_COUNT) {
-    $lastAzOutput = Invoke-Expression $azCommand 2>&1 # the output is often empty in case of error :-(. az just writes to the console then
+    $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
     $azErrorCode = $LastExitCode
     try {
         $lastAzOutput = CheckAzOutput($lastAzOutput)
