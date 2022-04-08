@@ -86,6 +86,7 @@ function AzLogin {
     }
 
         # check whether already logged in
+    $env:AZURE_HTTP_USER_AGENT = "pid-a262352f-52a9-4ed9-a9ba-6a2b2478d19b"        
     $account = az account show 2>&1
     if ($account.GetType() -eq [System.Management.Automation.ErrorRecord]) {
         if ($account.ToString().Contains("az login")) {
