@@ -312,7 +312,7 @@ function CreateCertMasterAppService {
 }
 
 function GetStorageAccount {
-    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$SCEPmanResourceGroup' | project name, primaryEndpoints = properties.primaryEndpoints")
+    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$SCEPmanResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
     if($storageaccounts.count -gt 0) {
         $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $SCEPmanResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
         if(!$potentialStorageAccountName) {
@@ -335,7 +335,7 @@ function GetStorageAccount {
 }
 
 function GetExistingStorageAccount ($dataTableEndpoint) {
-    $storageAccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, primaryEndpoints = properties.primaryEndpoints")
+    $storageAccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
     Write-Debug "When searching for Storage Account $dataTableEndpoint, $($storageAccounts.count) accounts look like the searched one"
     $storageAccounts = $storageAccounts.data | Where-Object { $_.primaryEndpoints.table.TrimEnd('/') -eq $dataTableEndpoint.TrimEnd('/')}
     if ($null -ne $storageAccounts.count) { # In PS 7 (?), $storageAccounts is an array; In PS 5, $null has a count property with value 0
@@ -352,7 +352,7 @@ function GetExistingStorageAccount ($dataTableEndpoint) {
 function SetStorageAccountPermissions ($ScStorageAccount) {
     Write-Information "Setting permissions in storage account for SCEPman, SCEPman's deployment slots (if any), and CertMaster"
 
-    $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$SCEPmanResourceGroup/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
+    $SAScope = "/subscriptions/$($subscription.id)/resourceGroups/$($ScStorageAccount.resourceGroup)/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
     $null = CheckAzOutput(az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $serviceprincipalcm.principalId --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1)
     if ($null -ne $serviceprincipalsc) {
