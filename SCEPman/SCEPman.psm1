@@ -252,6 +252,19 @@ function GetCertMasterAppServiceName {
     return $CertMasterAppServiceName;
 }
 
+function SelectBestDotNetRuntime {
+    try
+    {
+        $runtimes = ConvertLinesToObject -lines $(az webapp list-runtimes)
+        [String []]$WindowsDotnetRuntimes = $runtimes.windows | Where-Object { $_.ToLower().startswith("dotnet:") }
+        return $WindowsDotnetRuntimes[0]
+    }
+    catch
+    {
+        return "dotnet:6"
+    }
+}
+
 function CreateCertMasterAppService {
   $CertMasterAppServiceName = GetCertMasterAppServiceName
   $CreateCertMasterAppService = $false
@@ -286,7 +299,8 @@ function CreateCertMasterAppService {
 
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
-    $null = az webapp create --resource-group $SCEPmanResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --% --runtime "dotnet:6"
+    $runtime = SelectBestDotNetRuntime
+    $null = az webapp create --resource-group $SCEPmanResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
     Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
     # Do all the configuration that the ARM template does normally
