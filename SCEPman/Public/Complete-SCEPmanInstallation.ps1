@@ -83,7 +83,7 @@ function Complete-SCEPmanInstallation
     # Service principal of System-assigned identity of CertMaster
     $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $SCEPmanResourceGroup
 
-    $serviceprincipalOfScDeploymentSlots = @()
+    $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId, $serviceprincipalcm.principalId )
 
     if($true -eq $scHasDeploymentSlots) {
         ForEach($deploymentSlot in $deploymentSlotsSc) {
@@ -93,10 +93,11 @@ function Complete-SCEPmanInstallation
                 throw "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
             }
             $serviceprincipalOfScDeploymentSlots += $tempDeploymentSlot
+            $servicePrincipals.Add($tempDeploymentSlot.principalId)
         }
     }
 
-    SetTableStorageEndpointsInScAndCmAppSettings -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName
+    SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals
 
     $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
