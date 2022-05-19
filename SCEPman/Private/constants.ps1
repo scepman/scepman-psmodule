@@ -9,9 +9,6 @@ $MSGraphDeviceManagementReadPermission = "2f51be20-0bb4-4fed-bf7b-db946066c75e"
 $IntuneAppId = "c161e42e-d4df-4a3d-9b42-e7a3c31f59d4" # Well-known App ID of the Intune API
 $IntuneSCEPChallengePermission = "39d724e8-6a34-4930-9a36-364082c35716"
 
-$azureADAppNameForSCEPman = 'SCEPman-api' #Azure AD app name for SCEPman
-$azureADAppNameForCertMaster = 'SCEPman-CertMaster' #Azure AD app name for certmaster
-
 # JSON defining App Role that CertMaster uses to authenticate against SCEPman
 $ScepmanManifest = '[{
         \"allowedMemberTypes\": [

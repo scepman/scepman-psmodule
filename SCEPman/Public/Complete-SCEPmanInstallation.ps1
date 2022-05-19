@@ -14,11 +14,17 @@
  .Parameter SearchAllSubscriptions
   Set this flag to search all subscriptions for the SCEPman App Service. Otherwise, pre-select the right subscription in az or pass in the correct SubscriptionId.
 
-  .Parameter DeploymentSlotName
+ .Parameter DeploymentSlotName
   If you want to configure a specific SCEPman Deployment Slot, pass in its name. Otherwise, all Deployment Slots are configured
 
  .Parameter SubscriptionId
   The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
+
+ .Parameter AzureADAppNameForSCEPman
+  Name of the Azure AD app registration for SCEPman
+
+ .Parameter AzureADAppNameForCertMaster
+  Name of the Azure AD app registration for SCEPman Certificate Master
 
  .Example
    # Configure SCEPman in your tenant where the app service name is as-scepman
@@ -31,7 +37,7 @@
 function Complete-SCEPmanInstallation
 {
     [CmdletBinding()]
-    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName, $SubscriptionId)
+    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName, $SubscriptionId, $AzureADAppNameForSCEPman = 'SCEPman-api', $AzureADAppNameForCertMaster = 'SCEPman-CertMaster')
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
@@ -126,7 +132,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Creating Azure AD app registration for SCEPman"
     ### SCEPman App Registration
     # Register SCEPman App
-    $appregsc = RegisterAzureADApp -name $azureADAppNameForSCEPman -manifest $ScepmanManifest
+    $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest
     $spsc = CreateServicePrincipal -appId $($appregsc.appId)
 
     $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
@@ -144,7 +150,7 @@ function Complete-SCEPmanInstallation
     ### CertMaster App Registration
 
     # Register CertMaster App
-    $appregcm = RegisterAzureADApp -name $azureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
+    $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
     $null = CreateServicePrincipal -appId $($appregcm.appId)
 
     Write-Verbose "Adding Delegated permission to CertMaster App Registration"
