@@ -56,15 +56,11 @@ function GetSubscriptionDetails ($SearchAllSubscriptions, $SubscriptionId) {
   return $potentialSubscription
 }
 
-function GetResourceGroup {
-  if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
-    # No resource group given, search for it now
+function GetResourceGroup ($SCEPmanAppServiceName) {
     $scWebAppsInTheSubscription = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$SCEPmanAppServiceName' | project name, resourceGroup")
     if($null -ne $scWebAppsInTheSubscription -and $($scWebAppsInTheSubscription.count) -eq 1) {
         return $scWebAppsInTheSubscription.data[0].resourceGroup
     }
     Write-Error "Unable to determine the resource group. This generally happens when a wrong name is entered for the SCEPman web app!"
     throw "Unable to determine the resource group. This generally happens when a wrong name is entered for the SCEPman web app!"
-  }
-  return $SCEPmanResourceGroup;
 }
