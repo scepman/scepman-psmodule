@@ -3,13 +3,22 @@
   Adds the required configuration to SCEPman (https://scepman.com/) right after installing or updating to a 2.x version.
 
  .Parameter SCEPmanAppServiceName
-  The name of the SCEPman App Service
+  The name of the existing SCEPman App Service. Leave empty to get prompted.
 
  .Parameter CertMasterAppServiceName
-  The name of the SCEPman Certificate Master App Service
+  The name of the SCEPman Certificate Master App Service to be created. Leave empty if it exists already. If it does not exist and the parameter is $null, you will be prompted.
 
  .Parameter SCEPmanResourceGroup
-  The Azure resource group hosting the SCEPman App Service
+  The Azure resource group hosting the SCEPman App Service. Leave empty for auto-detection.
+
+ .Parameter SearchAllSubscriptions
+  Set this flag to search all subscriptions for the SCEPman App Service. Otherwise, pre-select the right subscription in az or pass in the correct SubscriptionId.
+
+  .Parameter DeploymentSlotName
+  If you want to configure a specific SCEPman Deployment Slot, pass in its name. Otherwise, all Deployment Slots are configured
+
+ .Parameter SubscriptionId
+  The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
  .Example
    # Configure SCEPman in your tenant where the app service name is as-scepman
