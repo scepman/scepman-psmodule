@@ -96,7 +96,7 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    SetTableStorageEndpointsInScAndCmAppSettings
+    SetTableStorageEndpointsInScAndCmAppSettings -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName
 
     $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"

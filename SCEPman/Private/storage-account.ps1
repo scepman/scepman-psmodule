@@ -1,8 +1,8 @@
 
-function GetStorageAccount {
-    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$SCEPmanResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
+function GetStorageAccount ($ResourceGroup) {
+    $storageaccounts = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
     if($storageaccounts.count -gt 0) {
-        $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $SCEPmanResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
+        $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $ResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
         if(!$potentialStorageAccountName) {
             Write-Information "User selected to create a new storage account"
             return $null
@@ -54,11 +54,11 @@ function SetStorageAccountPermissions ($ScStorageAccount) {
     }
 }
 
-function CreateScStorageAccount {
-    $ScStorageAccount = GetStorageAccount
+function CreateScStorageAccount ($ResourceGroup) {
+    $ScStorageAccount = GetStorageAccount -ResourceGroup $ResourceGroup
     if($null -eq $ScStorageAccount) {
         Write-Information 'Storage account not found. We will create one now'
-        $storageAccountName = $SCEPmanResourceGroup.ToLower() -replace '[^a-z0-9]',''
+        $storageAccountName = $ResourceGroup.ToLower() -replace '[^a-z0-9]',''
         if($storageAccountName.Length -gt 19) {
             $storageAccountName = $storageAccountName.Substring(0,19)
         }
@@ -67,7 +67,7 @@ function CreateScStorageAccount {
         if($potentialStorageAccountName) {
             $storageAccountName = $potentialStorageAccountName
         }
-        $ScStorageAccount = ConvertLinesToObject -lines $(az storage account create --name $storageAccountName --resource-group $SCEPmanResourceGroup --sku 'Standard_LRS' --kind 'StorageV2' --access-tier 'Hot' --allow-blob-public-access $true --allow-cross-tenant-replication $false --allow-shared-key-access $false --enable-nfs-v3 $false --min-tls-version 'TLS1_2' --publish-internet-endpoints $false --publish-microsoft-endpoints $false --routing-choice 'MicrosoftRouting' --https-only $true --only-show-errors)
+        $ScStorageAccount = ConvertLinesToObject -lines $(az storage account create --name $storageAccountName --resource-group $ResourceGroup --sku 'Standard_LRS' --kind 'StorageV2' --access-tier 'Hot' --allow-blob-public-access $true --allow-cross-tenant-replication $false --allow-shared-key-access $false --enable-nfs-v3 $false --min-tls-version 'TLS1_2' --publish-internet-endpoints $false --publish-microsoft-endpoints $false --routing-choice 'MicrosoftRouting' --https-only $true --only-show-errors)
         if($null -eq $ScStorageAccount) {
             Write-Error 'Storage account not found and we are unable to create one. Please check logs for more details before re-running the script'
             throw 'Storage account not found and we are unable to create one. Please check logs for more details before re-running the script'
@@ -80,7 +80,7 @@ function CreateScStorageAccount {
     return $ScStorageAccount
 }
 
-function SetTableStorageEndpointsInScAndCmAppSettings {
+function SetTableStorageEndpointsInScAndCmAppSettings ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $DeploymentSlotName) {
 
     if ($null -eq $DeploymentSlotName) {
         $existingTableStorageEndpointSettingSc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"
@@ -104,7 +104,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings {
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Information "Getting storage account"
-        $ScStorageAccount = CreateScStorageAccount
+        $ScStorageAccount = CreateScStorageAccount -ResourceGroup $SCEPmanResourceGroup
         $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
     } else {
         Write-Verbose 'Storage account table endpoint found in app settings'
@@ -113,7 +113,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings {
         if ($null -eq $ScStorageAccount) {
             Write-Warning "Data Table endpoint $storageAccountTableEndpoint is configured in either SCEPman or Certificate Master, but no such storage account could be found"
 
-            $ScStorageAccount = CreateScStorageAccount
+            $ScStorageAccount = CreateScStorageAccount -ResourceGroup $SCEPmanResourceGroup
             $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
         } else {
             Write-Verbose "Found existing storage account $($ScStorageAccount.Name)"
