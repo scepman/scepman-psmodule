@@ -48,7 +48,7 @@ function Complete-SCEPmanInstallation
 
     Write-Information "Getting SCEPman deployment slots"
     $scHasDeploymentSlots = $false
-    $deploymentSlotsSc = GetDeploymentSlots -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
+    $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
     if($null -ne $deploymentSlotsSc -and $deploymentSlotsSc.Count -gt 0) {
         $scHasDeploymentSlots = $true
         Write-Information "$($deploymentSlotsSc.Count) found"
@@ -66,7 +66,7 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Information "Getting CertMaster web app"
-    $CertMasterAppServiceName = CreateCertMasterAppService
+    $CertMasterAppServiceName = CreateCertMasterAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName
 
     # Service principal of System-assigned identity of SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
