@@ -1,4 +1,4 @@
-function GetSubscriptionDetailsUsingSCEPmanAppName($subscriptions) {
+function GetSubscriptionDetailsUsingSCEPmanAppName($SCEPmanAppServiceName, $subscriptions) {
     $correctSubscription = $null
     Write-Information "Finding correct subscription"
     $scWebAppsAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$SCEPmanAppServiceName' | project name, subscriptionId" -s $subscriptions.id)
@@ -13,7 +13,7 @@ function GetSubscriptionDetailsUsingSCEPmanAppName($subscriptions) {
     return $correctSubscription
 }
 
-function GetSubscriptionDetails ($SearchAllSubscriptions, $SubscriptionId) {
+function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $SCEPmanAppServiceName) {
   $potentialSubscription = $null
   $subscriptions = ConvertLinesToObject -lines $(az account list)
   if($false -eq [String]::IsNullOrWhiteSpace($SubscriptionId)) {
@@ -25,7 +25,7 @@ function GetSubscriptionDetails ($SearchAllSubscriptions, $SubscriptionId) {
   }
   if($null -eq $potentialSubscription) {
     if($subscriptions.count -gt 1){
-        if($SearchAllSubscriptions.IsPresent) {
+        if($SearchAllSubscriptions) {
             Write-Information "User pre-selected to search all subscriptions"
             $selection = 0
         } else {
@@ -40,7 +40,7 @@ function GetSubscriptionDetails ($SearchAllSubscriptions, $SubscriptionId) {
         if ([System.Guid]::TryParse($selection, [System.Management.Automation.PSReference]$subscriptionGuid)) {
             $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $selection }
         } elseif(0 -eq $selection) {
-            $potentialSubscription = GetSubscriptionDetailsUsingSCEPmanAppName -subscriptions $subscriptions
+            $potentialSubscription = GetSubscriptionDetailsUsingSCEPmanAppName -SCEPmanAppServiceName $SCEPmanAppServiceName -subscriptions $subscriptions
         } else {
             $potentialSubscription = $subscriptions[$($selection - 1)]
         }
