@@ -46,7 +46,7 @@ function SelectBestDotNetRuntime {
   }
 }
 
-function CreateCertMasterAppService ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $DeploymentSlotName) {
+function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $DeploymentSlotName) {
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = GetCertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
@@ -88,7 +88,7 @@ function CreateCertMasterAppService ($SCEPmanResourceGroup, $SCEPmanAppServiceNa
     }
     $CertmasterAppSettings = @{
       WEBSITE_RUN_FROM_PACKAGE = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip";
-      "AppConfig:AuthConfig:TenantId" = $subscription.tenantId;
+      "AppConfig:AuthConfig:TenantId" = $TenantId;
       "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
     } | ConvertTo-Json -Compress
     $CertMasterAppSettings = $CertmasterAppSettings.Replace('"', '\"')
