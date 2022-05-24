@@ -1,3 +1,17 @@
+function RegisterAzureADApp($name, $manifest, $replyUrls = $null) {
+  $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
+  if($null -eq $azureAdAppReg) {
+      #App Registration doesn't exist.
+      if($null -eq $replyUrls) {
+          $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad app create --display-name '$name' --app-roles '$manifest'")
+      }
+      else {
+          $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad app create --display-name '$name' --app-roles '$manifest' --reply-urls '$replyUrls'")
+      }
+  }
+  return $azureAdAppReg
+}
+
 function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId) {
 
   Write-Information "Creating Azure AD app registration for SCEPman"
