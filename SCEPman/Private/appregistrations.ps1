@@ -1,13 +1,17 @@
-function RegisterAzureADApp($name, $manifest, $replyUrls = $null) {
+function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $null) {
   $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
   if($null -eq $azureAdAppReg) {
       #App Registration doesn't exist.
-      if($null -eq $replyUrls) {
-          $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad app create --display-name '$name' --app-roles '$manifest'")
+
+      $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$manifest'"
+      if ($null -ne $replyUrls) {
+          $azAppRegistrationCommand += " --reply-urls '$replyUrls'"
       }
-      else {
-          $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad app create --display-name '$name' --app-roles '$manifest' --reply-urls '$replyUrls'")
+      if ($null -ne $homepage) {
+        $azAppRegistrationCommand += " --homepage $homepage"
       }
+
+      $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
   }
   return $azureAdAppReg
 }
@@ -36,7 +40,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
   
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false --homepage $CertMasterBaseURL
   $null = CreateServicePrincipal -appId $($appregcm.appId)
   
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
