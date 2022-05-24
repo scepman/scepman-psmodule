@@ -26,13 +26,15 @@ function GetAzureADApp($name) {
     return ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
 }
 
-function CreateServicePrincipal($appId) {
+function CreateServicePrincipal($appId, [bool]$hideApp) {
     $sp = ConvertLinesToObject -lines $(az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors)
     if($null -eq $sp) {
         #App Registration SP doesn't exist.
-        return ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
-    }
-    else {
+        $sp = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
+        if ($hideApp) {
+            $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
+        }
+    } else {
         return $sp
     }
 }

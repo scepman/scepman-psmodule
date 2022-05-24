@@ -16,7 +16,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Creating Azure AD app registration for SCEPman"
   # Register SCEPman App
-  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest
+  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest -hideApp $true
   $spsc = CreateServicePrincipal -appId $($appregsc.appId)
   
   $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
@@ -36,7 +36,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
   
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false
   $null = CreateServicePrincipal -appId $($appregcm.appId)
   
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
