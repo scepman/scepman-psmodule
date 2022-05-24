@@ -127,19 +127,10 @@ function Complete-SCEPmanInstallation
 
     CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
 
-    Write-Information "Creating Azure AD app registration for CertMaster"
-    ### CertMaster App Registration
-
     $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"  #TODO: Find out CertMaster Base URL for non-global tenants
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
-    # Register CertMaster App
-    $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
-    $null = CreateServicePrincipal -appId $($appregcm.appId)
-
-    Write-Verbose "Adding Delegated permission to CertMaster App Registration"
-    # Add Microsoft Graph's User.Read as delegated permission for CertMaster
-    AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId
+    CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
 
     ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId
 
