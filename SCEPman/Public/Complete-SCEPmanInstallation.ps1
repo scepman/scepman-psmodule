@@ -105,12 +105,8 @@ function Complete-SCEPmanInstallation
 
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals
 
-    $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"
-    Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
-
     $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
-
 
     ### Set managed identity permissions for SCEPman
     $resourcePermissionsForSCEPman =
@@ -129,25 +125,13 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    Write-Information "Creating Azure AD app registration for SCEPman"
-    ### SCEPman App Registration
-    # Register SCEPman App
-    $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest
-    $spsc = CreateServicePrincipal -appId $($appregsc.appId)
-
-    $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
-
-    # Expose SCEPman API
-    ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
-
-    Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
-    # Allow CertMaster to submit CSR requests to SCEPman API
-    $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$($spsc.objectId);'appRoleId'=$ScepManSubmitCSRPermission;})
-    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster
-
+    CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
 
     Write-Information "Creating Azure AD app registration for CertMaster"
     ### CertMaster App Registration
+
+    $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"  #TODO: Find out CertMaster Base URL for non-global tenants
+    Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
     # Register CertMaster App
     $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`"
@@ -157,46 +141,7 @@ function Complete-SCEPmanInstallation
     # Add Microsoft Graph's User.Read as delegated permission for CertMaster
     AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId
 
-
-    Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and CertMaster web app settings"
-
-    $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
-
-    # Add ApplicationId and some additional defaults in SCEPman web app settings
-
-    $ScepManAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$($appregsc.appId)\`",\`"AppConfig:CertMaster:URL\`":\`"$($CertMasterBaseURL)\`",\`"AppConfig:IntuneValidation:DeviceDirectory\`":\`"AADAndIntune\`",\`"AppConfig:DirectCSRValidation:Enabled\`":\`"true\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
-
-    if ($null -eq $DeploymentSlotName) {
-        $existingApplicationId = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]"
-        if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $appregsc.appId) {
-            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationId=$existingApplicationId
-        }
-        $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings
-        $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
-        if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
-            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
-            $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey
-        }
-    }
-
-    if($true -eq $scHasDeploymentSlots) {
-        ForEach($tempDeploymentSlot in $deploymentSlotsSc) {
-            $existingApplicationId = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --query "[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]"
-            if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $appregsc.appId) {
-                $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationId=$existingApplicationId --slot $tempDeploymentSlot
-            }
-            $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings --slot $tempDeploymentSlot
-            $existingApplicationKeySc = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --query "[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]"
-            if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
-                $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc
-                $null = az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $tempDeploymentSlot --setting-names AppConfig:AuthConfig:ApplicationKey
-            }
-        }
-    }
-
-    # Add ApplicationId and SCEPman API scope in certmaster web app settings
-    $CertmasterAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$($appregcm.appId)\`",\`"AppConfig:AuthConfig:SCEPmanAPIScope\`":\`"api://$($appregsc.appId)\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
-    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings $CertmasterAppSettings
+    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId
 
     Write-Information "SCEPman and CertMaster configuration completed"
 }
