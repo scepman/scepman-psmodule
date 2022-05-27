@@ -36,8 +36,8 @@ function GetCertMasterAppServiceName ($SCEPmanResourceGroup, $SCEPmanAppServiceN
 function SelectBestDotNetRuntime {
   try
   {
-      $runtimes = ConvertLinesToObject -lines $(az webapp list-runtimes)
-      [String []]$WindowsDotnetRuntimes = $runtimes.windows | Where-Object { $_.ToLower().startswith("dotnet:") }
+      $runtimes = ConvertLinesToObject -lines $(az webapp list-runtimes --os windows)
+      [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
   catch
