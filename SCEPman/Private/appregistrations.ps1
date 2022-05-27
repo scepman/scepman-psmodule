@@ -22,14 +22,20 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   # Register SCEPman App
   $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest -hideApp $true
   $spsc = CreateServicePrincipal -appId $($appregsc.appId)
-  
+  if (AzUsesAADGraph) {
+    $servicePrincipalScepmanId = $spsc.objectId
+  } else { # Microsoft Graph
+    $servicePrincipalScepmanId = $spsc.id
+  }
+
+
   $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
   
   # Expose SCEPman API
   ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
   
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
-  $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$($spsc.objectId);'appRoleId'=$ScepManSubmitCSRPermission;})
+  $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$ScepManSubmitCSRPermission;})
   SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster
 }
 
