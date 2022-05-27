@@ -67,6 +67,19 @@ function AzLogin {
     }
 }
 
+$azVersionInfo = $null
+
+function GetAzVersion {
+    if ($null -eq $azVersionInfo) {
+        $azVersionInfo = ConvertLinesToObject -lines $(az version)
+    }
+    return $azVersionInfo
+}
+
+function AzUsesAADGraph {
+    $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
+    return $cliVersion -lt '2.37'
+}
 
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.

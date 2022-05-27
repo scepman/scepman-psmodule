@@ -7,7 +7,13 @@ function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNam
 }
 
 function GetAzureResourceAppId($appId) {
-    return $(az ad sp list --filter "appId eq '$appId'" --query [0].objectId --out tsv --only-show-errors) # REVISIT: Show Warnings, too, when MS Graph became standard
+    if (AzUsesAADGraph) {
+        $queryParam = '[0].objectId'
+    } else { # Microsoft Graph
+        $queryParam = '[0].id'
+    }
+
+    return $(az ad sp list --filter "appId eq '$appId'" --query $queryParam --out tsv --only-show-errors)
 }
 
 function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
