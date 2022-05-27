@@ -37,6 +37,8 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$ScepManSubmitCSRPermission;})
   SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster
+
+  return $appregsc
 }
 
 function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURL) {
@@ -51,4 +53,6 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
   # Add Microsoft Graph's User.Read as delegated permission for CertMaster
   AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId
+
+  return $appregcm
 }
