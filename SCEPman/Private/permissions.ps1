@@ -11,12 +11,12 @@ function GetAzureResourceAppId($appId) {
 }
 
 function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
-    $graphEndpointForAppRoleAssignments = "https://graph.microsoft.com/v1.0/servicePrincipals/$($principalId)/appRoleAssignments"
+    $graphEndpointForAppRoleAssignments = "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments"
     $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
 
     ForEach($resourcePermission in $resourcePermissions) {
         if(($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) -eq $false) {
-            $bodyToAddPermission = "{'principalId': '$($principalId)','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
+            $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId
         }
     }
@@ -34,9 +34,8 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
         if ($hideApp) {
             $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
         }
-    } else {
-        return $sp
     }
+    return $sp
 }
 
 function AddDelegatedPermissionToCertMasterApp($appId) {
