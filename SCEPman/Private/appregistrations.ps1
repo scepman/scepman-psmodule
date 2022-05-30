@@ -1,4 +1,4 @@
-function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $null) {
+function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
   $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
   if($null -eq $azureAdAppReg) {
       #App Registration doesn't exist.
@@ -17,6 +17,9 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
         } else {
           $azAppRegistrationCommand += " --web-home-page-url '$homepage'"
         }
+      }
+      if ($EnableIdToken -and -not (AzUsesAADGraph)) {
+        $azAppRegistrationCommand += " --enable-id-token-issuance"
       }
 
       $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
@@ -55,7 +58,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
   
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false -homepage $CertMasterBaseURL
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
   
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
