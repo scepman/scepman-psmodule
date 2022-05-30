@@ -47,7 +47,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
   
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false --homepage $CertMasterBaseURL
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false -homepage $CertMasterBaseURL
   $null = CreateServicePrincipal -appId $($appregcm.appId)
   
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
