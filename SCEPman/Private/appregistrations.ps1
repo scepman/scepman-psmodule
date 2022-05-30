@@ -5,10 +5,18 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
 
       $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$manifest'"
       if ($null -ne $replyUrls) {
+        if (AzUsesAADGraph) {
           $azAppRegistrationCommand += " --reply-urls '$replyUrls'"
+        } else {
+          $azAppRegistrationCommand += " --web-redirect-uris '$replyUrls'"
+        }
       }
       if ($null -ne $homepage) {
-        $azAppRegistrationCommand += " --homepage $homepage"
+        if (AzUsesAADGraph) {
+          $azAppRegistrationCommand += " --homepage '$homepage'"
+        } else {
+          $azAppRegistrationCommand += " --web-home-page-url '$homepage'"
+        }
       }
 
       $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
