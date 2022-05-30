@@ -62,6 +62,10 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
         }
     }
     if($true -eq $requiresPermissionGrant) {
-        $null = ExecuteAzCommandRobustly -azCommand "az ad app permission grant --id $appId --api $MSGraphAppId --scope `"User.Read`" --expires `"never`""
+        $azGrantPermissionCommand = "az ad app permission grant --id $appId --api $MSGraphAppId --scope `"User.Read`""
+        if (AzUsesAADGraph) {
+            $azGrantPermissionCommand += ' --expires "never"'
+        }
+        $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
     }
 }
