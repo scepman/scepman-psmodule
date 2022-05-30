@@ -18,8 +18,11 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
           $azAppRegistrationCommand += " --web-home-page-url '$homepage'"
         }
       }
-      if ($EnableIdToken -and -not (AzUsesAADGraph)) {
-        $azAppRegistrationCommand += " --enable-id-token-issuance"
+      if (-not (AzUsesAADGraph)) {
+        $azAppRegistrationCommand += " --sign-in-audience AzureADMyOrg"
+        if ($EnableIdToken) {
+          $azAppRegistrationCommand += " --enable-id-token-issuance"
+        }
       }
 
       $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
@@ -38,7 +41,6 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   } else { # Microsoft Graph
     $servicePrincipalScepmanId = $spsc.id
   }
-
 
   $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
   
