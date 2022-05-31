@@ -1,6 +1,6 @@
 <#
  .Synopsis
-  Adds the required configuration to SCEPman (https://scepman.com/) right after installing or updating to a 2.x version.
+  Adds an App Service Deployment Slot to an existing SCEPman configuration
 
  .Parameter SCEPmanAppServiceName
   The name of the existing SCEPman App Service. Leave empty to get prompted.
@@ -18,12 +18,9 @@
   The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
  .Example
-   # Configure SCEPman in your tenant where the app service name is as-scepman
-   Configure-SCEPman -SCEPmanAppServiceName as-scepman
+   # Add a new pre-release deployment slot to the existing SCEPman App Service as-scepman
+   Add-SCEPmanDeploymentSlot -SCEPmanAppServiceName as-scepman -DeploymentSlotName pre-release
 
- .Example
-   # Configure SCEPman and ask interactively for the app service
-   Configure-SCEPman
 #>
 function Add-SCEPmanDeploymentSlot
 {
@@ -32,8 +29,7 @@ function Add-SCEPmanDeploymentSlot
       $SCEPmanAppServiceName, 
       $SCEPmanResourceGroup, 
       [switch]$SearchAllSubscriptions, 
-      [Parameter(Mandatory=$true)]
-      $DeploymentSlotName, 
+      [Parameter(Mandatory=$true)]$DeploymentSlotName, 
       $SubscriptionId)
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
@@ -62,10 +58,8 @@ function Add-SCEPmanDeploymentSlot
     }
 
     Write-Information "Getting SCEPman deployment slots"
-    $scHasDeploymentSlots = $false
     $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
     if($null -ne $deploymentSlotsSc -and $deploymentSlotsSc.Count -gt 0) {
-        $scHasDeploymentSlots = $true
         Write-Information "$($deploymentSlotsSc.Count) found"
     } else {
         Write-Information "No deployment slots found"
@@ -101,7 +95,9 @@ function Add-SCEPmanDeploymentSlot
 
     SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
-    #Write-Information "Adding permissions to Key Vault"
+    Write-Information "Adding permissions to Key Vault"
+    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
     # Add a setting to tell the Deployment slot that it has been configured
 
