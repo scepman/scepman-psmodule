@@ -15,9 +15,8 @@ function GetCertMasterAppServiceName ($SCEPmanResourceGroup, $SCEPmanAppServiceN
             $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]"
             $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
             if($hascorrectscepmanurl -eq $true) {
-                Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
-                $CertMasterAppServiceName = $potentialcmwebapp.name
-                return $potentialcmwebapp.name
+              Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
+              return $potentialcmwebapp.name
             } else {
                 Write-Information "Certificate Master web app $($potentialcmwebapp.name) found, but its setting AppConfig:SCEPman:URL is $scepmanURL, which we could not identify with the SCEPman app service. It may or may not be the correct Certificate Master and we ignore it."
                 $strangeCertMasterFound = $true
@@ -100,6 +99,13 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
   }
 
   return $CertMasterAppServiceName
+}
+
+function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
+  $null = az webapp deployment slot create --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --configuration-source $SCEPmanAppServiceName
+  Write-Information "Created SCEPman Deployment Slot $DeploymentSlotName"
+
+  $null = az webapp identity assign --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --identities [system]
 }
 
 function GetDeploymentSlots($appServiceName, $resourceGroup) {
