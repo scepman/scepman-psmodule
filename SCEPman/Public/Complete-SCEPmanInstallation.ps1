@@ -37,7 +37,18 @@
 function Complete-SCEPmanInstallation
 {
     [CmdletBinding()]
-    param($SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup, [switch]$SearchAllSubscriptions, $DeploymentSlotName, $SubscriptionId, $AzureADAppNameForSCEPman = 'SCEPman-api', $AzureADAppNameForCertMaster = 'SCEPman-CertMaster')
+    param(
+        $SCEPmanAppServiceName, 
+        $CertMasterAppServiceName,
+        $SCEPmanResourceGroup, 
+        [switch]$SearchAllSubscriptions, 
+        $DeploymentSlotName, 
+        $SubscriptionId, 
+        $AzureADAppNameForSCEPman = 'SCEPman-api', 
+        $AzureADAppNameForCertMaster = 'SCEPman-CertMaster')
+
+    $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
+    Write-Verbose "Invoked $($MyInvocation.MyCommand) from SCEPman Module version $version"
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
