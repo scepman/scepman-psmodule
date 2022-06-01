@@ -101,7 +101,21 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
   return $CertMasterAppServiceName
 }
 
+function GetAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
+  if ($null -eq $DeploymentSlotName) {
+    return "$AppServiceName.azurewebsites.net"  #TODO: Find out Base URL for non-global tenants
+  } else {
+    return "$AppServiceName-$DeploymentSlotName.azurewebsites.net"  #TODO: Find out Base URL for non-global tenants
+  }
+}
+
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
+  $existingHostnameConfiguration = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname'].value | [0]"
+  if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
+    $SCEPmanHostName = GetAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanHostName
+  }
+
   $null = CheckAzOutput(az webapp deployment slot create --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --configuration-source $SCEPmanAppServiceName)
   Write-Information "Created SCEPman Deployment Slot $DeploymentSlotName"
 
@@ -117,6 +131,8 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
   }
 }
 
+$RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
+
 function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $DeploymentSlotName = $null) {
   if ($null -eq $DeploymentSlotName) {
     $deploymentSlotTargetingParamString = [string]::Empty
@@ -126,13 +142,22 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
 
   $existingApplicationId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]""" + $deploymentSlotTargetingParamString)
   if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $SCEPmanAppId) {
-      $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationId=$existingApplicationId" + $deploymentSlotTargetingParamString)
+    if ($existingApplicationId -notmatch $RegExGuid) {
+      throw "SCEPman Application ID $existingApplicationId (Setting AppConfig:AuthConfig:ApplicationId) is not a GUID (Deployment Slot: $DeploymentSlotName). Aborting on unexpected setting ..."
+    }
+    $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationId=$existingApplicationId" + $deploymentSlotTargetingParamString)
+    Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationId"
   }
   $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings '$ScepManAppSettings'" + $deploymentSlotTargetingParamString)
   $existingApplicationKeySc = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]""" + $deploymentSlotTargetingParamString)
+  Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Wrote SCEPman application Settings"
   if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
-      $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc" + $deploymentSlotTargetingParamString)
-      $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey" + $deploymentSlotTargetingParamString)
+    if ($existingApplicationKeySc.Contains("'")) {
+      throw "SCEPman Application Key contains at least one single-quote character ('), which is unexpected. Aborting on unexpected setting ..."
+    }
+    $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings 'BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc'" + $deploymentSlotTargetingParamString)
+    $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey" + $deploymentSlotTargetingParamString)
+    Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationKey"
   }
 }
 

@@ -102,6 +102,8 @@ function Add-SCEPmanDeploymentSlot
     AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
     # Add a setting to tell the Deployment slot that it has been configured
+    $SCEPmanSlotHostName = GetAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName
 
     Write-Information "SCEPman Deployment Slot $DeploymentSlotName successfully created"
 }
