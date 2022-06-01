@@ -128,7 +128,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
   if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $SCEPmanAppId) {
       $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationId=$existingApplicationId" + $deploymentSlotTargetingParamString)
   }
-  $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings $ScepManAppSettings" + $deploymentSlotTargetingParamString)
+  $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings '$ScepManAppSettings'" + $deploymentSlotTargetingParamString)
   $existingApplicationKeySc = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]""" + $deploymentSlotTargetingParamString)
   if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
       $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc" + $deploymentSlotTargetingParamString)
