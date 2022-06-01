@@ -24,7 +24,7 @@ function CheckAzOutput($azOutput) {
                     if($outputElement.ToString().Contains("Forbidden")) {
                         Write-Error "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
                     }
-                    Write-Error $outputElement
+                    #Write-Error $outputElement
                     throw $outputElement
                 }
             } else {
