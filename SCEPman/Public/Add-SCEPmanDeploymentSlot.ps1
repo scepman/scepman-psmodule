@@ -59,11 +59,7 @@ function Add-SCEPmanDeploymentSlot
 
     Write-Information "Getting existing SCEPman deployment slots"
     $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
-    if($null -ne $deploymentSlotsSc -and $deploymentSlotsSc.Count -gt 0) {
-        Write-Information "$($deploymentSlotsSc.Count) found"
-    } else {
-        Write-Information "No deployment slots found"
-    }
+    Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
 
     if (($deploymentSlotsSc | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
         Write-Error "Deployment slot $DeploymentSlotName already exists. Aborting ..."
