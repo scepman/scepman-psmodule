@@ -102,7 +102,7 @@ function Add-SCEPmanDeploymentSlot
 
     Write-Information "Adding permissions to Key Vault"
     $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    Write-Verbose "Key vault $keyvaultname identified"
+    Write-Verbose "Key Vault $keyvaultname identified"
     AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
     # Add a setting to tell the Deployment slot that it has been configured

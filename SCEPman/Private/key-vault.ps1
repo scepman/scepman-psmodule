@@ -5,7 +5,12 @@ function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId) {
 }
 
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
-  [uri]$configuredKeyVaultURL = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:KeyVaultURL'].value | [0]"
+  [uri]$configuredKeyVaultURL = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:KeyVaultURL'].value | [0]" --output tsv
+  Write-Verbose "Configured Key Vault URL is $configuredKeyVaultURL"
   # The URL format is https://<KeyVaultName>.vault.azure.net/
-  return $configuredKeyVaultURL.Host.Split('.')[0]
+  $keyVaultName = $configuredKeyVaultURL.Host.Split('.')[0]
+  if ([String]::IsNullOrWhiteSpace($keyVaultName)) {
+    throw "Retrieved Key Vault URL '$configuredKeyVaultURL' and couldn't parse Key Vault Name from this"
+  }
+  return $keyVaultName
 }
