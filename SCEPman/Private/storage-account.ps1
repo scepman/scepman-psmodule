@@ -38,12 +38,12 @@ function GetExistingStorageAccount ($dataTableEndpoint) {
 }
 
 function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $servicePrincipals) {
-    Write-Information "Setting permissions in storage account for SCEPman, SCEPman's deployment slots (if any), and CertMaster"
+    Write-Information "Setting permissions in storage account for $($servicePrincipals.Length) App Service identities"
 
     $SAScope = "/subscriptions/$SubscriptionId/resourceGroups/$($ScStorageAccount.resourceGroup)/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
     ForEach($tempServicePrincipal in $servicePrincipals) {
-        Write-Output "Setting Storage account permission for principal id $tempServicePrincial"
+        Write-Information "Setting Storage account permission for principal id $tempServicePrincipal"
         $null = CheckAzOutput(az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1)
     }
 }

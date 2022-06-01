@@ -57,7 +57,7 @@ function Add-SCEPmanDeploymentSlot
         $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     }
 
-    Write-Information "Getting SCEPman deployment slots"
+    Write-Information "Getting existing SCEPman deployment slots"
     $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
     if($null -ne $deploymentSlotsSc -and $deploymentSlotsSc.Count -gt 0) {
         Write-Information "$($deploymentSlotsSc.Count) found"
@@ -71,15 +71,20 @@ function Add-SCEPmanDeploymentSlot
     }
 
     # Returns the Service principal of the deployment slot
+    Write-Information "Creating new Deployment Slot $DeploymentSlotName"
     $serviceprincipalsc = CreateSCEPmanDeploymentSlot -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName
     $servicePrincipals = @( $serviceprincipalsc.principalId )
+    Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
    
     Write-Information "Adding permissions to Storage Account"
     $existingTableStorageEndpointSetting = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
     if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
+      Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
       $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
-      SetStorageAccountPermissions -SubscriptionId $SubscriptionId -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+      SetStorageAccountPermissions -SubscriptionId $subscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+    } else {
+        Write-Warning "No Storage Account found. Not adding any permissions."
     }
 
     Write-Information "Adding permissions Graph and Intune"
@@ -97,6 +102,7 @@ function Add-SCEPmanDeploymentSlot
 
     Write-Information "Adding permissions to Key Vault"
     $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    Write-Verbose "Key vault $keyvaultname identified"
     AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
     # Add a setting to tell the Deployment slot that it has been configured
