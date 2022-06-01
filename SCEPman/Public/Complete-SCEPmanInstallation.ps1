@@ -133,7 +133,8 @@ function Complete-SCEPmanInstallation
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
 
-    $CertMasterBaseURL = "https://$CertMasterAppServiceName.azurewebsites.net"  #TODO: Find out CertMaster Base URL for non-global tenants
+    $CertMasterHostName = GetAppServiceHostName -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    $CertMasterBaseURL = "https://$CertMasterHostName"
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
     $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
