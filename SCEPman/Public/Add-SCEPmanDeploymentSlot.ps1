@@ -26,10 +26,10 @@ function Add-SCEPmanDeploymentSlot
 {
     [CmdletBinding()]
     param(
-      $SCEPmanAppServiceName, 
-      $SCEPmanResourceGroup, 
-      [switch]$SearchAllSubscriptions, 
-      [Parameter(Mandatory=$true)]$DeploymentSlotName, 
+      $SCEPmanAppServiceName,
+      $SCEPmanResourceGroup,
+      [switch]$SearchAllSubscriptions,
+      [Parameter(Mandatory=$true)]$DeploymentSlotName,
       $SubscriptionId)
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
@@ -53,7 +53,7 @@ function Add-SCEPmanDeploymentSlot
 
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
-        # No resource group given, search for it now    
+        # No resource group given, search for it now
         $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     }
 
@@ -71,7 +71,7 @@ function Add-SCEPmanDeploymentSlot
     $serviceprincipalsc = CreateSCEPmanDeploymentSlot -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName
     $servicePrincipals = @( $serviceprincipalsc.principalId )
     Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
-   
+
     Write-Information "Adding permissions to Storage Account"
     $existingTableStorageEndpointSetting = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')

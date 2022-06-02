@@ -38,13 +38,13 @@ function Complete-SCEPmanInstallation
 {
     [CmdletBinding()]
     param(
-        $SCEPmanAppServiceName, 
+        $SCEPmanAppServiceName,
         $CertMasterAppServiceName,
-        $SCEPmanResourceGroup, 
-        [switch]$SearchAllSubscriptions, 
-        $DeploymentSlotName, 
-        $SubscriptionId, 
-        $AzureADAppNameForSCEPman = 'SCEPman-api', 
+        $SCEPmanResourceGroup,
+        [switch]$SearchAllSubscriptions,
+        $DeploymentSlotName,
+        $SubscriptionId,
+        $AzureADAppNameForSCEPman = 'SCEPman-api',
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster')
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
@@ -68,7 +68,7 @@ function Complete-SCEPmanInstallation
 
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
-        # No resource group given, search for it now    
+        # No resource group given, search for it now
         $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     }
 
