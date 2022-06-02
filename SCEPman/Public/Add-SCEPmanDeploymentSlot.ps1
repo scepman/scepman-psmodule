@@ -83,23 +83,28 @@ function Add-SCEPmanDeploymentSlot
         Write-Warning "No Storage Account found. Not adding any permissions."
     }
 
-    Write-Information "Adding permissions Graph and Intune"
+
+    Write-Information "Adding permissions to Key Vault"
+    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    Write-Verbose "Key Vault $keyvaultname identified"
+    AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
+
+
+    Write-Information "Adding permissions for Graph and Intune"
     $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
-    ### Set managed identity permissions for SCEPman
     $resourcePermissionsForSCEPman =
         @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
         [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
         [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
     )
 
+    $DelayForSecurityPrincipals = 3000
+    Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
+    Start-Sleep -Milliseconds $DelayForSecurityPrincipals
     SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
-    Write-Information "Adding permissions to Key Vault"
-    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    Write-Verbose "Key Vault $keyvaultname identified"
-    AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
     MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
