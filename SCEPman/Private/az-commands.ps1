@@ -15,9 +15,11 @@ function CheckAzOutput($azOutput) {
                 if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
                     Write-Information "Permission is already assigned when executing $azCommand"
                 } elseif ($outputElement.ToString().StartsWith("WARNING")) {
-                    if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API")) {
+                    if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
+                    -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
                         # Ignore, we know that
-                    } else {
+                    } else
+                    {
                         Write-Warning $outputElement.ToString()
                     }
                 } else {
