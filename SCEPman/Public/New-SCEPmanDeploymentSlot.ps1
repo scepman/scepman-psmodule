@@ -19,10 +19,10 @@
 
  .Example
    # Add a new pre-release deployment slot to the existing SCEPman App Service as-scepman
-   Add-SCEPmanDeploymentSlot -SCEPmanAppServiceName as-scepman -DeploymentSlotName pre-release
+   New-SCEPmanDeploymentSlot -SCEPmanAppServiceName as-scepman -DeploymentSlotName pre-release
 
 #>
-function Add-SCEPmanDeploymentSlot
+function New-SCEPmanDeploymentSlot
 {
     [CmdletBinding()]
     param(
