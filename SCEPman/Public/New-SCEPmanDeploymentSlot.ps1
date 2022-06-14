@@ -48,7 +48,7 @@ function New-SCEPmanDeploymentSlot
     AzLogin
 
     Write-Information "Getting subscription details"
-    $subscription = GetSubscriptionDetails -SCEPmanAppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
+    $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
     Write-Information "Subscription is set to $($subscription.name)"
 
     Write-Information "Setting resource group"

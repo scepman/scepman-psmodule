@@ -30,3 +30,5 @@ $CertmasterManifest = '[{
     \"isEnabled\": \"true\",
     \"value\": \"Admin.Full\"
 }]'.Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
+
+$ARTIFACTS_CERTMASTER_PROD = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"

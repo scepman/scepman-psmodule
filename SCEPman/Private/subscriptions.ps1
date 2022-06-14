@@ -1,7 +1,7 @@
-function GetSubscriptionDetailsUsingSCEPmanAppName($SCEPmanAppServiceName, $subscriptions) {
+function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
     $correctSubscription = $null
     Write-Information "Finding correct subscription"
-    $scWebAppsAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$SCEPmanAppServiceName' | project name, subscriptionId" -s $subscriptions.id)
+    $scWebAppsAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$AppServiceName' | project name, subscriptionId" -s $subscriptions.id)
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
         $correctSubscription = $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
@@ -13,7 +13,22 @@ function GetSubscriptionDetailsUsingSCEPmanAppName($SCEPmanAppServiceName, $subs
     return $correctSubscription
 }
 
-function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $SCEPmanAppServiceName) {
+function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
+    $correctSubscription = $null
+    Write-Information "Finding correct subscription"
+    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'Microsoft.Web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId" -s $subscriptions.id)
+    if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
+        $correctSubscription = $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+    }
+    if($null -eq $correctSubscription) {
+        $errorMessage = "We are unable to determine the correct subscription. Please start over"
+        Write-Error $errorMessage
+        throw $errorMessage
+    }
+    return $correctSubscription
+}
+
+function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) {
   $potentialSubscription = $null
   $subscriptions = ConvertLinesToObject -lines $(az account list)
   if($false -eq [String]::IsNullOrWhiteSpace($SubscriptionId)) {
@@ -29,7 +44,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
             Write-Information "User pre-selected to search all subscriptions"
             $selection = 0
         } else {
-            Write-Host "Multiple subscriptions found! Select a subscription where the SCPEman is installed or press '0' to search across all of the subscriptions"
+            Write-Host "Multiple subscriptions found! Select a subscription where the SCEPman is installed or press '0' to search across all of the subscriptions"
             Write-Host "0: Search All Subscriptions | Press '0'"
             for($i = 0; $i -lt $subscriptions.count; $i++){
                 Write-Host "$($i + 1): $($subscriptions[$i].name) | Subscription Id: $($subscriptions[$i].id) | Press '$($i + 1)' to use this subscription"
@@ -40,7 +55,13 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
         if ([System.Guid]::TryParse($selection, [System.Management.Automation.PSReference]$subscriptionGuid)) {
             $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $selection }
         } elseif(0 -eq $selection) {
-            $potentialSubscription = GetSubscriptionDetailsUsingSCEPmanAppName -SCEPmanAppServiceName $SCEPmanAppServiceName -subscriptions $subscriptions
+            if ($null -ne $AppServiceName) {
+                $potentialSubscription = GetSubscriptionDetailsUsingAppName -AppServiceName $AppServiceName -subscriptions $subscriptions
+            } elseif ($null -ne $AppServicePlanName) {
+                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServiceName -subscriptions $subscriptions
+            } else {
+                throw "Cannot find the subscription, because neither an App Service name nor an App Service Plan name is given"
+            }
         } else {
             $potentialSubscription = $subscriptions[$($selection - 1)]
         }
@@ -63,4 +84,13 @@ function GetResourceGroup ($SCEPmanAppServiceName) {
     }
     Write-Error "Unable to determine the resource group. This generally happens when a wrong name is entered for the SCEPman web app!"
     throw "Unable to determine the resource group. This generally happens when a wrong name is entered for the SCEPman web app!"
+}
+
+function GetResourceGroupFromPlanName ($AppServicePlanName) {
+    $asplansInTheSubscription = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, resourceGroup")
+    if($null -ne $asplansInTheSubscription -and $($asplansInTheSubscription.count) -eq 1) {
+        return $asplansInTheSubscription.data[0].resourceGroup
+    }
+    Write-Error "Unable to determine the resource group. This generally happens when a wrong name is entered for the App Service Plan!"
+    throw "Unable to determine the resource group. This generally happens when a wrong name is entered for the App Service Plan!"
 }

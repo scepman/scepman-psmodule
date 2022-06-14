@@ -86,7 +86,7 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
     }
     $CertmasterAppSettings = @{
-      WEBSITE_RUN_FROM_PACKAGE = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip";
+      WEBSITE_RUN_FROM_PACKAGE = $ARTIFACTS_CERTMASTER_PROD;
       "AppConfig:AuthConfig:TenantId" = $TenantId;
       "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
     } | ConvertTo-Json -Compress
@@ -99,6 +99,21 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
   }
 
   return $CertMasterAppServiceName
+}
+
+function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
+  $runtime = SelectBestDotNetRuntime
+  $null = az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime
+  Write-Information "SCEPman web app $SCEPmanAppServiceName created"
+
+  Write-Verbose 'Configuring SCEPman General web app settings'
+  $null = az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
+  $null = az webapp update --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled $false
+}
+
+function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
+  $asp = ConvertLinesToObject -lines $(az appservice plan list -g $ResourceGroup --query "[?name=='$AppServicePlanName']" --subscription $SubscriptionId)
+  return $asp
 }
 
 function GetAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
@@ -201,4 +216,26 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
   $CertmasterAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$CertMasterAppId\`",\`"AppConfig:AuthConfig:SCEPmanAPIScope\`":\`"api://$SCEPmanAppId\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
   $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings $CertmasterAppSettings
+}
+
+function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
+  $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress)
+}
+
+function ReadAppSettings($AppServiceName, $ResourceGroup) {
+  $slotSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?slotSetting]")
+  $unboundSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?!slotSetting]")
+
+  $formattedSlotSettings = @{}
+  foreach ($slotSetting in $slotSettings) { $formattedSlotSettings.Add($slotSetting.name, $slotSetting.value) }
+
+  $formattedUnboundSettings = @{}
+  foreach ($unboundSetting in $unboundSettings) { $formattedUnboundSettings.Add($unboundSetting.name, $unboundSetting.value) }
+
+  Write-Information "Read $($formattedSlotSettings.Count) slot settings and $($formattedUnboundSettings.Count) other settings from app $AppServiceName"
+
+  return @{
+    slotSettings = $formattedSlotSettings
+    settings = $formattedUnboundSettings
+  }
 }
