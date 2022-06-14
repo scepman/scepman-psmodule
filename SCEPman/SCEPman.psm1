@@ -19,3 +19,4 @@ Foreach($import in @($Private + $Public))
 
 Export-ModuleMember -Function Complete-SCEPmanInstallation
 Export-ModuleMember -Function New-SCEPmanDeploymentSlot
+Export-ModuleMember -Function New-SCEPmanClone

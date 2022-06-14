@@ -108,7 +108,7 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
 
   Write-Verbose 'Configuring SCEPman General web app settings'
   $null = az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
-  $null = az webapp update --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled $false
+  $null = az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled $false
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -219,7 +219,7 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 }
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
-  $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress)
+  $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {

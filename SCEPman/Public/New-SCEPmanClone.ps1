@@ -40,7 +40,7 @@ function New-SCEPmanClone
       $SourceSubscriptionId,
       [Parameter(Mandatory=$true)]$TargetAppServiceName,
       [Parameter(Mandatory=$true)]$TargetAppServicePlan,
-      [Parameter(Mandatory=$true)]$TargetResourceGroup,
+      $TargetResourceGroup,
       $TargetSubscriptionId,
       [switch]$SearchAllSubscriptions
       )
@@ -81,15 +81,18 @@ function New-SCEPmanClone
     $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
     Write-Verbose "Key Vault $keyvaultname identified"
 
-
     Write-Information "Getting target subscription details"
     $targetSubscription = GetSubscriptionDetails -AppServicePlanName $TargetAppServicePlan -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $TargetSubscriptionId
 
     Write-Information "Searching for target App Service Plan"
     if ([String]::IsNullOrWhiteSpace($TargetResourceGroup)) {
         $TargetResourceGroup = GetResourceGroupFromPlanName -AppServicePlanName $TargetAppServicePlan
+        Write-Information "Using Resource Group $TargetResourceGroup (same as app service plan $TargetAppServicePlan)"
     }
     $trgtAsp = GetAppServicePlan -AppServicePlanName $TargetAppServicePlan -ResourceGroup $TargetResourceGroup -SubscriptionId $targetSubscription.Id
+    if ($null -eq $trgtAsp) {
+        throw "App Service Plan $TargetAppServicePlan could not be found in Resource Group $TargetResourceGroup"
+    }
 
     Write-Information "Create cloned SCEPman App Service"
     CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
