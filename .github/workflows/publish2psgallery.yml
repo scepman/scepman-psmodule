@@ -2,13 +2,25 @@ name: Publish 2 PSGallery
 
 on:
   workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Release Channel'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+        - production
+        - beta
 
 jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.channel }}
+          
 
       - name: Publish
         run: |
