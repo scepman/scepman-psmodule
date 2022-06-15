@@ -28,7 +28,7 @@
 
  .Example
    # Add a new pre-release deployment slot to the existing SCEPman App Service as-scepman
-   New-SCEPmanClone -SourceAppServiceName as-scepman -TargetAppServiceName as-scepman-clone -TargetAppServicePlan asp-scepman-geo2 -TargetResourceGroup -SearchAllSubscriptions 6>&1
+   New-SCEPmanClone -SourceAppServiceName as-scepman -TargetAppServiceName as-scepman-clone -TargetAppServicePlan asp-scepman-geo2 -SearchAllSubscriptions 6>&1
 
 #>
 function New-SCEPmanClone
