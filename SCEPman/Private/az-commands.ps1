@@ -118,7 +118,10 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       }
     }
     if ($azErrorCode -ne 0 ) {
-      Write-Error "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
+      if ($null -eq $lastAzOutput) {
+        $lastAzOutput = "no az output"
+      }
+      Write-Error "Error $azErrorCode when executing $azCommand : $($lastAzOutput?.ToString())"
       throw "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
     }
     else {
