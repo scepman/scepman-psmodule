@@ -219,23 +219,21 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 }
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
-  $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
+  foreach ($oneSetting in $Settings) {
+    $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value)"
+  }
+  # This does not work, as equal signs split this into incomprehensible gibberish:
+  #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
   $slotSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?slotSetting]")
   $unboundSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?!slotSetting]")
 
-  $formattedSlotSettings = @{}
-  foreach ($slotSetting in $slotSettings) { $formattedSlotSettings.Add($slotSetting.name, $slotSetting.value) }
-
-  $formattedUnboundSettings = @{}
-  foreach ($unboundSetting in $unboundSettings) { $formattedUnboundSettings.Add($unboundSetting.name, $unboundSetting.value) }
-
-  Write-Information "Read $($formattedSlotSettings.Count) slot settings and $($formattedUnboundSettings.Count) other settings from app $AppServiceName"
+  Write-Information "Read $($slotSettings.Count) slot settings and $($unboundSettings.Count) other settings from app $AppServiceName"
 
   return @{
-    slotSettings = $formattedSlotSettings
-    settings = $formattedUnboundSettings
+    slotSettings = $slotSettings
+    settings = $unboundSettings
   }
 }

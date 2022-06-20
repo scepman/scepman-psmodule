@@ -8,12 +8,15 @@ function ConvertLinesToObject($lines) {
     return ConvertFrom-Json $linesJson
 }
 
+$PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
+
 function CheckAzOutput($azOutput) {
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
                 if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
                     Write-Information "Permission is already assigned when executing $azCommand"
+                    Write-Output $PERMISSION_ALREADY_ASSIGNED
                 } elseif ($outputElement.ToString().StartsWith("WARNING")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
@@ -93,14 +96,16 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
       $azErrorCode = $LastExitCode
       try {
-          $lastAzOutput = CheckAzOutput($lastAzOutput)
-          if($null -ne $appRoleId -and $azErrorCode -eq 0) {
-              $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments")
-              $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
-              if ($null -eq $grantedPermission) {
-                  $azErrorCode = 999 # A number not 0
-              }
-          }
+        $lastAzOutput = CheckAzOutput($lastAzOutput)
+            # If we were request to check that the permission is there and there was no error, do the check now.
+            # However, if the permission has been there previously already, we can skip the check
+        if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
+            $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments")
+            $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
+            if ($null -eq $grantedPermission) {
+                $azErrorCode = 999 # A number not 0
+            }
+        }
       }
       catch {
           Write-Warning $_
@@ -113,7 +118,10 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       }
     }
     if ($azErrorCode -ne 0 ) {
-      Write-Error "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
+      if ($null -eq $lastAzOutput) {
+        $lastAzOutput = "no az output"
+      }
+      Write-Error "Error $azErrorCode when executing $azCommand : $($lastAzOutput?.ToString())"
       throw "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
     }
     else {
