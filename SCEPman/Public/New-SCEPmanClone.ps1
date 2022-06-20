@@ -97,9 +97,6 @@ function New-SCEPmanClone
     Write-Information "Create cloned SCEPman App Service"
     CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
 
-    Write-Verbose "Copying app settings from source App Service to target"
-    SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
-
     # Service principal of System-assigned identity of cloned SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $TargetAppServiceName -resourceGroupParam $TargetResourceGroup
 
@@ -131,6 +128,9 @@ function New-SCEPmanClone
     SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
     MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
+
+    Write-Information "Copying app settings from source App Service to target"
+    SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
 
     Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
 }
