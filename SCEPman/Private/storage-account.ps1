@@ -9,8 +9,8 @@ function GetStorageAccount ($ResourceGroup) {
         } else {
             $potentialStorageAccount = $storageaccounts.data | Where-Object { $_.name -eq $potentialStorageAccountName }
             if($null -eq $potentialStorageAccount) {
-                Write-Error "We couldn't find a storage account with name $potentialStorageAccountName. Please try to re-run the script"
-                throw "We couldn't find a storage account with name $potentialStorageAccountName. Please try to re-run the script"
+                Write-Error "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
+                throw "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
             } else {
                 return $potentialStorageAccount
             }
