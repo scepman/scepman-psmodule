@@ -3,6 +3,7 @@ $SNAILMODE_MAX_RETRY_COUNT = 10 # For very slow tenants, retry more often
 
 $script:Snail_Mode = $false
 $Sleep_Factor = 1
+$Snail_Maximum_Sleep_Factor = 90 # times ten is 15 minutes
 
 function ConvertLinesToObject($lines) {
     if($null -eq $lines) {
@@ -26,9 +27,8 @@ function CheckAzOutput($azOutput) {
                     # Let's go into snail mode and thereby grant Graph more time
                     Write-Warning "Created object is not yet available via MS Graph. Reducing executing speed to give Graph more time."
                     $script:Snail_Mode = $true
-                    $Sleep_Factor *= 1.2
-                    $Sleep_Factor += 4  # Sleep factor after five such errors is 32.25; after 8 such errors, it will be 70.3; On 10th retry, wait for ~15 minutes
-                    Write-Verbose "Retrying operations now $MAX_RETRY_COUNT times, and waiting for (n * $SLEEP_FACTOR) seconds on n-th retry"
+                    $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
+                    Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
                 } elseif ($outputElement.ToString().StartsWith("WARNING")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
