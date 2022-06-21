@@ -1,4 +1,8 @@
 $MAX_RETRY_COUNT = 4  # for some operations, retry a couple of times
+$SNAILMODE_MAX_RETRY_COUNT = 10 # For very slow tenants, retry more often
+
+$script:Snail_Mode = $false
+$Sleep_Factor = 1
 
 function ConvertLinesToObject($lines) {
     if($null -eq $lines) {
@@ -17,6 +21,14 @@ function CheckAzOutput($azOutput) {
                 if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
                     Write-Information "Permission is already assigned when executing $azCommand"
                     Write-Output $PERMISSION_ALREADY_ASSIGNED
+                } elseif ($outputElement.ToString().EndsWith("does not exist or one of its queried reference-property objects are not present.")) {
+                    # This indicates we are in a tenant with especially long delays between creation of an object and when it becomes available via Graph (this happens and it seems to be tenant-specific).
+                    # Let's go into snail mode and thereby grant Graph more time
+                    Write-Warning "Created object is not yet available via MS Graph. Reducing executing speed to give Graph more time."
+                    $script:Snail_Mode = $true
+                    $Sleep_Factor *= 1.2
+                    $Sleep_Factor += 4  # Sleep factor after five such errors is 32.25; after 8 such errors, it will be 70.3; On 10th retry, wait for ~15 minutes
+                    Write-Verbose "Retrying operations now $MAX_RETRY_COUNT times, and waiting for (n * $SLEEP_FACTOR) seconds on n-th retry"
                 } elseif ($outputElement.ToString().StartsWith("WARNING")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
@@ -92,7 +104,8 @@ function AzUsesAADGraph {
 function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
-    while ($azErrorCode -ne 0 -and $retryCount -le $MAX_RETRY_COUNT) {
+    $script:Snail_Mode = $false
+    while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
       $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
       $azErrorCode = $LastExitCode
       try {
@@ -113,8 +126,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       }
       if ($azErrorCode -ne 0) {
         ++$retryCount
-        Write-Verbose "Retry $retryCount for $azCommand"
-        Start-Sleep $retryCount # Sleep for some seconds, as the grant sometimes only works after some time
+        Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep"
+        Start-Sleep ($retryCount * $SLEEP_FACTOR) # Sleep for some seconds, as the grant sometimes only works after some time
       }
     }
     if ($azErrorCode -ne 0 ) {
