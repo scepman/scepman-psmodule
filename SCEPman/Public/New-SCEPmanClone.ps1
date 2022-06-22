@@ -27,7 +27,7 @@
   The ID of the Subscription where SCEPman shall be installed. Can be omitted if it is the same aqs SourceSubscriptionId or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
  .Example
-   # Add a new pre-release deployment slot to the existing SCEPman App Service as-scepman
+   # Create a SCEPman instance as-scepman-clone, which is a clone of the original app service as-scepman. It uses the App Service Plan asp-scepman-geo2
    New-SCEPmanClone -SourceAppServiceName as-scepman -TargetAppServiceName as-scepman-clone -TargetAppServicePlan asp-scepman-geo2 -SearchAllSubscriptions 6>&1
 
 #>
