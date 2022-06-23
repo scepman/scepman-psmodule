@@ -107,7 +107,7 @@ function New-SCEPmanClone
         SetStorageAccountPermissions -SubscriptionId $targetSubscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
     } else {
         Write-Warning "No Storage Account found. Not adding any permissions."
-    }    
+    }
 
     Write-Information "Adding permissions to Key Vault"
     AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId

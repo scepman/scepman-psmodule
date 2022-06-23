@@ -148,7 +148,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
 function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName = $null) {
   # Add a setting to tell the Deployment slot that it has been configured
   $SCEPmanSlotHostName = GetAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-  
+
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   # The docs (2.37) say that az webapp config appsettings set takes a space separated list of KEY=VALUE.
