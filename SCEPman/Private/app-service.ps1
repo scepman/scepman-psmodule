@@ -1,18 +1,17 @@
-function GetCertMasterAppServiceName ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
+function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServiceName) {
   #       Criteria:
-  #       - Only two App Services in SCEPman's resource group. One is SCEPman, the other the CertMaster candidate
   #       - Configuration value AppConfig:SCEPman:URL must be present, then it must be a CertMaster
   #       - In a default installation, the URL must contain SCEPman's app service name. We require this.
 
   $strangeCertMasterFound = $false
 
-  $rgwebapps =  ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
-  Write-Information "$($rgwebapps.count + 1) web apps found in the resource group $SCEPmanResourceGroup. We are finding if the CertMaster app is already created"
+  $rgwebapps =  ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
+  Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
-        $scepmanurlsettingcount = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | length(@)"
+        $scepmanurlsettingcount = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | length(@)"
         if($scepmanurlsettingcount -eq 1) {
-            $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]"
+            $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]"
             $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
             if($hascorrectscepmanurl -eq $true) {
               Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
@@ -25,7 +24,7 @@ function GetCertMasterAppServiceName ($SCEPmanResourceGroup, $SCEPmanAppServiceN
     }
   }
   if ($strangeCertMasterFound) {
-    Write-Warning "There is at least one Certificate Master App Service in resource group $SCEPmanResourceGroup, but we are not sure whether it belongs to SCEPman $SCEPmanAppServiceName."
+    Write-Warning "There is at least one Certificate Master App Service in resource group $CertMasterResourceGroup, but we are not sure whether it belongs to SCEPman $SCEPmanAppServiceName."
   }
 
   Write-Warning "Unable to determine the Certificate Master app service name"
@@ -45,13 +44,13 @@ function SelectBestDotNetRuntime {
   }
 }
 
-function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $DeploymentSlotName) {
+function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName) {
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
-    $CertMasterAppServiceName = GetCertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
   } else {
     # Check whether a cert master app service with the passed in name exists
-    $CertMasterWebApps = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
+    $CertMasterWebApps = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
     $ShallCreateCertMasterAppService = 0 -eq $CertMasterWebApps.count
   }
 
@@ -76,7 +75,7 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
     $runtime = SelectBestDotNetRuntime
-    $null = az webapp create --resource-group $SCEPmanResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
+    $null = az webapp create --resource-group $CertMasterResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
     Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
     # Do all the configuration that the ARM template does normally
@@ -93,9 +92,9 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
     $CertMasterAppSettings = $CertmasterAppSettings.Replace('"', '\"')
 
     Write-Verbose 'Configuring CertMaster web app settings'
-    $null = az webapp config set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
-    $null = az webapp update --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --https-only $true
-    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings $CertMasterAppSettings
+    $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
+    $null = az webapp update --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --https-only $true
+    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettings
   }
 
   return $CertMasterAppServiceName
@@ -149,7 +148,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
 function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName = $null) {
   # Add a setting to tell the Deployment slot that it has been configured
   $SCEPmanSlotHostName = GetAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-  
+
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   # The docs (2.37) say that az webapp config appsettings set takes a space separated list of KEY=VALUE.
@@ -196,7 +195,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
   MarkDeploymentSlotAsConfigured -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
 }
 
-function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $DeploymentSlots = @()) {
+function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $DeploymentSlots = @()) {
   Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and CertMaster web app settings"
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
@@ -215,7 +214,7 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
   $CertmasterAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$CertMasterAppId\`",\`"AppConfig:AuthConfig:SCEPmanAPIScope\`":\`"api://$SCEPmanAppId\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
-  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings $CertmasterAppSettings
+  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettings
 }
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
