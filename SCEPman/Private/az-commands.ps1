@@ -141,3 +141,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       return $lastAzOutput
     }
 }
+
+function GetCurrentAccount() {
+    $currentAccount = ConvertLinesToObject -lines $(az account show)
+    return $currentAccount
+}
