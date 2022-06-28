@@ -28,8 +28,8 @@ function Register-SCEPmanCertMaster
 
       $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
       if($null -eq $appregcm) {
-        Write-Error "We are unable to register the the CertMaster app with the URL '$CertMasterBaseURL'"
-        throw "We are unable to register the the CertMaster app with the URL '$CertMasterBaseURL'"
+        Write-Error "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"
+        throw "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"
       } else {
         Write-Information "SCEPman CertMaster app registration completed with id '$($appregcm.appId)' in the tenant '$($CurrentAccount.homeTenantId)'"
       }
