@@ -64,7 +64,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Configuring SCEPman and CertMaster"
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId

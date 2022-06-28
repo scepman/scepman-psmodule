@@ -52,7 +52,7 @@ function New-SCEPmanClone
     az extension add --name resource-graph --only-show-errors
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $sourceSubscription = GetSubscriptionDetails -AppServiceName $SourceAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SourceSubscriptionId

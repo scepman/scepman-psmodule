@@ -45,7 +45,7 @@ function New-SCEPmanDeploymentSlot
     Write-Information "Adding SCEPman Deployment Slot $DeploymentSlotName"
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
