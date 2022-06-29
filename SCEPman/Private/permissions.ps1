@@ -28,6 +28,18 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
     }
 }
 
+function GetSCEPmanResourcePermissions() {
+    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
+    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
+
+    ### Set managed identity permissions for SCEPman
+   return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
+        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
+        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphIdentityRiskyUserReadPermission;},
+        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
+    )
+}
+
 function GetAzureADApp($name) {
     return ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
 }

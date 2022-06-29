@@ -52,7 +52,7 @@ function New-SCEPmanClone
     az extension add --name resource-graph --only-show-errors
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $sourceSubscription = GetSubscriptionDetails -AppServiceName $SourceAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SourceSubscriptionId
@@ -115,14 +115,7 @@ function New-SCEPmanClone
         AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
         Write-Information "Adding permissions for Graph and Intune"
-        $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-        $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
-
-        $resourcePermissionsForSCEPman =
-            @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-            [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-            [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-        )
+        $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
         $DelayForSecurityPrincipals = 3000
         Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"

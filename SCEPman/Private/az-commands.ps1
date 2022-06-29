@@ -70,9 +70,10 @@ function AzLogin {
     $env:AZURE_HTTP_USER_AGENT = "pid-a262352f-52a9-4ed9-a9ba-6a2b2478d19b"
     $account = az account show 2>&1
     if ($account.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-        if ($account.ToString().Contains("az login")) {
+        if (($account.ToString().Contains("az login")) -or ($account.ToString().Contains("az account set"))) {
             Write-Host "Not logged in to az yet. Please log in."
             $null = az login # TODO: Check whether the login worked
+            AzLogin
         }
         else {
             Write-Error "Error $account while trying to use az" # possibly az not installed?
@@ -82,6 +83,7 @@ function AzLogin {
         $accountInfo = ConvertLinesToObject($account)
         Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
+    return $accountInfo
 }
 
 $azVersionInfo = $null
