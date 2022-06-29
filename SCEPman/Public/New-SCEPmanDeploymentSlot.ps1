@@ -95,14 +95,7 @@ function New-SCEPmanDeploymentSlot
     }
 
     Write-Information "Adding permissions for Graph and Intune"
-    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
-
-    $resourcePermissionsForSCEPman =
-        @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-    )
+    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
     $DelayForSecurityPrincipals = 3000
     Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"

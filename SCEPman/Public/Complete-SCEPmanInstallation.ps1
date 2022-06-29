@@ -119,15 +119,8 @@ function Complete-SCEPmanInstallation
 
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
-    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
-
     ### Set managed identity permissions for SCEPman
-    $resourcePermissionsForSCEPman =
-        @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-    )
+    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
     Write-Information "Setting up permissions for SCEPman"
     SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
