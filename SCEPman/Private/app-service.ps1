@@ -11,7 +11,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
     ForEach($potentialcmwebapp in $rgwebapps.data) {
         $scepmanurlsettingcount = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | length(@)"
         if($scepmanurlsettingcount -eq 1) {
-            $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]"
+            $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]" --output tsv
             $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
             if($hascorrectscepmanurl -eq $true) {
               Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
@@ -44,7 +44,7 @@ function SelectBestDotNetRuntime {
   }
 }
 
-function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName) {
+function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $UpdateChannel = "prod") {
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
@@ -85,7 +85,7 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
     }
     $CertmasterAppSettings = @{
-      WEBSITE_RUN_FROM_PACKAGE = $ARTIFACTS_CERTMASTER_PROD;
+      WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
       "AppConfig:AuthConfig:TenantId" = $TenantId;
       "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
     } | ConvertTo-Json -Compress
@@ -124,7 +124,7 @@ function GetAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $Deploym
 }
 
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
-  $existingHostnameConfiguration = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname'].value | [0]"
+  $existingHostnameConfiguration = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname'].value | [0]" --output tsv
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
     $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
@@ -217,11 +217,27 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettings
 }
 
+function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
+  $intendedChannel = az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?name=='Update_Channel'].value | [0]" --output tsv
+
+  if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
+    Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
+    $ArtifactsUrl = $ChannelArtifacts[$intendedChannel]
+    if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
+      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
+    } else {
+      Write-Verbose "Artifacts URL is $ArtifactsUrl"
+      $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl"
+      $null = az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names "Update_Channel"
+    }
+  }
+}
+
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
   foreach ($oneSetting in $Settings) {
     $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value)"
   }
-  # This does not work, as equal signs split this into incomprehensible gibberish:
+  # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 

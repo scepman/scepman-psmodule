@@ -33,4 +33,14 @@ New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value 
     \"value\": \"Admin.Full\"
 }]'.Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
 
-New-Variable -Name "ARTIFACTS_CERTMASTER_PROD" -Value "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip" -Scope "Script" -Option ReadOnly
+New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
+  prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"
+  beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Beta.zip"
+  internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Intern.zip"
+}
+
+New-Variable -Name "Artifacts_Scepman" -Scope "Script" -Option ReadOnly -Value @{
+  prod =  "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts.zip"
+  beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Beta.zip"
+  internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Intern.zip"
+}
