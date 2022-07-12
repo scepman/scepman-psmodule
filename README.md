@@ -1,12 +1,23 @@
 # SCEPMan Configuration Module
 
-This script adds the required configuration to SCEPman (https://scepman.com/) right after installing or updating to a 2.x version.
+This module provides CMDlets to manage SCEPman (https://scepman.com/) installations.
 
-## Prerequisites
+## Complete-SCEPmanInstallatoin
 
-- Admin account with sufficient rights.
-- Azure CLI must be [installed](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli), as for example in the Azure Cloud Shell.
+See here: https://docs.scepman.com/scepman-deployment/permissions/post-installation-config#acquire-and-run-the-scepman-installation-powershell-module
 
-## License
+## New-SCEPmanDeploymentSlot
+
+See here: https://docs.scepman.com/advanced-configuration/update-strategy#pre-release-slot
+
+## New-SCEPmanClone
+
+See here: https://docs.scepman.com/advanced-configuration/geo-redundancy#clone-app
+
+## Register-SCEPmanCertMaster
+
+Yet undocumented
+
+# License
 
 The PowerShell module is provided under the terms of the [MIT License](LICENSE).

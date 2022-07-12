@@ -6,7 +6,7 @@
   The base URL of the CertMaster Azure Web App
 
  .Parameter AzureADAppNameForCertMaster
-  Name of the Azure AD app registration for SCEPman Certificate Master. Leave empty to use default name 'SCEPman-CertMaster' 
+  Name of the Azure AD app registration for SCEPman Certificate Master. Leave empty to use default name 'SCEPman-CertMaster'
 
  .Example
    # Registers SCEPman CertMaster Azure AD application where the CertMaster Azure Web App's base URL is 'https://scepman-cm.azurewebsites.net'

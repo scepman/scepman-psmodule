@@ -105,7 +105,7 @@ function Complete-SCEPmanInstallation
 
     $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId, $serviceprincipalcm.principalId )
 
-    if($true -eq $scHasDeploymentSlots) {
+    if($deploymentSlotsSc.Count -gt 0) {
         ForEach($deploymentSlot in $deploymentSlotsSc) {
             $tempDeploymentSlot = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup -slotNameParam $deploymentSlot
             if($null -eq $tempDeploymentSlot) {
@@ -128,7 +128,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Setting up permissions for SCEPman"
     SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
-    if($true -eq $scHasDeploymentSlots) {
+    if($deploymentSlotsSc.Count -gt 0) {
         Write-Information "Setting up permissions for SCEPman deployment slots"
         ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
             SetManagedIdentityPermissions -principalId $tempServicePrincipal.principalId -resourcePermissions $resourcePermissionsForSCEPman

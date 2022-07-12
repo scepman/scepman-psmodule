@@ -1,7 +1,7 @@
 function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
   $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
   if($null -eq $azureAdAppReg) {
-      #App Registration doesn't exist.
+      Write-Information "Creating app registration $name, as it does not exist yet"
 
       $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$manifest'"
       if ($null -ne $replyUrls) {
@@ -26,17 +26,21 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
       }
 
       $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
+      Write-Verbose "Created app registration $name (App ID $($azureAdAppReg.appId))"
 
       # REVISIT: Once there is a solution for https://github.com/Azure/azure-cli/issues/22810, we can upload the logo
 #      $graphEndpointForAppLogo = "https://graph.microsoft.com/v1.0/applications/$($azureAdAppReg.id)/logo"
 #      az rest --method put --url $graphEndpointForAppLogo --body '@testlogo.png' --headers Content-Type=image/png
+  } else {
+    Write-Information "Existing app registration $name found (App ID $($azureAdAppReg.appId))"
   }
+
   return $azureAdAppReg
 }
 
 function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId) {
 
-  Write-Information "Creating Azure AD app registration for SCEPman"
+  Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
   $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest -hideApp $true
   $spsc = CreateServicePrincipal -appId $($appregsc.appId)
@@ -60,7 +64,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
 function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURL) {
 
-  Write-Information "Creating Azure AD app registration for CertMaster"
+  Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
 
   # Register CertMaster App
