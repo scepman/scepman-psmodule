@@ -28,7 +28,7 @@ CompanyName = 'glueckkanja-gab'
 Copyright = '(c) 2022 glueckkanja-gab AG. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Adds the required configuration to SCEPman (https://scepman.com/) right after installing or updating to a 2.x version.'
+Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'
 
 # Minimum version of the Windows PowerShell engine required by this module
 # PowerShellVersion = ''
