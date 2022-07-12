@@ -104,6 +104,7 @@ function Complete-SCEPmanInstallation
     $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
 
     $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId, $serviceprincipalcm.principalId )
+    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId )
 
     if($deploymentSlotsSc.Count -gt 0) {
         ForEach($deploymentSlot in $deploymentSlotsSc) {
@@ -112,7 +113,7 @@ function Complete-SCEPmanInstallation
                 Write-Error "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
                 throw "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
             }
-            $serviceprincipalOfScDeploymentSlots += $tempDeploymentSlot
+            $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot)
             $servicePrincipals.Add($tempDeploymentSlot.principalId)
         }
     }
@@ -125,14 +126,10 @@ function Complete-SCEPmanInstallation
     ### Set managed identity permissions for SCEPman
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
-    Write-Information "Setting up permissions for SCEPman"
-    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
-
-    if($deploymentSlotsSc.Count -gt 0) {
-        Write-Information "Setting up permissions for SCEPman deployment slots"
-        ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-            SetManagedIdentityPermissions -principalId $tempServicePrincipal.principalId -resourcePermissions $resourcePermissionsForSCEPman
-        }
+    Write-Information "Setting up permissions for SCEPman and its deployment slots"
+    ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+        Write-Verbose "Setting SCEPman permissions to Service Principal with id $($tempServicePrincipal.principalId)"
+        SetManagedIdentityPermissions -principalId $tempServicePrincipal.principalId -resourcePermissions $resourcePermissionsForSCEPman
     }
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
