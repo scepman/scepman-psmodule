@@ -113,7 +113,7 @@ function Complete-SCEPmanInstallation
                 Write-Error "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
                 throw "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
             }
-            $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot)
+            $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot.principalId)
             $servicePrincipals.Add($tempDeploymentSlot.principalId)
         }
     }
@@ -128,8 +128,8 @@ function Complete-SCEPmanInstallation
 
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-        Write-Verbose "Setting SCEPman permissions to Service Principal with id $($tempServicePrincipal.principalId)"
-        SetManagedIdentityPermissions -principalId $tempServicePrincipal.principalId -resourcePermissions $resourcePermissionsForSCEPman
+        Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
+        SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman
     }
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
