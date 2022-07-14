@@ -38,9 +38,12 @@ function CheckAzOutput($azOutput) {
                         Write-Warning $outputElement.ToString()
                     }
                 } else {
-                    if($outputElement.ToString().Contains("Forbidden")) {
+                    if ($outputElement.ToString().contains("does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/write'")) {
+                        Write-Error "You have insufficient privileges to assign roles to Managed Identities. Make sure you have the Global Admin or Privileged Role Administrator role."
+                    } elseif($outputElement.ToString().Contains("Forbidden")) {
                         Write-Error "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
                     }
+
                     #Write-Error $outputElement
                     throw $outputElement
                 }
