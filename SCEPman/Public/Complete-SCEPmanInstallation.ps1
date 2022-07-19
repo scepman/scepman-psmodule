@@ -94,9 +94,10 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    Write-Information "Getting CertMaster web app"
+    Write-Information "Getting Certificate Master web app"
     $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
 
+    Write-Verbose "Collecting Service Principals of SCEPman, its deployment slots, and Certificate Master"
     # Service principal of System-assigned identity of SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
 
@@ -113,14 +114,16 @@ function Complete-SCEPmanInstallation
                 Write-Error "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
                 throw "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
             }
-            $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot.principalId)
-            $servicePrincipals.Add($tempDeploymentSlot.principalId)
+            $null = $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot.principalId)
+            $null = $servicePrincipals.Add($tempDeploymentSlot.principalId)
         }
     }
 
+    Write-Verbose "Checking update channels of SCEPman and Certificate Master"
     SwitchToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
     SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
 
+    Write-Information "Connection Web Apps to Storage Account"
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     ### Set managed identity permissions for SCEPman
