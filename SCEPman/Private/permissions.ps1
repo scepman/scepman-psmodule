@@ -21,7 +21,10 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
     $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
 
     ForEach($resourcePermission in $resourcePermissions) {
-        if(($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) -eq $false) {
+        if($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) {
+            Write-Verbose "Permission is already there (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId)"
+        } else {
+            Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId)"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId
         }
