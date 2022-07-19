@@ -124,13 +124,17 @@ function Complete-SCEPmanInstallation
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     ### Set managed identity permissions for SCEPman
-    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
-
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
+    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
         SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman
     }
+
+    ### Set Managed Identity permissions for CertMaster
+    Write-Information "Setting up permissions for Certificate Master"
+    $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
+    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
 

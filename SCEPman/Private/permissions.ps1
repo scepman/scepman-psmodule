@@ -32,12 +32,19 @@ function GetSCEPmanResourcePermissions() {
     $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
-    ### Set managed identity permissions for SCEPman
+    ### Managed identity permissions for SCEPman
    return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
         [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
         [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphIdentityRiskyUserReadPermission;},
         [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
     )
+}
+
+function GetCertMasterResourcePermissions() {
+    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
+
+    ### Managed identity permissions for CertMaster
+    return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;})
 }
 
 function GetAzureADApp($name) {
