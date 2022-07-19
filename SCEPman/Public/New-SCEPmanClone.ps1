@@ -24,16 +24,16 @@
   The Azure resource group hosting the new SCEPman App Service.
 
  .Parameter TargetSubscriptionId
-  The ID of the Subscription where SCEPman shall be installed. Can be omitted if it is the same aqs SourceSubscriptionId or use the SearchAllSubscriptions flag to search all accessible subscriptions
+  The ID of the Subscription where SCEPman shall be installed. Can be omitted if it is the same as SourceSubscriptionId.
 
  .Example
-   # Add a new pre-release deployment slot to the existing SCEPman App Service as-scepman
+   # Create a SCEPman instance as-scepman-clone, which is a clone of the original app service as-scepman. It uses the App Service Plan asp-scepman-geo2
    New-SCEPmanClone -SourceAppServiceName as-scepman -TargetAppServiceName as-scepman-clone -TargetAppServicePlan asp-scepman-geo2 -SearchAllSubscriptions 6>&1
 
 #>
 function New-SCEPmanClone
 {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
       [Parameter(Mandatory=$true)]$SourceAppServiceName,
       $SourceResourceGroup,
@@ -52,7 +52,7 @@ function New-SCEPmanClone
     az extension add --name resource-graph --only-show-errors
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $sourceSubscription = GetSubscriptionDetails -AppServiceName $SourceAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SourceSubscriptionId
@@ -94,43 +94,39 @@ function New-SCEPmanClone
         throw "App Service Plan $TargetAppServicePlan could not be found in Resource Group $TargetResourceGroup"
     }
 
-    Write-Information "Create cloned SCEPman App Service"
-    CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
+    if ($PSCmdlet.ShouldProcess($TargetAppServiceName, ("Creating SCEPman clone in Resource Group {0}" -f $TargetResourceGroup)))
+    {
+        Write-Information "Create cloned SCEPman App Service"
+        CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
 
-    # Service principal of System-assigned identity of cloned SCEPman
-    $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $TargetAppServiceName -resourceGroupParam $TargetResourceGroup
+        # Service principal of System-assigned identity of cloned SCEPman
+        $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $TargetAppServiceName -resourceGroupParam $TargetResourceGroup
 
-    $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId )
+        $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId )
 
-    Write-Information "Adding permissions to Storage Account"
-    if($null -ne $ScStorageAccount) {
-        SetStorageAccountPermissions -SubscriptionId $targetSubscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
-    } else {
-        Write-Warning "No Storage Account found. Not adding any permissions."
-    }    
+        Write-Information "Adding permissions to Storage Account"
+        if($null -ne $ScStorageAccount) {
+            SetStorageAccountPermissions -SubscriptionId $targetSubscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+        } else {
+            Write-Warning "No Storage Account found. Not adding any permissions."
+        }
 
-    Write-Information "Adding permissions to Key Vault"
-    AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
+        Write-Information "Adding permissions to Key Vault"
+        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
 
-    Write-Information "Adding permissions for Graph and Intune"
-    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
+        Write-Information "Adding permissions for Graph and Intune"
+        $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
-    $resourcePermissionsForSCEPman =
-        @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-    )
+        $DelayForSecurityPrincipals = 3000
+        Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
+        Start-Sleep -Milliseconds $DelayForSecurityPrincipals
+        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
 
-    $DelayForSecurityPrincipals = 3000
-    Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
-    Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
 
-    MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
+        Write-Information "Copying app settings from source App Service to target"
+        SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
 
-    Write-Information "Copying app settings from source App Service to target"
-    SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
-
-    Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
+        Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
+    }
 }

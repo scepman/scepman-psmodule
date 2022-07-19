@@ -24,7 +24,7 @@
 #>
 function New-SCEPmanDeploymentSlot
 {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
       $SCEPmanAppServiceName,
       $SCEPmanResourceGroup,
@@ -45,7 +45,7 @@ function New-SCEPmanDeploymentSlot
     Write-Information "Adding SCEPman Deployment Slot $DeploymentSlotName"
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
@@ -66,47 +66,44 @@ function New-SCEPmanDeploymentSlot
         throw "Deployment slot $DeploymentSlotName already exists."
     }
 
-    # Returns the Service principal of the deployment slot
-    Write-Information "Creating new Deployment Slot $DeploymentSlotName"
-    $serviceprincipalsc = CreateSCEPmanDeploymentSlot -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName
-    $servicePrincipals = @( $serviceprincipalsc.principalId )
-    Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
-
-    Write-Information "Adding permissions to Storage Account"
-    $existingTableStorageEndpointSetting = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-    $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
-    if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
-      Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
-      $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
-      SetStorageAccountPermissions -SubscriptionId $subscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
-    } else {
-        Write-Warning "No Storage Account found. Not adding any permissions."
+    if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Creating SCEPman Deployment Slot")) {
+        Write-Information "Creating new Deployment Slot $DeploymentSlotName"
+        # Returns the Service principal of the deployment slot
+        $serviceprincipalsc = CreateSCEPmanDeploymentSlot -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName
+        $servicePrincipals = @( $serviceprincipalsc.principalId )
+        Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
     }
 
+    if ($PSCmdlet.ShouldProcess($ScSDeploymentSlotNametorageAccount, "Adding storage account permissions to new deployment slot")) {
+        Write-Information "Adding permissions to Storage Account"
+        $existingTableStorageEndpointSetting = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+        $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
+        if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
+        Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        SetStorageAccountPermissions -SubscriptionId $subscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+        } else {
+            Write-Warning "No Storage Account found. Not adding any permissions."
+        }
+    }
 
     Write-Information "Adding permissions to Key Vault"
     $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
     Write-Verbose "Key Vault $keyvaultname identified"
-    AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
-
+    if ($PSCmdlet.ShouldProcess($keyvaultname, "Adding key vault permissions to new deployment slot")) {
+        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
+    }
 
     Write-Information "Adding permissions for Graph and Intune"
-    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
-
-    $resourcePermissionsForSCEPman =
-        @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-    )
+    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
     $DelayForSecurityPrincipals = 3000
     Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
     Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
-
-
-    MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Adding permissions for new deployment slot to access Microsoft Graph")) {
+        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    }
 
     Write-Information "SCEPman Deployment Slot $DeploymentSlotName successfully created"
 }

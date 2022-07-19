@@ -9,8 +9,8 @@ function GetStorageAccount ($ResourceGroup) {
         } else {
             $potentialStorageAccount = $storageaccounts.data | Where-Object { $_.name -eq $potentialStorageAccountName }
             if($null -eq $potentialStorageAccount) {
-                Write-Error "We couldn't find a storage account with name $potentialStorageAccountName. Please try to re-run the script"
-                throw "We couldn't find a storage account with name $potentialStorageAccountName. Please try to re-run the script"
+                Write-Error "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
+                throw "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
             } else {
                 return $potentialStorageAccount
             }
@@ -38,7 +38,7 @@ function GetExistingStorageAccount ($dataTableEndpoint) {
 }
 
 function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $servicePrincipals) {
-    Write-Information "Setting permissions in storage account for $($servicePrincipals.Length) App Service identities"
+    Write-Information "Setting permissions in storage account for $($servicePrincipals.Count) App Service identities"
 
     $SAScope = "/subscriptions/$SubscriptionId/resourceGroups/$($ScStorageAccount.resourceGroup)/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
@@ -76,15 +76,15 @@ function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrinci
 
 function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
     if ($null -eq $DeploymentSlotName) {
-        return az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"
+        return az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]" --output tsv
     } else {
-        return az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]" --slot $DeploymentSlotName
+        return az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]" --slot $DeploymentSlotName --output tsv
     }
 }
 
-function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterAppServiceName, $servicePrincipals, $DeploymentSlotName, $DeploymentSlots) {
+function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $servicePrincipals, $DeploymentSlotName, $DeploymentSlots) {
     $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-    $existingTableStorageEndpointSettingCm = az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]"
+    $existingTableStorageEndpointSettingCm = az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]" --output tsv
     $storageAccountTableEndpoint = $null
 
     if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc)) {
@@ -119,7 +119,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
     }
 
     Write-Verbose "Configuring table storage endpoints in SCEPman, SCEPman's deployment slots (if any), and CertMaster"
-    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:AzureStorage:TableStorageEndpoint=$storageAccountTableEndpoint
+    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings AppConfig:AzureStorage:TableStorageEndpoint=$storageAccountTableEndpoint
     $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:CertificateStorage:TableStorageEndpoint=$storageAccountTableEndpoint
     ForEach($tempDeploymentSlot in $DeploymentSlots) {
         $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:CertificateStorage:TableStorageEndpoint=$storageAccountTableEndpoint --slot $tempDeploymentSlot

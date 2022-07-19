@@ -11,6 +11,9 @@
  .Parameter SCEPmanResourceGroup
   The Azure resource group hosting the SCEPman App Service. Leave empty for auto-detection.
 
+ .Parameter CertMasterResourceGroup
+  The Azure resource group hosting the SCEPman Certificate Master App Service. Leave empty to use the same as the SCEPman main app service.
+
  .Parameter SearchAllSubscriptions
   Set this flag to search all subscriptions for the SCEPman App Service. Otherwise, pre-select the right subscription in az or pass in the correct SubscriptionId.
 
@@ -41,6 +44,7 @@ function Complete-SCEPmanInstallation
         $SCEPmanAppServiceName,
         $CertMasterAppServiceName,
         $SCEPmanResourceGroup,
+        $CertMasterResourceGroup,
         [switch]$SearchAllSubscriptions,
         $DeploymentSlotName,
         $SubscriptionId,
@@ -60,7 +64,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Configuring SCEPman and CertMaster"
 
     Write-Information "Logging in to az"
-    AzLogin
+    $null = AzLogin
 
     Write-Information "Getting subscription details"
     $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
@@ -70,6 +74,10 @@ function Complete-SCEPmanInstallation
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
         # No resource group given, search for it now
         $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    }
+
+    if ([String]::IsNullOrWhiteSpace($CertMasterResourceGroup)) {
+        $CertMasterResourceGroup = $SCEPmanResourceGroup
     }
 
     Write-Information "Getting SCEPman deployment slots"
@@ -86,50 +94,50 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    Write-Information "Getting CertMaster web app"
-    $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName
+    Write-Information "Getting Certificate Master web app"
+    $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
 
+    Write-Verbose "Collecting Service Principals of SCEPman, its deployment slots, and Certificate Master"
     # Service principal of System-assigned identity of SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
 
     # Service principal of System-assigned identity of CertMaster
-    $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $SCEPmanResourceGroup
+    $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
 
     $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId, $serviceprincipalcm.principalId )
+    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId )
 
-    if($true -eq $scHasDeploymentSlots) {
+    if($deploymentSlotsSc.Count -gt 0) {
         ForEach($deploymentSlot in $deploymentSlotsSc) {
             $tempDeploymentSlot = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup -slotNameParam $deploymentSlot
             if($null -eq $tempDeploymentSlot) {
                 Write-Error "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
                 throw "Deployment slot '$deploymentSlot' doesn't have managed identity turned on"
             }
-            $serviceprincipalOfScDeploymentSlots += $tempDeploymentSlot
-            $servicePrincipals.Add($tempDeploymentSlot.principalId)
+            $null = $serviceprincipalOfScDeploymentSlots.Add($tempDeploymentSlot.principalId)
+            $null = $servicePrincipals.Add($tempDeploymentSlot.principalId)
         }
     }
 
-    SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+    Write-Verbose "Checking update channels of SCEPman and Certificate Master"
+    SwitchToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+    SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
 
-    $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
-    $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
+    Write-Information "Connection Web Apps to Storage Account"
+    SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     ### Set managed identity permissions for SCEPman
-    $resourcePermissionsForSCEPman =
-        @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-        [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-    )
-
-    Write-Information "Setting up permissions for SCEPman"
-    SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
-
-    if($true -eq $scHasDeploymentSlots) {
-        Write-Information "Setting up permissions for SCEPman deployment slots"
-        ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-            SetManagedIdentityPermissions -principalId $tempServicePrincipal.principalId -resourcePermissions $resourcePermissionsForSCEPman
-        }
+    Write-Information "Setting up permissions for SCEPman and its deployment slots"
+    $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
+    ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+        Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
+        SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman
     }
+
+    ### Set Managed Identity permissions for CertMaster
+    Write-Information "Setting up permissions for Certificate Master"
+    $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
+    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
 
@@ -139,7 +147,7 @@ function Complete-SCEPmanInstallation
 
     $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
 
-    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -DeploymentSlots $deploymentSlotsSc
+    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -DeploymentSlots $deploymentSlotsSc
 
     Write-Information "SCEPman and SCEPman Certificate Master configuration completed"
 }
