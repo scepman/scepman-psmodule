@@ -219,7 +219,7 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
     'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = $managedIdentityEnabledOn
     'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 1
   }
-  
+
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
 
   $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
