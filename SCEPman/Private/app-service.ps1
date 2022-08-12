@@ -202,14 +202,23 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 
   # Add ApplicationId and some additional defaults in SCEPman web app settings
 
-  $ScepManAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$SCEPmanAppID\`",\`"AppConfig:CertMaster:URL\`":\`"$CertMasterBaseURL\`",\`"AppConfig:IntuneValidation:DeviceDirectory\`":\`"AADAndIntune\`",\`"AppConfig:DirectCSRValidation:Enabled\`":\`"true\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
+  $ScepManAppSettings = @{
+    'AppConfig:AuthConfig:ApplicationId' = $SCEPmanAppID
+    'AppConfig:CertMaster:URL' = $CertMasterBaseURL
+    'AppConfig:IntuneValidation:DeviceDirectory' = 'AADAndIntune'
+    'AppConfig:DirectCSRValidation:Enabled' = 'true'
+    'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = "$managedIdentityEnabledOn"
+    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
+  }
+
+  $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
 
   if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson
   }
 
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings -DeploymentSlotName $tempDeploymentSlot
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
   }
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
@@ -217,7 +226,7 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
     'AppConfig:AuthConfig:ApplicationId' = $CertMasterAppId
     'AppConfig:AuthConfig:SCEPmanAPIScope' = "api://$SCEPmanAppId"
     'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = $managedIdentityEnabledOn
-    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 1
+    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
   }
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
