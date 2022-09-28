@@ -1,31 +1,25 @@
 function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
-    $correctSubscription = $null
     Write-Information "Finding correct subscription"
     $scWebAppsAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$AppServiceName' | project name, subscriptionId")
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
-        $correctSubscription = $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        return $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
-    if($null -eq $correctSubscription) {
-        $errorMessage = "We are unable to determine the correct subscription. Please start over"
-        Write-Error $errorMessage
-        throw $errorMessage
-    }
-    return $correctSubscription
+
+    $errorMessage = "We are unable to determine the correct subscription. Please start over"
+    Write-Error $errorMessage
+    throw $errorMessage
 }
 
 function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
-    $correctSubscription = $null
     Write-Information "Finding correct subscription"
     $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'Microsoft.Web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
-        $correctSubscription = $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
-    if($null -eq $correctSubscription) {
-        $errorMessage = "We are unable to determine the correct subscription. Please start over"
-        Write-Error $errorMessage
-        throw $errorMessage
-    }
-    return $correctSubscription
+    
+    $errorMessage = "We are unable to determine the correct subscription. Please start over"
+    Write-Error $errorMessage
+    throw $errorMessage
 }
 
 function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) {
