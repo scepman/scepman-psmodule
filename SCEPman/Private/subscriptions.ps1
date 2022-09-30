@@ -16,7 +16,7 @@ function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
         return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
-    
+
     $errorMessage = "We are unable to determine the correct subscription. Please start over"
     Write-Error $errorMessage
     throw $errorMessage
