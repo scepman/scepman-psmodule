@@ -5,6 +5,7 @@ New-Variable -Name "MSGraphUserReadPermission" -Value "e1fe6dd8-ba31-4d61-89e7-8
 
 New-Variable -Name "MSGraphDirectoryReadAllPermission" -Value "7ab1d382-f21e-4acd-a863-ba3e13f7da61" -Scope "Script" -Option ReadOnly
 New-Variable -Name "MSGraphDeviceManagementReadPermission" -Value "2f51be20-0bb4-4fed-bf7b-db946066c75e" -Scope "Script" -Option ReadOnly
+New-Variable -Name "MSGraphDeviceManagementConfigurationReadAll" -Value "dc377aa6-52d8-4e23-b271-2a7ae04cedf3" -Scope "Script" -Option ReadOnly
 New-Variable -Name "MSGraphIdentityRiskyUserReadPermission" -Value "dc5007c0-2d7d-4c42-879c-2dab87571379" -Scope "Script" -Option ReadOnly # IdentityRiskyUser.Read.All
 
 # "0000000a-0000-0000-c000-000000000000" # Service Principal App Id of Intune, not required here

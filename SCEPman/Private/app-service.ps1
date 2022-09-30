@@ -202,19 +202,44 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 
   # Add ApplicationId and some additional defaults in SCEPman web app settings
 
-  $ScepManAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$SCEPmanAppID\`",\`"AppConfig:CertMaster:URL\`":\`"$CertMasterBaseURL\`",\`"AppConfig:IntuneValidation:DeviceDirectory\`":\`"AADAndIntune\`",\`"AppConfig:DirectCSRValidation:Enabled\`":\`"true\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
+  $ScepManAppSettings = @{
+    'AppConfig:AuthConfig:ApplicationId' = $SCEPmanAppID
+    'AppConfig:CertMaster:URL' = $CertMasterBaseURL
+    'AppConfig:IntuneValidation:DeviceDirectory' = 'AADAndIntune'
+    'AppConfig:DirectCSRValidation:Enabled' = 'true'
+    'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = "$managedIdentityEnabledOn"
+    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
+  }
+
+  $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
 
   if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson
   }
 
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings -DeploymentSlotName $tempDeploymentSlot
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
   }
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
-  $CertmasterAppSettings = "{\`"AppConfig:AuthConfig:ApplicationId\`":\`"$CertMasterAppId\`",\`"AppConfig:AuthConfig:SCEPmanAPIScope\`":\`"api://$SCEPmanAppId\`",\`"AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime\`":\`"$managedIdentityEnabledOn\`"}".Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
-  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettings
+  $CertmasterAppSettings = @{
+    'AppConfig:AuthConfig:ApplicationId' = $CertMasterAppId
+    'AppConfig:AuthConfig:SCEPmanAPIScope' = "api://$SCEPmanAppId"
+    'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = $managedIdentityEnabledOn
+    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
+  }
+
+  $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
+
+  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
+}
+
+function HashTable2AzJson($psHashTable) {
+  $output = ($psHashTable | ConvertTo-Json -Compress)
+  if ($PSVersionTable.PSVersion.Major -lt 7 -or ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -lt 3)) {
+    return $output -replace "`"", "\`"" # The double quoting is required by PowerShell <7.2 (see https://github.com/PowerShell/PowerShell/issues/1995 and https://docs.microsoft.com/en-us/cli/azure/use-cli-effectively?tabs=bash%2Cbash2#use-quotation-marks-in-parameters)
+  }
+  return $output
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
