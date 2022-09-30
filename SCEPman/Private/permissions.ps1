@@ -36,7 +36,7 @@ function GetSCEPmanResourcePermissions() {
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
     ### Managed identity permissions for SCEPman
-    if ($null -eq $intuneResourceId) {
+    if ($null -eq $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), there is IntuneAppId can be $null
         return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;},
