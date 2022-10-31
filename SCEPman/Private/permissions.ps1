@@ -16,8 +16,8 @@ function GetAzureResourceAppId($appId) {
     return $(az ad sp list --filter "appId eq '$appId'" --query $queryParam --out tsv --only-show-errors)
 }
 
-function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
-    $graphEndpointForAppRoleAssignments = "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments"
+function SetManagedIdentityPermissions($principalId, $resourcePermissions, $GraphBaseUri) {
+    $graphEndpointForAppRoleAssignments = "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments"
     $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
 
     ForEach($resourcePermission in $resourcePermissions) {
@@ -26,7 +26,7 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions) {
         } else {
             Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId)"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
-            $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId
+            $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
         }
     }
 }
@@ -36,7 +36,7 @@ function GetSCEPmanResourcePermissions() {
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
     ### Managed identity permissions for SCEPman
-    if ($null -eq $intuneResourceId) {
+    if ($null -eq $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), there is IntuneAppId can be $null
         return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;},

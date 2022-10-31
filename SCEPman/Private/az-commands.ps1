@@ -106,7 +106,7 @@ function AzUsesAADGraph {
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 #
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
@@ -118,7 +118,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             # If we were request to check that the permission is there and there was no error, do the check now.
             # However, if the permission has been there previously already, we can skip the check
         if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
-            $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "https://graph.microsoft.com/v1.0/servicePrincipals/$principalId/appRoleAssignments")
+            $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
             $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
             if ($null -eq $grantedPermission) {
                 $azErrorCode = 999 # A number not 0
