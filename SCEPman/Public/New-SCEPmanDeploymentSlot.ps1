@@ -30,7 +30,9 @@ function New-SCEPmanDeploymentSlot
       $SCEPmanResourceGroup,
       [switch]$SearchAllSubscriptions,
       [Parameter(Mandatory=$true)]$DeploymentSlotName,
-      $SubscriptionId)
+      $SubscriptionId,
+      $GraphBaseUri = 'https://graph.microsoft.com'
+    )
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand) from SCEPman Module version $version"
@@ -101,7 +103,7 @@ function New-SCEPmanDeploymentSlot
     Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
     Start-Sleep -Milliseconds $DelayForSecurityPrincipals
     if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Adding permissions for new deployment slot to access Microsoft Graph")) {
-        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
         MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
     }
 

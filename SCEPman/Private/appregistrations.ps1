@@ -38,7 +38,7 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
   return $azureAdAppReg
 }
 
-function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId) {
+function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri) {
 
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
@@ -57,7 +57,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$ScepManSubmitCSRPermission;})
-  SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster
+  SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
 
   return $appregsc
 }

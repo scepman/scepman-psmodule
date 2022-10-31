@@ -49,7 +49,9 @@ function Complete-SCEPmanInstallation
         $DeploymentSlotName,
         $SubscriptionId,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
-        $AzureADAppNameForCertMaster = 'SCEPman-CertMaster')
+        $AzureADAppNameForCertMaster = 'SCEPman-CertMaster',
+        $GraphBaseUri = 'https://graph.microsoft.com'
+        )
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand) from SCEPman Module version $version"
@@ -57,6 +59,8 @@ function Complete-SCEPmanInstallation
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
     }
+
+    $GraphBaseUri = $GraphBaseUri.TrimEnd('/')
 
     Write-Information "Installing az resource graph extension"
     az extension add --name resource-graph --only-show-errors
@@ -131,15 +135,15 @@ function Complete-SCEPmanInstallation
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
-        SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman
+        SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
     }
 
     ### Set Managed Identity permissions for CertMaster
     Write-Information "Setting up permissions for Certificate Master"
     $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster
+    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
 
-    $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId
+    $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
     $CertMasterHostName = GetAppServiceHostName -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
     $CertMasterBaseURL = "https://$CertMasterHostName"
