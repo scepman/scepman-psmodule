@@ -260,7 +260,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
   foreach ($oneSetting in $Settings) {
-    $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value)"
+    $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value.Replace('"','\"'))"
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
