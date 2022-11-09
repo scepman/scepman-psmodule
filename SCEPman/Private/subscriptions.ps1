@@ -12,11 +12,11 @@ function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
 
 function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
     Write-Information "Finding correct subscription"
-    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'Microsoft.Web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
+    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
         return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
-    
+
     $errorMessage = "We are unable to determine the correct subscription. Please start over"
     Write-Error $errorMessage
     throw $errorMessage

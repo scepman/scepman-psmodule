@@ -42,7 +42,8 @@ function New-SCEPmanClone
       [Parameter(Mandatory=$true)]$TargetAppServicePlan,
       $TargetResourceGroup,
       $TargetSubscriptionId,
-      [switch]$SearchAllSubscriptions
+      [switch]$SearchAllSubscriptions,
+      $GraphBaseUri = 'https://graph.microsoft.com'
       )
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
@@ -120,7 +121,7 @@ function New-SCEPmanClone
         $DelayForSecurityPrincipals = 3000
         Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman
+        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
         MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
 
