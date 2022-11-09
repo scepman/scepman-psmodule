@@ -52,7 +52,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
             if ($null -ne $AppServiceName) {
                 $potentialSubscription = GetSubscriptionDetailsUsingAppName -AppServiceName $AppServiceName -subscriptions $subscriptions
             } elseif ($null -ne $AppServicePlanName) {
-                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServiceName -subscriptions $subscriptions
+                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServicePlanName -subscriptions $subscriptions
             } else {
                 throw "Cannot find the subscription, because neither an App Service name nor an App Service Plan name is given"
             }
