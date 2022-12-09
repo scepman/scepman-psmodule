@@ -213,14 +213,13 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   }
 
   $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
-  $EscapedScepManAppSettingsJson = $ScepManAppSettingsJson.Replace('"','\"')
 
   if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $EscapedScepManAppSettingsJson
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson
   }
 
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $EscapedScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
   }
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
@@ -232,17 +231,8 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   }
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
-  $EscapedCertmasterAppSettingsJson = $CertmasterAppSettingsJson.Replace('"','\"')
 
-  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $EscapedCertmasterAppSettingsJson
-}
-
-function HashTable2AzJson($psHashTable) {
-  $output = ($psHashTable | ConvertTo-Json -Compress)
-  if ($PSVersionTable.PSVersion.Major -lt 7 -or ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -lt 3)) {
-    return $output -replace "`"", "\`"" # The double quoting is required by PowerShell <7.2 (see https://github.com/PowerShell/PowerShell/issues/1995 and https://docs.microsoft.com/en-us/cli/azure/use-cli-effectively?tabs=bash%2Cbash2#use-quotation-marks-in-parameters)
-  }
-  return $output
+  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
