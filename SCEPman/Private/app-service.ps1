@@ -213,13 +213,14 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   }
 
   $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
+  $EscapedScepManAppSettingsJson = $ScepManAppSettingsJson.Replace('"','\"')
 
   if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $EscapedScepManAppSettingsJson
   }
 
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $EscapedScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
   }
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
@@ -231,8 +232,9 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   }
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
+  $EscapedCertmasterAppSettingsJson = $CertmasterAppSettingsJson.Replace('"','\"')
 
-  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
+  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $EscapedCertmasterAppSettingsJson
 }
 
 function HashTable2AzJson($psHashTable) {
