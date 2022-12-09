@@ -2,7 +2,7 @@
 
 This module provides CMDlets to manage SCEPman (https://scepman.com/) installations.
 
-## Complete-SCEPmanInstallatoin
+## Complete-SCEPmanInstallation
 
 See here: https://docs.scepman.com/scepman-deployment/permissions/post-installation-config#acquire-and-run-the-scepman-installation-powershell-module
 
