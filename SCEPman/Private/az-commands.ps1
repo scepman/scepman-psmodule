@@ -15,7 +15,8 @@ function ConvertLinesToObject($lines) {
 
 $PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
 
-function CheckAzOutput($azOutput) {
+function CheckAzOutput($azOutput, $fThrowOnError) {
+    [String[]]$errorMessages = @()
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
@@ -39,18 +40,26 @@ function CheckAzOutput($azOutput) {
                     }
                 } else {
                     if ($outputElement.ToString().contains("does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/write'")) {
-                        Write-Error "You have insufficient privileges to assign roles to Managed Identities. Make sure you have the Global Admin or Privileged Role Administrator role."
+                        $errorMessages += "You have insufficient privileges to assign roles to Managed Identities. Make sure you have the Global Admin or Privileged Role Administrator role."
                     } elseif($outputElement.ToString().Contains("Forbidden")) {
-                        Write-Error "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
+                        $errorMessages += "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
                     }
 
-                    #Write-Error $outputElement
-                    throw $outputElement
+                    $errorMessages += $outputElement
                 }
             } else {
                 Write-Output $outputElement # add to return value of this function
             }
         }
+    }
+    if ($errorMessages.Count -gt 0) {
+        $ErrorMessageOneLiner = [String]::Join("`r`n", $errorMessages)
+        if ($fThrowOnError) {
+            throw $ErrorMessageOneLiner
+        } else {
+            Write-Error $ErrorMessageOneLiner
+        }
+
     }
 }
 
@@ -114,7 +123,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
       $azErrorCode = $LastExitCode
       try {
-        $lastAzOutput = CheckAzOutput($lastAzOutput)
+        $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
             # If we were request to check that the permission is there and there was no error, do the check now.
             # However, if the permission has been there previously already, we can skip the check
         if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
@@ -131,18 +140,25 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       }
       if ($azErrorCode -ne 0) {
         ++$retryCount
-        Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep"
+        Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep because Error Code is $azErrorCode"
         Start-Sleep ($retryCount * $SLEEP_FACTOR) # Sleep for some seconds, as the grant sometimes only works after some time
       }
     }
     if ($azErrorCode -ne 0 ) {
       if ($null -eq $lastAzOutput) {
-        $lastAzOutput = "no az output"
+        $readableAzOutput = "no az output"
+      } else {
+            # might be an object[]
+        $readableAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $false
       }
-      Write-Error "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
-      throw "Error $azErrorCode when executing $azCommand : $($lastAzOutput.ToString())"
+      Write-Error "Error $azErrorCode when executing $azCommand : $readableAzOutput"
+      throw "Error $azErrorCode when executing $azCommand : $readableAzOutput"
     }
     else {
       return $lastAzOutput
     }
 }
+
+# function OutputToString($azOutput) {
+#     if 
+# }

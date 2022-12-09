@@ -12,7 +12,7 @@ function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
 
 function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
     Write-Information "Finding correct subscription"
-    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'Microsoft.Web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
+    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
         return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
@@ -52,7 +52,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
             if ($null -ne $AppServiceName) {
                 $potentialSubscription = GetSubscriptionDetailsUsingAppName -AppServiceName $AppServiceName -subscriptions $subscriptions
             } elseif ($null -ne $AppServicePlanName) {
-                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServiceName -subscriptions $subscriptions
+                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServicePlanName -subscriptions $subscriptions
             } else {
                 throw "Cannot find the subscription, because neither an App Service name nor an App Service Plan name is given"
             }
