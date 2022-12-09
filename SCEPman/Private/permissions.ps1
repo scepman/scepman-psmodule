@@ -22,9 +22,9 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
 
     ForEach($resourcePermission in $resourcePermissions) {
         if($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) {
-            Write-Verbose "Permission is already there (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId)"
+            Write-Verbose "Permission is already there (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
         } else {
-            Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId)"
+            Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
         }
@@ -66,7 +66,8 @@ function GetAzureADApp($name) {
 }
 
 function CreateServicePrincipal($appId, [bool]$hideApp) {
-    $sp = ConvertLinesToObject -lines $(az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors)
+    $azOutput = az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors
+    $sp = ConvertLinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq $sp) {
         #App Registration SP doesn't exist.
         $sp = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
@@ -78,7 +79,8 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
 }
 
 function AddDelegatedPermissionToCertMasterApp($appId) {
-    $certMasterPermissions = ConvertLinesToObject -lines $(CheckAzOutput (az ad app permission list --id $appId --query "[0]" 2>&1))
+    $azOutput = az ad app permission list --id $appId --query "[0]" 2>&1
+    $certMasterPermissions = ConvertLinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
         $null = ExecuteAzCommandRobustly -azCommand "az ad app permission add --id $appId --api $MSGraphAppId --api-permissions `"$MSGraphUserReadPermission=Scope`" --only-show-errors"
     }

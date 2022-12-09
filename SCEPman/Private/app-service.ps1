@@ -130,7 +130,8 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
 
-  $null = CheckAzOutput(az webapp deployment slot create --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --configuration-source $SCEPmanAppServiceName)
+  $azOutput = az webapp deployment slot create --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --configuration-source $SCEPmanAppServiceName
+  $null = CheckAzOutput -azOutput $azOutput -fThrowOnError $true
   Write-Information "Created SCEPman Deployment Slot $DeploymentSlotName"
 
   return ConvertLinesToObject -lines $(az webapp identity assign --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --identities [system])
@@ -232,14 +233,6 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
 
   $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
-}
-
-function HashTable2AzJson($psHashTable) {
-  $output = ($psHashTable | ConvertTo-Json -Compress)
-  if ($PSVersionTable.PSVersion.Major -lt 7 -or ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -lt 3)) {
-    return $output -replace "`"", "\`"" # The double quoting is required by PowerShell <7.2 (see https://github.com/PowerShell/PowerShell/issues/1995 and https://docs.microsoft.com/en-us/cli/azure/use-cli-effectively?tabs=bash%2Cbash2#use-quotation-marks-in-parameters)
-  }
-  return $output
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
