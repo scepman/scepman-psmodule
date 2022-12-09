@@ -42,7 +42,8 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
-  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifest -hideApp $true
+  $ScepmanManifestJson = HashTable2AzJson -psHashTable $ScepmanManifest
+  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifestJson -hideApp $true
   $spsc = CreateServicePrincipal -appId $($appregsc.appId)
   if (AzUsesAADGraph) {
     $servicePrincipalScepmanId = $spsc.objectId
@@ -68,7 +69,8 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
 
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifest -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
+  $CertmasterManifestJson = HashTable2AzJson -psHashTable $CertmasterManifest
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifestJson -replyUrls `"$CertMasterBaseURL/signin-oidc`" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"

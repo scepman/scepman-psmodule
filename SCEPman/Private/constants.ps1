@@ -12,27 +12,23 @@ New-Variable -Name "MSGraphIdentityRiskyUserReadPermission" -Value "dc5007c0-2d7
 New-Variable -Name "IntuneAppId" -Value "c161e42e-d4df-4a3d-9b42-e7a3c31f59d4" -Scope "Script" -Option ReadOnly # Well-known App ID of the Intune API
 New-Variable -Name "IntuneSCEPChallengePermission" -Value "39d724e8-6a34-4930-9a36-364082c35716" -Scope "Script" -Option ReadOnly
 
-# JSON defining App Role that CertMaster uses to authenticate against SCEPman
-New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value '[{
-        \"allowedMemberTypes\": [
-          \"Application\"
-        ],
-        \"description\": \"Request certificates via the raw CSR API\",
-        \"displayName\": \"CSR Requesters\",
-        \"isEnabled\": \"true\",
-        \"value\": \"CSR.Request\"
-    }]'.Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
+# To-be JSON defining App Role that CertMaster uses to authenticate against SCEPman
+New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@{
+  'allowedMemberTypes' = @( 'Application' )
+  'description' = "Request certificates via the raw CSR API"
+  'displayName' = 'CSR Requesters'
+  'isEnabled' = $true
+  'value' = 'CSR.Request'
+})
 
-# JSON defining App Role that User can have to when authenticating against CertMaster
-New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value '[{
-    \"allowedMemberTypes\": [
-      \"User\"
-    ],
-    \"description\": \"Full access to all SCEPman CertMaster functions like requesting and managing certificates\",
-    \"displayName\": \"Full Admin\",
-    \"isEnabled\": \"true\",
-    \"value\": \"Admin.Full\"
-}]'.Replace("`r", [String]::Empty).Replace("`n", [String]::Empty)
+# To-be JSON defining App Role that User can have to when authenticating against CertMaster
+New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value @(@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Full access to all SCEPman CertMaster functions like requesting and managing certificates"
+  'displayName' = 'Full Admin'
+  'isEnabled' = $true
+  'value' = 'Admin.Full'
+})
 
 New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
   prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"

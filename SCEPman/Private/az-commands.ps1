@@ -159,6 +159,11 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
     }
 }
 
-# function OutputToString($azOutput) {
-#     if 
-# }
+function HashTable2AzJson($psHashTable) {
+    $output = ConvertTo-Json -Compress -InputObject $psHashTable
+    if ($PSVersionTable.PSVersion.Major -lt 7 -or ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -lt 3) `
+      -or $PSVersionTable.OS.StartsWith("Microsoft Windows")) { # The double quoting is now also required on PS 7.3.0 on Windows ... does it depend on the az version?
+      return $output -replace '"', '\"' # The double quoting is required by PowerShell <7.2 (see https://github.com/PowerShell/PowerShell/issues/1995 and https://docs.microsoft.com/en-us/cli/azure/use-cli-effectively?tabs=bash%2Cbash2#use-quotation-marks-in-parameters)
+    }
+      return $output
+}
