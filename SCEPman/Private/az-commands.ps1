@@ -46,9 +46,6 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     }
 
                     $errorMessages += $outputElement
-                    if ($fThrowOnError) {
-                        throw ([String]::Join("`r`n", $errorMessages))
-                    }
                 }
             } else {
                 Write-Output $outputElement # add to return value of this function
@@ -56,7 +53,13 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
         }
     }
     if ($errorMessages.Count -gt 0) {
-        Write-Error ([String]::Join("`r`n", $errorMessages))
+        $ErrorMessageOneLiner = [String]::Join("`r`n", $errorMessages)
+        if ($fThrowOnError) {
+            throw $ErrorMessageOneLiner
+        } else {
+            Write-Error $ErrorMessageOneLiner
+        }
+
     }
 }
 
