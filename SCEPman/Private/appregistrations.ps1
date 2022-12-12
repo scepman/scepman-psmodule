@@ -28,6 +28,11 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
       $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
       Write-Verbose "Created app registration $name (App ID $($azureAdAppReg.appId))"
 
+        # Check whether the AppRoles were added correctly
+      if ($azureAdAppReg.appRoles.Count -le 0) {
+        Write-Error "The app registration $name (App ID $($azureAdAppReg.appId) has no app roles. This is likely an error that must be fixed."
+      }
+
       # REVISIT: Once there is a solution for https://github.com/Azure/azure-cli/issues/22810, we can upload the logo
 #      $graphEndpointForAppLogo = "https://graph.microsoft.com/v1.0/applications/$($azureAdAppReg.id)/logo"
 #      az rest --method put --url $graphEndpointForAppLogo --body '@testlogo.png' --headers Content-Type=image/png
