@@ -29,7 +29,7 @@ New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@
 },
 @{
   'allowedMemberTypes' = @( 'Application' )
-  'description' = "Request certificates via the raw CSR API with the caller being responsible for storeing the certificates"
+  'description' = "Request certificates via the raw CSR API with the caller being responsible for storing the certificates"
   'displayName' = 'Direct CSR Requesters'
   'isEnabled' = $true
   'value' = 'CSR.Request.Direct'
