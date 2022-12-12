@@ -78,7 +78,10 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
     $servicePrincipalScepmanId = $spsc.id
   }
 
-  $ScepManSubmitCSRPermission = $appregsc.appRoles[0].id
+  $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
+  if ($null -eq $ScepManSubmitCSRPermission) {
+    throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
+  }
 
   # Expose SCEPman API
   ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
