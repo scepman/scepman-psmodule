@@ -1,9 +1,11 @@
-function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
+function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
   $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
+
   if($null -eq $azureAdAppReg) {
       Write-Information "Creating app registration $name, as it does not exist yet"
 
-      $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$manifest'"
+      $appRoleManifestJson = HashTable2AzJson -psHashTable $appRoleAssignments
+      $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$appRoleManifestJson'"
       if ($null -ne $replyUrls) {
         if (AzUsesAADGraph) {
           $azAppRegistrationCommand += " --reply-urls '$replyUrls'"
@@ -38,6 +40,27 @@ function RegisterAzureADApp($name, $manifest, $replyUrls = $null, $homepage = $n
 #      az rest --method put --url $graphEndpointForAppLogo --body '@testlogo.png' --headers Content-Type=image/png
   } else {
     Write-Information "Existing app registration $name found (App ID $($azureAdAppReg.appId))"
+
+    # check whether we need to update the roles
+    $anything2Update = $false
+    $updatedAppRoles = $azureAdAppReg.appRoles
+    foreach ($requiredAppRole in $appRoleAssignments) {
+      $role2Update = $updatedAppRoles.Where({ $_.value -eq $requiredAppRole.value}, "First")
+      if ($role2Update.Count -eq 0) {
+        $anything2Update = $true
+        Write-Verbose "Required role $($requiredAppRole.displayName) will be added to existing app registration"
+        $updatedAppRoles += ,$requiredAppRole
+      }
+    }
+
+    if ($anything2Update) {
+      Write-Information "Adding new roles to app registration $name"
+      $appRolesJson = HashTable2AzJson -psHashTable $updatedAppRoles
+      ExecuteAzCommandRobustly "az ad app update --id $($azureAdAppReg.appId) --app-roles '$appRolesJson'"
+
+        # Reload app registration with new roles
+      $azureAdAppReg = ConvertLinesToObject -lines $(az ad app show --id $azureAdAppReg.id)
+    }
   }
 
   return $azureAdAppReg
@@ -47,8 +70,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
-  $ScepmanManifestJson = HashTable2AzJson -psHashTable $ScepmanManifest
-  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -manifest $ScepmanManifestJson -hideApp $true
+  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true
   $spsc = CreateServicePrincipal -appId $($appregsc.appId)
   if (AzUsesAADGraph) {
     $servicePrincipalScepmanId = $spsc.objectId
@@ -74,8 +96,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   ### CertMaster App Registration
 
   # Register CertMaster App
-  $CertmasterManifestJson = HashTable2AzJson -psHashTable $CertmasterManifest
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -manifest $CertmasterManifestJson -replyUrls "$CertMasterBaseURL/signin-oidc" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls "$CertMasterBaseURL/signin-oidc" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
