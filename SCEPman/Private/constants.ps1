@@ -19,6 +19,20 @@ New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@
   'displayName' = 'CSR Requesters'
   'isEnabled' = $true
   'value' = 'CSR.Request'
+},
+@{
+  'allowedMemberTypes' = @( 'Application' )
+  'description' = "Request certificates via the raw CSR API that automatically stores issued certificates"
+  'displayName' = 'CSR DB Requesters'
+  'isEnabled' = $true
+  'value' = 'CSR.Request.Db'
+},
+@{
+  'allowedMemberTypes' = @( 'Application' )
+  'description' = "Request certificates via the raw CSR API with the caller being responsible for storeing the certificates"
+  'displayName' = 'Direct CSR Requesters'
+  'isEnabled' = $true
+  'value' = 'CSR.Request.Direct'
 })
 
 # To-be JSON defining App Role that User can have to when authenticating against CertMaster
