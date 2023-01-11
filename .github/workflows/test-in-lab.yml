@@ -1,0 +1,39 @@
+
+name: Test in Lab
+
+# Controls when the action will run. Workflow runs for production and beta version pushes
+on:
+  push:
+    branches:
+      - production
+      - beta
+      - main
+
+jobs:
+  test-run:
+    environment: AzureLab
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Log in with Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+          enable-AzPSSession: true
+
+    - name: Complete SCEPman installation in PowerShell
+      uses: azure/powershell@v1
+      with:
+        azPSVersion: "latest"
+        inlineScript: |
+          cd SCEPman
+          Import-Module SCEPman.psd1
+          $RandomAppRegNumber = Get-Random
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{APP_SERVICE_NAME}} -AzureADAppNameForSCEPman "scepman-api-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-$RandomAppRegNumber" -Verbose 6>&1
