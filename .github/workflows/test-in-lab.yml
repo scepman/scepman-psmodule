@@ -8,11 +8,20 @@ on:
       - production
       - beta
       - main
+    Schedule: 
+      -cron: '10 1 * * 0'
 
+# The Test requires an AAD App Registration whose Service Principal has permissions to create apps and assign role assignments as well as read and write the SCEPman Azure resources under test. Specifically:
+# - Contributor permissions on the SCEPman resource group
+# - Application Administrator role in AAD to create and delete app registrations
+# - Privileged Role Administrator to assign Role Assignments to the newly created app registrations
 jobs:
   test-run:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
     environment: AzureLab
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       id-token: write
       contents: read
@@ -30,16 +39,13 @@ jobs:
           enable-AzPSSession: true
 
       - name: Complete SCEPman installation in PowerShell
-        uses: azure/powershell@v1
-        with:
-          azPSVersion: "latest"
-          failOnStandardError: true
-          inlineScript: |
-            cd SCEPman
-            Import-Module ./SCEPman.psd1
-            $RandomAppRegNumber = Get-Random
-            Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -Verbose 6>&1
-            $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
-            az ad app delete --id $scepmanappid
-            $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
-            az ad app delete --id $certmasterappid
+        shell: pwsh
+        run: |
+          cd SCEPman
+          Import-Module ./SCEPman.psd1
+          $RandomAppRegNumber = Get-Random
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -Verbose 6>&1
+          $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
+          az ad app delete --id $scepmanappid
+          $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
+          az ad app delete --id $certmasterappid
