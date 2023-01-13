@@ -24,7 +24,8 @@ jobs:
         psver: [latest, preview]
     environment: AzureLab
     runs-on: ${{ matrix.os }}
-    container: mcr.microsoft.com/powershell:${{ matrix.psver }}
+      # containers only run on Linux
+    container: ${{ matrix.os == 'ubuntu-latest' && mcr.microsoft.com/powershell:${{ matrix.psver }} || null }}
     permissions:
       id-token: write
       contents: read
@@ -52,7 +53,7 @@ jobs:
 
       - name: Log in with Azure
         if: ${{ !env.ACT }}
-        uses: bb-froggy/login@error-message-on-throw
+        uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
