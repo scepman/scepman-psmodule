@@ -18,6 +18,7 @@ on:
 jobs:
   test-run:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
         psver: [latest, preview]
@@ -30,19 +31,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Install specific PowerShell version
-        if: matrix.ps-ver == 'local-install-test'
-        shell: bash
-        run: |
-          # Download the powershell '.tar.gz' archive
-          curl -L -o powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.0-preview.1/powershell-7.4.0-preview.1-linux-x64.tar.gz
-          # Create the target folder where powershell will be placed
-          mkdir -p powershell-binaries
-          # Expand powershell to the target folder
-          tar zxf powershell.tar.gz -C powershell-binaries
-          # Set execute permissions
-          chmod +x powershell-binaries/pwsh
 
       - name: Install az for Windows
         if: startsWith(matrix.os, 'windows')
@@ -57,8 +45,9 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: |
-          sudo apt-get install curl
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          apt-get update
+          apt-get install curl
+          curl -sL https://aka.ms/InstallAzureCLIDeb | bash
         # https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt
 
       - name: Log in with Azure
@@ -77,7 +66,7 @@ jobs:
           cd SCEPman
           Import-Module ./SCEPman.psd1
           $RandomAppRegNumber = Get-Random
-          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -Verbose 6>&1
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ env.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -Verbose 6>&1
           $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
