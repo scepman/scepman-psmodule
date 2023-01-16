@@ -22,9 +22,13 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]
         psver: [latest, preview]
+        exclude:
+            # This does not work yet, as Windows does not support containers.
+          - os: windows-latest
+            psver: preview
     environment: AzureLab
     runs-on: ${{ matrix.os }}
-      # containers only run on Linux
+      # containers only run on Linux, this weird syntax seems to do it
     container: ${{ matrix.os == 'ubuntu-latest' && format('mcr.microsoft.com/powershell:{0}', matrix.psver) || null }}
     permissions:
       id-token: write
