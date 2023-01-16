@@ -25,7 +25,7 @@ jobs:
     environment: AzureLab
     runs-on: ${{ matrix.os }}
       # containers only run on Linux
-    container: ${{ matrix.os == 'ubuntu-latest' && mcr.microsoft.com/powershell:${{ matrix.psver }} || null }}
+    container: ${{ matrix.os == 'ubuntu-latest' && format('mcr.microsoft.com/powershell:{0}', matrix.psver) || null }}
     permissions:
       id-token: write
       contents: read
