@@ -54,7 +54,8 @@ function Complete-SCEPmanInstallation
         )
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
-    Write-Verbose "Invoked $($MyInvocation.MyCommand) from SCEPman Module version $version"
+    Write-Verbose "Invoked $($MyInvocation.MyCommand)"
+    Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
