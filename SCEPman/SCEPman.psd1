@@ -31,7 +31,7 @@ Copyright = '(c) 2022 glueckkanja-gab AG. All rights reserved.'
 Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '7.0'
+#PowerShellVersion = ''
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
