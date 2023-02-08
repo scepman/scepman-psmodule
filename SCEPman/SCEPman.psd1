@@ -10,7 +10,7 @@
 RootModule = 'SCEPman.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.8.10'
+ModuleVersion = '1.8.12'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
