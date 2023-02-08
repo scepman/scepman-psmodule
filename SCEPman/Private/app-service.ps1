@@ -84,17 +84,17 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
         $selectedSlot = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
     }
-    $CertmasterAppSettings = @{
+    $CertmasterAppSettingsTable = @{
       WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
       "AppConfig:AuthConfig:TenantId" = $TenantId;
       "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
-    } | ConvertTo-Json -Compress
-    $CertMasterAppSettings = $CertmasterAppSettings.Replace('"', '\"')
+    }
+    $CertMasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettingsTable
 
     Write-Verbose 'Configuring CertMaster web app settings'
     $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
     $null = az webapp update --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --https-only $true
-    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettings
+    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettingsJson
   }
 
   return $CertMasterAppServiceName
