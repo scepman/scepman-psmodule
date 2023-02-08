@@ -30,6 +30,8 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     $script:Snail_Mode = $true
                     $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
                     Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
+                } elseif ($outputElement.ToString().EndsWith("CryptographyDeprecationWarning: Blowfish has been deprecated")) {
+                    # Ignore, this is an issue of az 2.45.0
                 } elseif ($outputElement.ToString().StartsWith("WARNING")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
