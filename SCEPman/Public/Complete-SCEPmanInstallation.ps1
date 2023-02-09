@@ -29,6 +29,9 @@
  .Parameter AzureADAppNameForCertMaster
   Name of the Azure AD app registration for SCEPman Certificate Master
 
+ .PARAMETER GraphBaseUri
+  URI of Microsoft Graph. This is https://graph.microsoft.com/ for the global cloud (default) and https://graph.microsoft.us/ for the GCC High cloud.
+
  .Example
    # Configure SCEPman in your tenant where the app service name is as-scepman
    Configure-SCEPman -SCEPmanAppServiceName as-scepman
