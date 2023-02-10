@@ -73,9 +73,19 @@ function New-IntermediateCA
   Write-Output $csr
 }
 
-function Get-IntermediateCaPolicy {
- 
-  return $global:subCaPolicy
+function Get-IntermediateCaPolicy () {
+  [CmdletBinding()]
+  param(
+      $Organization
+  )
+
+  $policy = $global:subCaPolicy
+  if (-not [string]::IsNullOrWhiteSpace($Organization)) {
+    $Organization = $Organization -replace ',','\,'
+    $policy.policy.x509_props.subject += ",O=$Organization"
+  } 
+
+  return $policy
 }
 
 function Set-IntermediateCaPolicy () {
@@ -89,5 +99,5 @@ function Set-IntermediateCaPolicy () {
 
 function Reset-IntermediateCaPolicy () {
 
-  $global:subCaPolicy = $global:rsaPolicyTemplate
+  $global:subCaPolicy = $RSAPolicyTemplate
 }
