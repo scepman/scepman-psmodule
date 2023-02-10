@@ -22,11 +22,11 @@ function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceNam
   return $configuredKeyVaultURL
 }
 
-function New-IntermediateCaCsr ($vaultUrl, $certificateName) {
+function New-IntermediateCaCsr ($vaultUrl, $certificateName, $policy) {
 
   $vaultDomain = $vaultUrl -replace '^https://(?<vaultname>[^.]+)\.(?<vaultdomain>[^/]+)/?$','https://${vaultdomain}'
 
-  $caPolicyJson = HashTable2AzJson -psHashTable $global:subCaPolicy
+  $caPolicyJson = HashTable2AzJson -psHashTable $policy
 
   # This az command seems not to work :-(
   #az keyvault certificate create --policy @C:\temp\certs\keyvault\rsa-policy.json --vault-name $vaultName --name $certificateName
@@ -39,5 +39,3 @@ function New-IntermediateCaCsr ($vaultUrl, $certificateName) {
 
   return $creationResponse.csr
 }
-
-$global:subCaPolicy = $RSAPolicyTemplate

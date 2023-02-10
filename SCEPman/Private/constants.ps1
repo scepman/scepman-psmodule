@@ -68,7 +68,7 @@ New-Variable -Name RSAPolicyTemplate -Scope "Script" -Option Readonly -Value @{
       "contentType" = "application/x-pkcs12"
     }
     "x509_props" = @{
-      "subject" = "CN=SCEPman Intermediate CA"
+      "subject" = "CN=SCEPman Intermediate CA,OU={{TenantId}}"
       "ekus" = @(
         "2.5.29.37.0",        # Any
         "1.3.6.1.5.5.7.3.2",  # Client Authentication
