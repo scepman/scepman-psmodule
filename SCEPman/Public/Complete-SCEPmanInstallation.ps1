@@ -29,6 +29,9 @@
  .Parameter AzureADAppNameForCertMaster
   Name of the Azure AD app registration for SCEPman Certificate Master
 
+ .PARAMETER GraphBaseUri
+  URI of Microsoft Graph. This is https://graph.microsoft.com/ for the global cloud (default) and https://graph.microsoft.us/ for the GCC High cloud.
+
  .Example
    # Configure SCEPman in your tenant where the app service name is as-scepman
    Configure-SCEPman -SCEPmanAppServiceName as-scepman
@@ -56,6 +59,9 @@ function Complete-SCEPmanInstallation
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand)"
     Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
+
+    $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
+    Write-Information "Detected az version: $cliVersion"
 
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
