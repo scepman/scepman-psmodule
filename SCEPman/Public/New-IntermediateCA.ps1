@@ -66,15 +66,18 @@ function New-IntermediateCA
 
   $certificateName = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName'].value | [0]" --output tsv
   Write-Information "Found Key Vault configuration with URL $vaultUrl and certificate name $certificateName. Creating certificate request in Key Vault ..."
+
+  $policy = $global:subCaPolicy
+  $policy.policy.x509_props.subject = $policy.policy.x509_props.subject.Replace('{{TenantId}}', $subscription.tenantId)
   
-  $csr = New-IntermediateCaCsr -vaultUrl $vaultUrl -certificateName $certificateName
+  $csr = New-IntermediateCaCsr -vaultUrl $vaultUrl -certificateName $certificateName -policy $policy
 
   Write-Information "Created a CSR. Submit the CSR to a CA and merge the signed certificate in the Azure Portal"
   Write-Output $csr
 }
 
-function Get-IntermediateCaPolicy {
- 
+function Get-IntermediateCaPolicy () {
+
   return $global:subCaPolicy
 }
 
@@ -88,6 +91,19 @@ function Set-IntermediateCaPolicy () {
 }
 
 function Reset-IntermediateCaPolicy () {
+  [CmdletBinding()]
+  param(
+    $Organization
+  )
 
-  $global:subCaPolicy = $global:rsaPolicyTemplate
+  $policy = Get-RsaDefaultPolicy
+
+  if (-not [string]::IsNullOrWhiteSpace($Organization)) {
+    $Organization = $Organization -replace ',','\,'
+    $policy.policy.x509_props.subject += ",O=$Organization"
+  } 
+
+  Set-IntermediateCaPolicy -Policy $policy
 }
+
+Reset-IntermediateCaPolicy
