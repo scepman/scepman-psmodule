@@ -5,12 +5,27 @@ $script:Snail_Mode = $false
 $Sleep_Factor = 1
 $Snail_Maximum_Sleep_Factor = 90 # times ten is 15 minutes
 
-function Convert-LinesToObject($lines) {
-    if($null -eq $lines) {
-        return $null
+function Convert-LinesToObject {
+    param (
+        [Parameter(ValueFromPipeline = $true)]
+        [string[]]
+        $Lines
+    )
+
+    BEGIN {
+        $linesJsonBuilder = new-object System.Text.StringBuilder
     }
-    $linesJson = [System.String]::Concat($lines)
-    return ConvertFrom-Json $linesJson
+
+    PROCESS {
+        if($null -eq $Lines) {
+            return $null
+        }
+        $null = $linesJsonBuilder.Append([string]::Concat($Lines))
+    }
+
+    END {
+        return ConvertFrom-Json $linesJsonBuilder.ToString()
+    }
 }
 
 $PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
