@@ -154,6 +154,8 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
+  Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Marking SCEPman App Service as configured (timestamp $managedIdentityEnabledOn)"
+
   # The docs (2.37) say that az webapp config appsettings set takes a space separated list of KEY=VALUE.
   # For --settings, we use JSON, contrary to documentation
   # Neither works for --slot-settings in tests :-(. Thus, the individual calls
@@ -199,7 +201,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
 }
 
 function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $DeploymentSlots = @()) {
-  Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and CertMaster web app settings"
+  Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and Certificate Master web app settings"
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
@@ -224,6 +226,8 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
     ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
   }
 
+  Write-Verbose "Setting Certificate Master configuration"
+
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
   $CertmasterAppSettings = @{
     'AppConfig:AuthConfig:ApplicationId' = $CertMasterAppId
@@ -234,7 +238,7 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
 
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson"
+  $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings '$CertmasterAppSettingsJson'"
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
