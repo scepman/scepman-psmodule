@@ -5,7 +5,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
   $strangeCertMasterFound = $false
 
-  $rgwebapps =  ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
+  $rgwebapps =  Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
@@ -34,7 +34,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 function SelectBestDotNetRuntime {
   try
   {
-      $runtimes = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows")
+      $runtimes = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows")
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
@@ -50,11 +50,11 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
     $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
   } else {
     # Check whether a cert master app service with the passed in name exists
-    $CertMasterWebApps = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
+    $CertMasterWebApps = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
     $ShallCreateCertMasterAppService = 0 -eq $CertMasterWebApps.count
   }
 
-  $scwebapp = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'")
+  $scwebapp = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'")
 
   if($null -eq $CertMasterAppServiceName) {
     $CertMasterAppServiceName = $scwebapp.data.name
@@ -81,7 +81,7 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
     # Do all the configuration that the ARM template does normally
     $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
     if ($null -ne $DeploymentSlotName) {
-        $selectedSlot = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
+        $selectedSlot = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
     }
     $CertmasterAppSettingsTable = @{
@@ -111,7 +111,7 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
-  $asp = ConvertLinesToObject -lines $(az appservice plan list -g $ResourceGroup --query "[?name=='$AppServicePlanName']" --subscription $SubscriptionId)
+  $asp = Convert-LinesToObject -lines $(az appservice plan list -g $ResourceGroup --query "[?name=='$AppServicePlanName']" --subscription $SubscriptionId)
   return $asp
 }
 
@@ -134,11 +134,11 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
   $null = CheckAzOutput -azOutput $azOutput -fThrowOnError $true
   Write-Information "Created SCEPman Deployment Slot $DeploymentSlotName"
 
-  return ConvertLinesToObject -lines $(az webapp identity assign --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --identities [system])
+  return Convert-LinesToObject -lines $(az webapp identity assign --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --identities [system])
 }
 
 function GetDeploymentSlots($appServiceName, $resourceGroup) {
-  $deploymentSlots = ConvertLinesToObject -lines $(az webapp deployment slot list --name $appServiceName --resource-group $resourceGroup --query '[].name')
+  $deploymentSlots = Convert-LinesToObject -lines $(az webapp deployment slot list --name $appServiceName --resource-group $resourceGroup --query '[].name')
   if ($null -eq $deploymentSlots) {
     return @()
   } else {
@@ -260,8 +260,8 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
-  $slotSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?slotSetting]")
-  $unboundSettings = ConvertLinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?!slotSetting]")
+  $slotSettings = Convert-LinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?slotSetting]")
+  $unboundSettings = Convert-LinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?!slotSetting]")
 
   Write-Information "Read $($slotSettings.Count) slot settings and $($unboundSettings.Count) other settings from app $AppServiceName"
 
