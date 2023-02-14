@@ -8,8 +8,8 @@ on:
       - production
       - beta
 #      - main
-    Schedule: 
-      -cron: '10 1 * * 0'
+  schedule: 
+    - cron: '10 1 * * 0'
 
 # The Test requires an AAD App Registration whose Service Principal has permissions to create apps and assign role assignments as well as read and write the SCEPman Azure resources under test. Specifically:
 # - Contributor permissions on the SCEPman resource group
