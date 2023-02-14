@@ -9,9 +9,9 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
-        $scepmanurlsettingcount = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | length(@)"
+        $scepmanurlsettingcount = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | length(@)""")
         if($scepmanurlsettingcount -eq 1) {
-            $scepmanUrl = az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query "[?name=='AppConfig:SCEPman:URL'].value | [0]" --output tsv
+            $scepmanUrl = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | [0]"" --output tsv")
             $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
             if($hascorrectscepmanurl -eq $true) {
               Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
@@ -34,7 +34,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 function SelectBestDotNetRuntime {
   try
   {
-      $runtimes = ConvertLinesToObject -lines $(az webapp list-runtimes --os windows)
+      $runtimes = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows")
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
