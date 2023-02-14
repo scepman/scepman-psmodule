@@ -25,7 +25,7 @@ Author = 'glueckkanja-gab'
 CompanyName = 'glueckkanja-gab'
 
 # Copyright statement for this module
-Copyright = '(c) 2022 glueckkanja-gab AG. All rights reserved.'
+Copyright = '(c) 2023 glueckkanja-gab AG. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'
@@ -67,7 +67,16 @@ Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Complete-SCEPmanInstallation', 'New-SCEPmanDeploymentSlot', 'New-SCEPmanClone', 'Register-SCEPmanCertMaster')
+FunctionsToExport = @(
+    'Complete-SCEPmanInstallation', 
+    'New-SCEPmanDeploymentSlot', 
+    'New-SCEPmanClone', 
+    'Register-SCEPmanCertMaster',
+    'New-IntermediateCA',
+    'Get-IntermediateCaPolicy',
+    'Set-IntermediateCaPolicy',
+    'Reset-IntermediateCaPolicy'
+)
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()

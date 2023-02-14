@@ -29,6 +29,9 @@
  .Parameter AzureADAppNameForCertMaster
   Name of the Azure AD app registration for SCEPman Certificate Master
 
+ .PARAMETER GraphBaseUri
+  URI of Microsoft Graph. This is https://graph.microsoft.com/ for the global cloud (default) and https://graph.microsoft.us/ for the GCC High cloud.
+
  .Example
    # Configure SCEPman in your tenant where the app service name is as-scepman
    Configure-SCEPman -SCEPmanAppServiceName as-scepman
@@ -131,7 +134,7 @@ function Complete-SCEPmanInstallation
     SwitchToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
     SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
 
-    Write-Information "Connection Web Apps to Storage Account"
+    Write-Information "Connecting Web Apps to Storage Account"
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     ### Set managed identity permissions for SCEPman

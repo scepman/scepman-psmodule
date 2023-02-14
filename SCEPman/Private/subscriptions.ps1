@@ -1,6 +1,6 @@
 function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
     Write-Information "Finding correct subscription"
-    $scWebAppsAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$AppServiceName' | project name, subscriptionId")
+    $scWebAppsAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$AppServiceName' | project name, subscriptionId")
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
         return $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
@@ -12,7 +12,7 @@ function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
 
 function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
     Write-Information "Finding correct subscription"
-    $scPlansAcrossAllAccessibleSubscriptions = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
+    $scPlansAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
         return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
     }
@@ -24,7 +24,7 @@ function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions
 
 function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) {
   $potentialSubscription = $null
-  $subscriptions = ConvertLinesToObject -lines $(az account list)
+  $subscriptions = Convert-LinesToObject -lines $(az account list)
   if($false -eq [String]::IsNullOrWhiteSpace($SubscriptionId)) {
     $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $SubscriptionId }
     if($null -eq $potentialSubscription) {
@@ -72,7 +72,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
 }
 
 function GetResourceGroup ($SCEPmanAppServiceName) {
-    $scWebAppsInTheSubscription = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$SCEPmanAppServiceName' | project name, resourceGroup")
+    $scWebAppsInTheSubscription = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name == '$SCEPmanAppServiceName' | project name, resourceGroup")
     if($null -ne $scWebAppsInTheSubscription -and $($scWebAppsInTheSubscription.count) -eq 1) {
         return $scWebAppsInTheSubscription.data[0].resourceGroup
     }
@@ -81,7 +81,7 @@ function GetResourceGroup ($SCEPmanAppServiceName) {
 }
 
 function GetResourceGroupFromPlanName ($AppServicePlanName) {
-    $asplansInTheSubscription = ConvertLinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, resourceGroup")
+    $asplansInTheSubscription = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name == '$AppServicePlanName' | project name, resourceGroup")
     if($null -ne $asplansInTheSubscription -and $($asplansInTheSubscription.count) -eq 1) {
         return $asplansInTheSubscription.data[0].resourceGroup
     }

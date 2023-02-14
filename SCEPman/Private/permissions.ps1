@@ -1,9 +1,9 @@
 function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNameParam = $null) {
     $identityShowParams = "";
     if($null -ne $slotNameParam) {
-        $identityShowParams = "--slot", $slotNameParam
+        $identityShowParams = "--slot '$slotNameParam'"
     }
-    return ConvertLinesToObject -lines $(az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam @identityShowParams)
+    return ExecuteAzCommandRobustly -azCommand "az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam $identityShowParams" | Convert-LinesToObject
 }
 
 function GetAzureResourceAppId($appId) {
@@ -62,15 +62,15 @@ function GetCertMasterResourcePermissions() {
 }
 
 function GetAzureADApp($name) {
-    return ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
+    return Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
 }
 
 function CreateServicePrincipal($appId, [bool]$hideApp) {
     $azOutput = az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors
-    $sp = ConvertLinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
+    $sp = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq $sp) {
         #App Registration SP doesn't exist.
-        $sp = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
+        $sp = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
         if ($hideApp) {
             $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
         }
@@ -80,11 +80,11 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
 
 function AddDelegatedPermissionToCertMasterApp($appId) {
     $azOutput = az ad app permission list --id $appId --query "[0]" 2>&1
-    $certMasterPermissions = ConvertLinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
+    $certMasterPermissions = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
         $null = ExecuteAzCommandRobustly -azCommand "az ad app permission add --id $appId --api $MSGraphAppId --api-permissions `"$MSGraphUserReadPermission=Scope`" --only-show-errors"
     }
-    $certMasterPermissionsGrantsString = ConvertLinesToObject -lines $(CheckAzOutput(az ad app permission list-grants --id $appId --query "[0].scope" 2>&1))
+    $certMasterPermissionsGrantsString = Convert-LinesToObject -lines $(CheckAzOutput(az ad app permission list-grants --id $appId --query "[0].scope" 2>&1))
     if ($null -eq $certMasterPermissionsGrantsString) {
         $requiresPermissionGrant = $true
     } else {

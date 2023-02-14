@@ -1,5 +1,5 @@
 function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
-  $azureAdAppReg = ConvertLinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
+  $azureAdAppReg = Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
 
   if($null -eq $azureAdAppReg) {
       Write-Information "Creating app registration $name, as it does not exist yet"
@@ -27,7 +27,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
         }
       }
 
-      $azureAdAppReg = ConvertLinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
+      $azureAdAppReg = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
       Write-Verbose "Created app registration $name (App ID $($azureAdAppReg.appId))"
 
         # Check whether the AppRoles were added correctly
@@ -59,7 +59,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
       ExecuteAzCommandRobustly "az ad app update --id $($azureAdAppReg.appId) --app-roles '$appRolesJson'"
 
         # Reload app registration with new roles
-      $azureAdAppReg = ConvertLinesToObject -lines $(az ad app show --id $azureAdAppReg.id)
+      $azureAdAppReg = Convert-LinesToObject -lines $(az ad app show --id $azureAdAppReg.id)
     }
   }
 

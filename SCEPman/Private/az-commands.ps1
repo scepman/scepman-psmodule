@@ -5,12 +5,31 @@ $script:Snail_Mode = $false
 $Sleep_Factor = 1
 $Snail_Maximum_Sleep_Factor = 90 # times ten is 15 minutes
 
-function ConvertLinesToObject($lines) {
-    if($null -eq $lines) {
-        return $null
+function Convert-LinesToObject {
+    param (
+        [Parameter(ValueFromPipeline = $true)]
+        [string[]]
+        $Lines
+    )
+
+    BEGIN {
+        $linesJsonBuilder = new-object System.Text.StringBuilder
     }
-    $linesJson = [System.String]::Concat($lines)
-    return ConvertFrom-Json $linesJson
+
+    PROCESS {
+        if($null -eq $Lines) {
+            return
+        }
+        $null = $linesJsonBuilder.Append([string]::Concat($Lines))
+    }
+
+    END {
+        if($null -eq $Lines) {
+            return
+        }
+
+        return ConvertFrom-Json $linesJsonBuilder.ToString()
+    }
 }
 
 $PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
@@ -94,7 +113,7 @@ function AzLogin {
             throw $account
         }
     } else {
-        $accountInfo = ConvertLinesToObject($account)
+        $accountInfo = Convert-LinesToObject($account)
         Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
     return $accountInfo
@@ -104,7 +123,7 @@ $azVersionInfo = $null
 
 function GetAzVersion {
     if ($null -eq $azVersionInfo) {
-        $azVersionInfo = ConvertLinesToObject -lines $(az version)
+        $azVersionInfo = Convert-LinesToObject -lines $(az version)
     }
     return $azVersionInfo
 }
@@ -129,7 +148,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             # If we were request to check that the permission is there and there was no error, do the check now.
             # However, if the permission has been there previously already, we can skip the check
         if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
-            $appRoleAssignments = ConvertLinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
+            $appRoleAssignments = Convert-LinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
             $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
             if ($null -eq $grantedPermission) {
                 $azErrorCode = 999 # A number not 0
@@ -162,7 +181,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
 }
 
 function HashTable2AzJson($psHashTable) {
-    $output = ConvertTo-Json -Compress -InputObject $psHashTable
+    $output = ConvertTo-Json -Compress -InputObject $psHashTable -Depth 10
     if ($PSVersionTable.PSVersion.Major -lt 7 -or ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -lt 3) `
       -or $PSVersionTable.OS.StartsWith("Microsoft Windows")) { # The double quoting is now also required on PS 7.3.0 on Windows ... does it depend on the az version?
       $output = $output -replace '"', '\"' # The double quoting is required by PowerShell <7.2 (see https://github.com/PowerShell/PowerShell/issues/1995 and https://docs.microsoft.com/en-us/cli/azure/use-cli-effectively?tabs=bash%2Cbash2#use-quotation-marks-in-parameters)
