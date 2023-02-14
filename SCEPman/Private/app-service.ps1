@@ -140,7 +140,7 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
 }
 
 function GetDeploymentSlots($appServiceName, $resourceGroup) {
-  $deploymentSlots = Convert-LinesToObject -lines $(az webapp deployment slot list --name $appServiceName --resource-group $resourceGroup --query '[].name')
+  $deploymentSlots = ExecuteAzCommandRobustly -azCommand "az webapp deployment slot list --name $appServiceName --resource-group $resourceGroup --query '[].name'" | Convert-LinesToObject
   if ($null -eq $deploymentSlots) {
     return @()
   } else {
