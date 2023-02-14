@@ -1,9 +1,9 @@
 function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNameParam = $null) {
     $identityShowParams = "";
     if($null -ne $slotNameParam) {
-        $identityShowParams = "--slot", $slotNameParam
+        $identityShowParams = "--slot '$slotNameParam'"
     }
-    return Convert-LinesToObject -lines $(az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam @identityShowParams)
+    return ExecuteAzCommandRobustly -azCommand "az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam $identityShowParams" | Convert-LinesToObject
 }
 
 function GetAzureResourceAppId($appId) {
