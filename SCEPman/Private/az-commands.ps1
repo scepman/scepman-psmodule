@@ -18,12 +18,16 @@ function Convert-LinesToObject {
 
     PROCESS {
         if($null -eq $Lines) {
-            return $null
+            return
         }
         $null = $linesJsonBuilder.Append([string]::Concat($Lines))
     }
 
     END {
+        if($null -eq $Lines) {
+            return
+        }
+
         return ConvertFrom-Json $linesJsonBuilder.ToString()
     }
 }
