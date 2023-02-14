@@ -34,7 +34,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 function SelectBestDotNetRuntime {
   try
   {
-      $runtimes = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows")
+      $runtimes = ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows" | Convert-LinesToObject
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
@@ -156,11 +156,11 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
   # For --settings, we use JSON, contrary to documentation
   # Neither works for --slot-settings in tests :-(. Thus, the individual calls
   if ($null -eq $DeploymentSlotName) {
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings "AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings "AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"
+    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
+    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
   } else {
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings "AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings "AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"
+    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
+    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
   }
 }
 
@@ -232,11 +232,11 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
 
-  $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson
+  $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertmasterAppSettingsJson"
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
-  $intendedChannel = az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?name=='Update_Channel'].value | [0]" --output tsv
+  $intendedChannel = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?name=='Update_Channel'].value | [0]"" --output tsv"
 
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
@@ -245,8 +245,8 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
       Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
-      $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl"
-      $null = az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names "Update_Channel"
+      $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings ""WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl"""
+      $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
     }
   }
 }
@@ -260,8 +260,8 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
-  $slotSettings = Convert-LinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?slotSetting]")
-  $unboundSettings = Convert-LinesToObject -lines $(az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query "[?!slotSetting]")
+  $slotSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?slotSetting]"")" | Convert-LinesToObject
+  $unboundSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?!slotSetting]"")" | Convert-LinesToObject
 
   Write-Information "Read $($slotSettings.Count) slot settings and $($unboundSettings.Count) other settings from app $AppServiceName"
 
