@@ -9,9 +9,9 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
-        $scepmanurlsettingcount = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | length(@)""")
+        $scepmanurlsettingcount = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $($potentialcmwebapp.name) --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | length(@)""")
         if($scepmanurlsettingcount -eq 1) {
-            $scepmanUrl = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $potentialcmwebapp.name --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | [0]"" --output tsv")
+            $scepmanUrl = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $($potentialcmwebapp.name) --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:SCEPman:URL'].value | [0]"" --output tsv")
             $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
             if($hascorrectscepmanurl -eq $true) {
               Write-Information "Certificate Master web app $($potentialcmwebapp.name) found."
@@ -20,6 +20,8 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
                 Write-Information "Certificate Master web app $($potentialcmwebapp.name) found, but its setting AppConfig:SCEPman:URL is $scepmanURL, which we could not identify with the SCEPman app service. It may or may not be the correct Certificate Master and we ignore it."
                 $strangeCertMasterFound = $true
             }
+        } else {
+          Write-Verbose "Web app $($potentialcmwebapp.name) is not a Certificate Master, continuing search ..."
         }
     }
   }
