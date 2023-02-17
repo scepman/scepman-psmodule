@@ -21,6 +21,7 @@ Export-ModuleMember -Function Complete-SCEPmanInstallation
 Export-ModuleMember -Function New-SCEPmanDeploymentSlot
 Export-ModuleMember -Function New-SCEPmanClone
 Export-ModuleMember -Function Register-SCEPmanCertMaster
+Export-ModuleMember -Function Register-SCEPmanApiClient
 Export-ModuleMember -Function New-IntermediateCA
 Export-ModuleMember -Function Get-IntermediateCaPolicy
 Export-ModuleMember -Function Set-IntermediateCaPolicy

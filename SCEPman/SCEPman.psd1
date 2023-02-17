@@ -72,6 +72,7 @@ FunctionsToExport = @(
     'New-SCEPmanDeploymentSlot', 
     'New-SCEPmanClone', 
     'Register-SCEPmanCertMaster',
+    'Register-SCEPmanApiClient',
     'New-IntermediateCA',
     'Get-IntermediateCaPolicy',
     'Set-IntermediateCaPolicy',
