@@ -1,7 +1,8 @@
-function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false) {
+function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true) {
   $azureAdAppReg = Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
 
   if($null -eq $azureAdAppReg) {
+    if ($createIfNotExists) {
       Write-Information "Creating app registration $name, as it does not exist yet"
 
       $appRoleManifestJson = HashTable2AzJson -psHashTable $appRoleAssignments
@@ -38,6 +39,9 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
       # REVISIT: Once there is a solution for https://github.com/Azure/azure-cli/issues/22810, we can upload the logo
 #      $graphEndpointForAppLogo = "https://graph.microsoft.com/v1.0/applications/$($azureAdAppReg.id)/logo"
 #      az rest --method put --url $graphEndpointForAppLogo --body '@testlogo.png' --headers Content-Type=image/png
+    } else {
+      throw "App registration $name does not exist yet. Please run Commplete-SCEPmanInstallation first."
+    }
   } else {
     Write-Information "Existing app registration $name found (App ID $($azureAdAppReg.appId))"
 
@@ -67,26 +71,21 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
 }
 
 function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri) {
-
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
   $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true
-  $spsc = CreateServicePrincipal -appId $($appregsc.appId)
-  if (AzUsesAADGraph) {
-    $servicePrincipalScepmanId = $spsc.objectId
-  } else { # Microsoft Graph
-    $servicePrincipalScepmanId = $spsc.id
-  }
 
-  $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
-  if ($null -eq $ScepManSubmitCSRPermission) {
-    throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
-  }
+  $servicePrincipalScepmanId = CreateServicePrincipal -appId $($appregsc.appId)
 
   # Expose SCEPman API
   ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
+  $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
+  if ($null -eq $ScepManSubmitCSRPermission) {
+    throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
+  }
+
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);})
   SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
 

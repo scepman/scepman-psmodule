@@ -75,7 +75,12 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
             $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
         }
     }
-    return $sp
+
+    if (AzUsesAADGraph) {
+      return $sp.objectId
+    } else { # Microsoft Graph
+      return $sp.id
+    }
 }
 
 function AddDelegatedPermissionToCertMasterApp($appId) {
