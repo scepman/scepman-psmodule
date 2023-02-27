@@ -3,6 +3,7 @@ name: Test in Lab
 
 # Controls when the action will run. Workflow runs for production and beta version pushes
 on:
+  workflow_dispatch:
   push:
     branches:
       - production
