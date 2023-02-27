@@ -113,7 +113,13 @@ function AzLogin {
             throw $account
         }
     } else {
-        $accountInfo = Convert-LinesToObject($account)
+        try {
+            $accountInfo = Convert-LinesToObject($account)
+        } catch {
+            Write-Verbose "Raw output from az account show: $account"
+            Write-Error "Error parsing output from az account show:´n$_"
+            throw $_
+        }
         Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
     return $accountInfo
