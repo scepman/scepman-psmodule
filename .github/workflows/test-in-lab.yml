@@ -24,6 +24,10 @@ jobs:
         os: [windows-latest, ubuntu-latest]
         psver: [latest, preview]
         azver: [latest, edge]
+        exclude:
+            # This does not work yet, as Windows does not support containers.
+          - os: windows-latest
+            psver: preview        
     environment: AzureLab
     runs-on: ${{ matrix.os }}
       # containers only run on Linux, this weird syntax seems to do it
@@ -35,6 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+        # This step is always skipped, as winget is not available on the Window Server like windows-latest and therefore we cannot use this method to install PowerShell
       - name: Install PowerShell Preview for Windows
         if: startsWith(matrix.os, 'windows') && matrix.psver == 'preview'
         shell: powershell
