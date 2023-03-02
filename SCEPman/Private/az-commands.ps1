@@ -114,6 +114,10 @@ function AzLogin {
         }
     } else {
         try {
+            if ($account[0].EndsWith('MGMT_DEPLOYMENTMANAGER') -and $account[0].StartsWith('ERROR')) {
+                # This is a bug in az 2.45.0 (preview?) that causes the first line of the output to be an error message
+                $account = $account[1..$account.Count]
+            }
             $accountInfo = Convert-LinesToObject($account)
         } catch {
             Write-Verbose "Raw output from az account show: $account"
