@@ -37,7 +37,7 @@ jobs:
 
       - name: Install PowerShell Preview for Windows
         if: startsWith(matrix.os, 'windows') && matrix.psver == 'preview'
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Output "Installing winget as preparation for the PowerShell installation"
           $ProgressPreference = 'SilentlyContinue'
