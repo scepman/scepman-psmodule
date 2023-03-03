@@ -49,9 +49,9 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     $script:Snail_Mode = $true
                     $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
                     Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
-                } elseif ($outputElement.ToString().Contains("Blowfish")) {
-                    # Ignore, this is an issue of az 2.45.0
-                } elseif ($outputElement.ToString().StartsWith("WARNING")) {
+                } elseif ($outputElement.ToString().Contains("Blowfish") -or $outputElement.ToString().Contains('cryptography on a 32-bit Python')) {
+                    # Ignore, this is an issue of az 2.45.0 and az 2.45.0-preview
+                } elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
                         # Ignore, we know that
@@ -113,7 +113,19 @@ function AzLogin {
             throw $account
         }
     } else {
-        $accountInfo = Convert-LinesToObject($account)
+        try {
+            if ($account[0].GetType() -eq [System.Management.Automation.ErrorRecord] -and `
+                $account[0].ToString().EndsWith('MGMT_DEPLOYMENTMANAGER') -and $account[0].ToString().StartsWith('ERROR')) {
+                Write-Warning "Ignoring error message from az account show: $($account[0])"
+                # This is a bug in az 2.45.0 (preview?) that causes the first line of the output to be the error message "ERROR: Error loading command module 'deploymentmanager': MGMT_DEPLOYMENTMANAGER"
+                $account = $account[1..$account.Count]
+            }
+            $accountInfo = Convert-LinesToObject($account)
+        } catch {
+            Write-Verbose "Raw output from az account show: $account"
+            Write-Error "Error parsing output from az account show:´n$_"
+            throw $_
+        }
         Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
     return $accountInfo
