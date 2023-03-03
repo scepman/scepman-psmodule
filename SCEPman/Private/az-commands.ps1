@@ -116,6 +116,7 @@ function AzLogin {
         try {
             if ($account[0].GetType() -eq [System.Management.Automation.ErrorRecord] -and `
                 $account[0].ToString().EndsWith('MGMT_DEPLOYMENTMANAGER') -and $account[0].ToString().StartsWith('ERROR')) {
+                Write-Warning "Ignoring error message from az account show: $($account[0])"
                 # This is a bug in az 2.45.0 (preview?) that causes the first line of the output to be the error message "ERROR: Error loading command module 'deploymentmanager': MGMT_DEPLOYMENTMANAGER"
                 $account = $account[1..$account.Count]
             }

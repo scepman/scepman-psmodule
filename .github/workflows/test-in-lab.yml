@@ -57,12 +57,18 @@ jobs:
 
       - name: Install az for Windows
         if: startsWith(matrix.os, 'windows')
-        shell: pwsh
+        shell: powershell
         run: |
+          # Uninstall any previous version of az
+          $azPackage = Get-Package -Name "*Azure CLI"
+          if ($null -ne $azPackage) { $azPackage | Uninstall-Package }
+
+          # Find download URL of target az installer
           if ('edge' -eq '${{ matrix.azver }}') {  $installUrl = 'https://aka.ms/InstallAzureCliWindowsEdge' }
           else { $installUrl = 'https://aka.ms/installazurecliwindows' }
           Write-Output "Installing az from  URL $installUrl"
 
+          # Install az
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest -Uri $installUrl -OutFile .\AzureCLI.msi
           Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
