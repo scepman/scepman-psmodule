@@ -1,7 +1,7 @@
 function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId) {
-  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --key-permissions update create import delete recover backup decrypt encrypt unwrapKey wrapKey verify sign
-  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --secret-permissions get list set delete recover backup restore
-  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --certificate-permissions backup create delete deleteissuers get getissuers import list listissuers managecontacts manageissuers recover restore setissuers update
+  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --key-permissions create unwrapKey sign
+  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --secret-permissions get list set delete
+  $null = az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --certificate-permissions get list create managecontacts
 }
 
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
