@@ -103,7 +103,7 @@ function New-SCEPmanDeploymentSlot
     Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
     Start-Sleep -Milliseconds $DelayForSecurityPrincipals
     if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Adding permissions for new deployment slot to access Microsoft Graph")) {
-        SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
         MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
     }
 

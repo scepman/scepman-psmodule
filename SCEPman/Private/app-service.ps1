@@ -155,22 +155,22 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Marking SCEPman App Service as configured (timestamp $managedIdentityEnabledOn)"
+  $azSetConfigCommand = "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup"
 
   # The docs (2.37) say that az webapp config appsettings set takes a space separated list of KEY=VALUE.
   # For --settings, we use JSON, contrary to documentation
   # Neither works for --slot-settings in tests :-(. Thus, the individual calls
-  if ($null -eq $DeploymentSlotName) {
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
-  } else {
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
+  if ($null -ne $DeploymentSlotName) {
+    $azSetConfigCommand += " --slot $DeploymentSlotName"
   }
+  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
+  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
+  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings `"AppConfig:AuthConfig:ManagedIdentityPermissionLevel=2`""
 }
 
 $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
 
-function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $DeploymentSlotName = $null) {
+function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $AppRoleAssignmentsFinished, $DeploymentSlotName = $null) {
   if ($null -eq $DeploymentSlotName) {
     $deploymentSlotTargetingParamString = [string]::Empty
   } else {
@@ -197,10 +197,12 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationKey"
   }
 
-  MarkDeploymentSlotAsConfigured -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+  if ($AppRoleAssignmentsFinished) {
+    MarkDeploymentSlotAsConfigured -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+  }
 }
 
-function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $DeploymentSlots = @()) {
+function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $AppRoleAssignmentsFinished, $DeploymentSlots = @()) {
   Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and Certificate Master web app settings"
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
@@ -212,18 +214,16 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
     'AppConfig:CertMaster:URL' = $CertMasterBaseURL
     'AppConfig:IntuneValidation:DeviceDirectory' = 'AADAndIntune'
     'AppConfig:DirectCSRValidation:Enabled' = 'true'
-    'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = "$managedIdentityEnabledOn"
-    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
   }
 
   $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
 
   if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished
   }
 
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot
+    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished
   }
 
   Write-Verbose "Setting Certificate Master configuration"
@@ -232,8 +232,11 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   $CertmasterAppSettings = @{
     'AppConfig:AuthConfig:ApplicationId' = $CertMasterAppId
     'AppConfig:AuthConfig:SCEPmanAPIScope' = "api://$SCEPmanAppId"
-    'AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime' = $managedIdentityEnabledOn
-    'AppConfig:AuthConfig:ManagedIdentityPermissionLevel' = 2
+  }
+
+  if ($AppRoleAssignmentsFinished) {
+    $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime'] = "$managedIdentityEnabledOn"
+    $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityPermissionLevel'] = 2
   }
 
   $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
