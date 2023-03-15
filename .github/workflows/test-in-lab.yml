@@ -3,13 +3,14 @@ name: Test in Lab
 
 # Controls when the action will run. Workflow runs for production and beta version pushes
 on:
+  workflow_dispatch:
   push:
     branches:
       - production
       - beta
 #      - main
-    Schedule: 
-      -cron: '10 1 * * 0'
+  schedule: 
+    - cron: '10 1 * * 0'
 
 # The Test requires an AAD App Registration whose Service Principal has permissions to create apps and assign role assignments as well as read and write the SCEPman Azure resources under test. Specifically:
 # - Contributor permissions on the SCEPman resource group
@@ -26,7 +27,7 @@ jobs:
         exclude:
             # This does not work yet, as Windows does not support containers.
           - os: windows-latest
-            psver: preview
+            psver: preview        
     environment: AzureLab
     runs-on: ${{ matrix.os }}
       # containers only run on Linux, this weird syntax seems to do it
@@ -38,14 +39,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+        # This step is always skipped, as winget is not available on the Window Server like windows-latest and therefore we cannot use this method to install PowerShell
+      - name: Install PowerShell Preview for Windows
+        if: startsWith(matrix.os, 'windows') && matrix.psver == 'preview'
+        shell: powershell
+        run: |
+          Write-Output "Installing winget as preparation for the PowerShell installation"
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri https://github.com/microsoft/winget-cli/releases/download/v1.4.10173/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -OutFile .\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+          Invoke-WebRequest -Uri https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx -OutFile Microsoft.VCLibs.x64.14.00.Desktop.appx
+          Add-AppxPackage Microsoft.VCLibs.x64.14.00.Desktop.appx
+          Add-AppxPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+
+          Write-Output "Installing PowerShell Preview"
+          winget install --id Microsoft.Powershell.Preview --source winget --disable-interactivity
+          [Environment]::SetEnvironmentVariable("Path","$env:ProgramFiles\PowerShell\7-preview;" + [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine),[EnvironmentVariableTarget]::Machine)
+
       - name: Install az for Windows
         if: startsWith(matrix.os, 'windows')
-        shell: pwsh
+        shell: powershell
         run: |
+          # Uninstall any previous version of az
+          $azPackage = Get-Package -Name "*Azure CLI"
+          if ($null -ne $azPackage) { $azPackage | Uninstall-Package }
+
+          # Find download URL of target az installer
           if ('edge' -eq '${{ matrix.azver }}') {  $installUrl = 'https://aka.ms/InstallAzureCliWindowsEdge' }
           else { $installUrl = 'https://aka.ms/installazurecliwindows' }
           Write-Output "Installing az from  URL $installUrl"
 
+          # Install az
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest -Uri $installUrl -OutFile .\AzureCLI.msi
           Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'

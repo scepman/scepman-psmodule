@@ -72,6 +72,7 @@ FunctionsToExport = @(
     'New-SCEPmanDeploymentSlot', 
     'New-SCEPmanClone', 
     'Register-SCEPmanCertMaster',
+    'Register-SCEPmanApiClient',
     'New-IntermediateCA',
     'Get-IntermediateCaPolicy',
     'Set-IntermediateCaPolicy',
@@ -115,6 +116,8 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         # ReleaseNotes = ''
+		
+		Prerelease = 'beta'
 
     } # End of PSData hashtable
 
