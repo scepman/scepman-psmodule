@@ -52,7 +52,7 @@ function Register-SCEPmanApiClient
   }
 
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);})
-  SetManagedIdentityPermissions -principalId $ServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
+  $null = SetManagedIdentityPermissions -principalId $ServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
 
   Write-Information "CSR submission permission assigned to service principal with id $ServicePrincipalId"
 }
