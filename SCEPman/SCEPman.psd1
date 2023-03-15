@@ -10,7 +10,7 @@
 RootModule = 'SCEPman.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.9.2.0'
+ModuleVersion = '1.10.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -117,8 +117,6 @@ PrivateData = @{
         # ReleaseNotes of this module
         # ReleaseNotes = ''
 		
-		Prerelease = 'beta'
-
     } # End of PSData hashtable
 
 } # End of PrivateData hashtable
