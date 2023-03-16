@@ -113,7 +113,7 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
-  $asp = Convert-LinesToObject -lines $(az appservice plan list -g $ResourceGroup --query "[?name=='$AppServicePlanName']" --subscription $SubscriptionId)
+  $asp = ExecuteAzCommandRobustly -azCommand "az appservice plan list -g $ResourceGroup --query `"[?name=='$AppServicePlanName']`" --subscription $SubscriptionId" | Convert-LinesToObject
   return $asp
 }
 
@@ -262,7 +262,9 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
   foreach ($oneSetting in $Settings) {
-    $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value.Replace('"','\"'))"
+    $settingName = $oneSetting.name
+    $settingValueEscaped = $oneSetting.value.Replace('"','\"')
+    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings `"$settingName=$settingValueEscaped`""
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
