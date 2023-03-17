@@ -104,16 +104,16 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
   $runtime = SelectBestDotNetRuntime
-  $null = az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime
+  $null = ExecuteAzCommandRobustly -azCommand "az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime"
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
 
   Write-Verbose 'Configuring SCEPman General web app settings'
-  $null = az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
-  $null = az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled $false
+  $null = ExecuteAzCommandRobustly -azCommand "az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process false --ftps-state 'Disabled' --always-on true"
+  $null = ExecuteAzCommandRobustly -azCommand "az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled false"
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
-  $asp = Convert-LinesToObject -lines $(az appservice plan list -g $ResourceGroup --query "[?name=='$AppServicePlanName']" --subscription $SubscriptionId)
+  $asp = ExecuteAzCommandRobustly -azCommand "az appservice plan list -g $ResourceGroup --query `"[?name=='$AppServicePlanName']`" --subscription $SubscriptionId" | Convert-LinesToObject
   return $asp
 }
 
@@ -262,15 +262,18 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
   foreach ($oneSetting in $Settings) {
-    $null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings "$($oneSetting.name)=$($oneSetting.value.Replace('"','\"'))"
+    $settingName = $oneSetting.name
+    $settingValueEscaped = $oneSetting.value.Replace('"','\"')
+    Write-Verbose "Setting $settingName to $settingValueEscaped"
+    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', "`"$settingName`"=`"$settingValueEscaped`"")
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
-  $slotSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?slotSetting]"")" | Convert-LinesToObject
-  $unboundSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?!slotSetting]"")" | Convert-LinesToObject
+  $slotSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?slotSetting]`"" | Convert-LinesToObject
+  $unboundSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?!slotSetting]`"" | Convert-LinesToObject
 
   Write-Information "Read $($slotSettings.Count) slot settings and $($unboundSettings.Count) other settings from app $AppServiceName"
 

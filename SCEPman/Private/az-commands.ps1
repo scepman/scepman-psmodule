@@ -148,12 +148,16 @@ function AzUsesAADGraph {
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 #
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $callAzNatively = $false) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
     while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
-      $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
+      if ($callAzNatively) {
+        $lastAzOutput = az $azCommand 2>&1
+      } else {
+        $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
+      }
       $azErrorCode = $LastExitCode
       try {
         $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
