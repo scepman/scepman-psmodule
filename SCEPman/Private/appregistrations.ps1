@@ -92,7 +92,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURL) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURL, $SkipAutoGrant = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
@@ -103,7 +103,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
   # Add Microsoft Graph's User.Read as delegated permission for CertMaster
-  AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId
+  AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId -SkipAutoGrant $SkipAutoGrant
 
   return $appregcm
 }

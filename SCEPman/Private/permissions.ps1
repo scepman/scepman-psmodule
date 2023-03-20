@@ -93,7 +93,7 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
     }
 }
 
-function AddDelegatedPermissionToCertMasterApp($appId) {
+function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
     $azOutput = az ad app permission list --id $appId --query "[0]" 2>&1
     $certMasterPermissions = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
@@ -116,6 +116,10 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
         if (AzUsesAADGraph) {
             $azGrantPermissionCommand += ' --expires "never"'
         }
-        $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
+        if ($SkipAutoGrant) {
+            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: $azGrantPermissionCommand"
+        } else {
+            $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
+        }
     }
 }
