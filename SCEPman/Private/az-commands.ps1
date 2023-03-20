@@ -161,7 +161,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
       $azErrorCode = $LastExitCode
       try {
         $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
-            # If we were request to check that the permission is there and there was no error, do the check now.
+            # If we were requested to check that the permission is there and there was no error, do the check now.
             # However, if the permission has been there previously already, we can skip the check
         if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
             $appRoleAssignments = Convert-LinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
@@ -169,6 +169,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             if ($null -eq $grantedPermission) {
                 $azErrorCode = 999 # A number not 0
             }
+        } elseif ($null -ne $appRoleId -and $PERMISSION_ALREADY_ASSIGNED -eq $lastAzOutput) {
+            $azErrorCode = 0  # The permission was already there, so we are done. Ignore the error message that the permission was already there.
         }
       }
       catch {
