@@ -1,5 +1,5 @@
 function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId) {
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --key-permissions create unwrapKey sign"
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --key-permissions get create unwrapKey sign"
   $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --secret-permissions get list set delete"
   $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --certificate-permissions get list create managecontacts"
 }
