@@ -117,11 +117,11 @@ function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionI
   return $asp
 }
 
-function GetAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
+function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
   if ($null -eq $DeploymentSlotName) {
-    return "$AppServiceName.azurewebsites.net"  #TODO: Find out Base URL for non-global tenants
+    return ExecuteAzCommandRobustly -azCommand "az webapp config hostname list --webapp-name $AppServiceName --resource-group $SCEPmanResourceGroup --query `"[].name`" --output tsv"
   } else {
-    return "$AppServiceName-$DeploymentSlotName.azurewebsites.net"  #TODO: Find out Base URL for non-global tenants
+    return ExecuteAzCommandRobustly -azCommand "az webapp config hostname list --webapp-name $AppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --query `"[].name`" --output tsv"
   }
 }
 
@@ -150,7 +150,12 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
 
 function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName = $null) {
   # Add a setting to tell the Deployment slot that it has been configured
-  $SCEPmanSlotHostName = GetAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+  $SCEPmanSlotHostNames = GetAppServiceHostNames -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+  if ($SCEPmanSlotHostNames -is [array]) {
+    $SCEPmanSlotHostName = $SCEPmanSlotHostNames[0]
+  } else {
+    $SCEPmanSlotHostName = $SCEPmanSlotHostNames
+  }
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 

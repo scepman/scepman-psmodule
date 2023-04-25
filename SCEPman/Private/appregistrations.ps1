@@ -92,13 +92,16 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURL, $SkipAutoGrant = $false) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
 
+  $signInUrlArray = $CertMasterBaseURLs | Select-Object { "$_/signin-oidc" }
+  $spaceSeparatedSignInUrls = $signInUrlArray -join " "
+
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls "$CertMasterBaseURL/signin-oidc" -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
