@@ -97,7 +97,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
 
-  $signInUrlArray = $CertMasterBaseURLs | Select-Object { "$_/signin-oidc" }
+  $signInUrlArray = $CertMasterBaseURLs | ForEach-Object { "$_/signin-oidc" }
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
   # Register CertMaster App

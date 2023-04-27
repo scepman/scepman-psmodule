@@ -155,7 +155,7 @@ function Complete-SCEPmanInstallation
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
     $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    $CertMasterBaseURLs = $CertMasterHostNames | Select-Object { "https://$_" }
+    $CertMasterBaseURLs = $CertMasterHostNames | ForEach-Object { "https://$_" }
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
     $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
