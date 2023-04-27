@@ -148,35 +148,50 @@ function AzUsesAADGraph {
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 #
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $callAzNatively = $false) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
-    while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
-      $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
-      $azErrorCode = $LastExitCode
-      try {
-        $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
-            # If we were request to check that the permission is there and there was no error, do the check now.
-            # However, if the permission has been there previously already, we can skip the check
-        if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
-            $appRoleAssignments = Convert-LinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
-            $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
-            if ($null -eq $grantedPermission) {
-                $azErrorCode = 999 # A number not 0
+
+    try {
+        $definedPreference = $PSNativeCommandUseErrorActionPreference
+        $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
+        
+        while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
+            if ($callAzNatively) {
+                $lastAzOutput = az $azCommand 2>&1
+            } else {
+                $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
+            }
+            $azErrorCode = $LastExitCode
+            try {
+                $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
+                    # If we were requested to check that the permission is there and there was no error, do the check now.
+                    # However, if the permission has been there previously already, we can skip the check
+                if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
+                    $appRoleAssignments = Convert-LinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
+                    $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
+                    if ($null -eq $grantedPermission) {
+                        $azErrorCode = 999 # A number not 0
+                    }
+                } elseif ($null -ne $appRoleId -and $PERMISSION_ALREADY_ASSIGNED -eq $lastAzOutput) {
+                    $azErrorCode = 0  # The permission was already there, so we are done. Ignore the error message that the permission was already there.
+                }
+            }
+            catch {
+                Write-Warning $_
+                $azErrorCode = 654  # a number not 0
+            }
+            if ($azErrorCode -ne 0) {
+                ++$retryCount
+                Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep because Error Code is $azErrorCode"
+                Start-Sleep ($retryCount * $SLEEP_FACTOR) # Sleep for some seconds, as the grant sometimes only works after some time
             }
         }
-      }
-      catch {
-          Write-Warning $_
-          $azErrorCode = 654  # a number not 0
-      }
-      if ($azErrorCode -ne 0) {
-        ++$retryCount
-        Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep because Error Code is $azErrorCode"
-        Start-Sleep ($retryCount * $SLEEP_FACTOR) # Sleep for some seconds, as the grant sometimes only works after some time
-      }
+    } finally {
+        $PSNativeCommandUseErrorActionPreference = $definedPreference
     }
+
     if ($azErrorCode -ne 0 ) {
       if ($null -eq $lastAzOutput) {
         $readableAzOutput = "no az output"

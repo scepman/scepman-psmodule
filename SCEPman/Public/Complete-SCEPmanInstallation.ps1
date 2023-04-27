@@ -51,6 +51,7 @@ function Complete-SCEPmanInstallation
         [switch]$SearchAllSubscriptions,
         $DeploymentSlotName,
         $SubscriptionId,
+        [switch]$SkipAppRoleAssignments,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster',
         $GraphBaseUri = 'https://graph.microsoft.com'
@@ -138,27 +139,28 @@ function Complete-SCEPmanInstallation
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     ### Set managed identity permissions for SCEPman
+    $allPermissionsAreGranted = $true
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
-        SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
     }
 
     ### Set Managed Identity permissions for CertMaster
     Write-Information "Setting up permissions for Certificate Master"
     $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-    SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
+    $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
 
     $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
-    $CertMasterHostName = GetAppServiceHostName -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    $CertMasterBaseURL = "https://$CertMasterHostName"
+    $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    $CertMasterBaseURLs = $CertMasterHostNames | ForEach-Object { "https://$_" }
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
-    $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
+    $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
 
-    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -DeploymentSlots $deploymentSlotsSc
+    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -DeploymentSlots $deploymentSlotsSc -AppRoleAssignmentsFinished $allPermissionsAreGranted
 
     Write-Information "SCEPman and SCEPman Certificate Master configuration completed"
 }

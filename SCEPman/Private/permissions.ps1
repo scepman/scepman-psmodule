@@ -16,7 +16,9 @@ function GetAzureResourceAppId($appId) {
     return $(az ad sp list --filter "appId eq '$appId'" --query $queryParam --out tsv --only-show-errors)
 }
 
-function SetManagedIdentityPermissions($principalId, $resourcePermissions, $GraphBaseUri) {
+function SetManagedIdentityPermissions($principalId, $resourcePermissions, $GraphBaseUri, $SkipAppRoleAssignments = $false) {
+    $allPermissionsAreGranted = $true  # Assume all permissions are granted
+
     $graphEndpointForAppRoleAssignments = "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments"
     $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
 
@@ -26,9 +28,17 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
         } else {
             Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
-            $null = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'" -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
+            $azCommand = "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'"
+            if ($SkipAppRoleAssignments) {
+                Write-Warning "Skipping app role assignment (please execute manually): $azCommand"
+                $allPermissionsAreGranted = $false
+            } else {
+                $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
+            }
         }
     }
+
+    return $allPermissionsAreGranted
 }
 
 function GetSCEPmanResourcePermissions() {
@@ -83,7 +93,7 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
     }
 }
 
-function AddDelegatedPermissionToCertMasterApp($appId) {
+function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
     $azOutput = az ad app permission list --id $appId --query "[0]" 2>&1
     $certMasterPermissions = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
@@ -106,6 +116,10 @@ function AddDelegatedPermissionToCertMasterApp($appId) {
         if (AzUsesAADGraph) {
             $azGrantPermissionCommand += ' --expires "never"'
         }
-        $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
+        if ($SkipAutoGrant) {
+            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: $azGrantPermissionCommand"
+        } else {
+            $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
+        }
     }
 }
