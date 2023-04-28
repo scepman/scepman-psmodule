@@ -269,8 +269,17 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.Replace('"','\"')
+    if ($settingName.Contains("=")) {
+      Write-Warning "Setting name $settingName contains at least one equal sign (=), which is unsupported. Skipping this setting."
+      continue
+    }
     Write-Verbose "Setting $settingName to $settingValueEscaped"
-    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', "`"$settingName`"=`"$settingValueEscaped`"")
+    if ($PSVersionTable.OS.StartsWith("Microsoft Windows")) {
+      $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
+    } else {
+      $settingAssignment = "$settingName=$settingValueEscaped"
+    }
+    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
