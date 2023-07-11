@@ -35,13 +35,97 @@ New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@
   'value' = 'CSR.Request.Direct'
 })
 
-# To-be JSON defining App Role that User can have to when authenticating against CertMaster
+# To-be JSON defining App Roles that User can have when authenticating against CertMaster
 New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value @(@{
   'allowedMemberTypes' = @( 'User' )
   'description' = "Full access to all SCEPman CertMaster functions like requesting and managing certificates"
   'displayName' = 'Full Admin'
   'isEnabled' = $true
   'value' = 'Admin.Full'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See and revoke all issued certificates"
+  'displayName' = 'Manage All'
+  'isEnabled' = $true
+  'value' = 'Manage.All'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See all issued certificates"
+  'displayName' = 'Manage All Readonly'
+  'isEnabled' = $true
+  'value' = 'Manage.All.Read'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See and revoke certificates listed in the Azure Storage Account"
+  'displayName' = 'Manage Storage Certificates'
+  'isEnabled' = $true
+  'value' = 'Manage.Storage'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See certificates listed in the Azure Storage Account"
+  'displayName' = 'Manage Storage Certificates Readonly'
+  'isEnabled' = $true
+  'value' = 'Manage.Storage.Read'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See and revoke certificates enrolled via Intune"
+  'displayName' = 'Manage Intune Certificates'
+  'isEnabled' = $true
+  'value' = 'Manage.Intune'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "See certificates enrolled via Intune"
+  'displayName' = 'Manage Intune Certificates Readonly'
+  'isEnabled' = $true
+  'value' = 'Manage.Intune.Read'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request certificates of all types"
+  'displayName' = 'Request All'
+  'isEnabled' = $true
+  'value' = 'Request.All'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request client certificates"
+  'displayName' = 'Request Client'
+  'isEnabled' = $true
+  'value' = 'Request.Client'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request user certificates"
+  'displayName' = 'Request User'
+  'isEnabled' = $true
+  'value' = 'Request.User'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request code signing certificates"
+  'displayName' = 'Request Code Signing'
+  'isEnabled' = $true
+  'value' = 'Request.CodeSigning'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request Subordinate CA certificates for Firewalls"
+  'displayName' = 'Request Subordinate CA'
+  'isEnabled' = $true
+  'value' = 'Request.SubCa'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request TLS server certificates"
+  'displayName' = 'Request Server'
+  'isEnabled' = $true
+  'value' = 'Request.Server'
 })
 
 New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
