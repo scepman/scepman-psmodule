@@ -59,8 +59,8 @@ function New-IntermediateCA
   if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
       # No resource group given, search for it now
       $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+      Write-Information "Found resource group $SCEPmanResourceGroup"
   }
-
 
   $vaultUrl = FindConfiguredKeyVaultUrl -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
