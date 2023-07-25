@@ -59,8 +59,8 @@ function New-IntermediateCA
   if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
       # No resource group given, search for it now
       $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+      Write-Information "Found resource group $SCEPmanResourceGroup"
   }
-
 
   $vaultUrl = FindConfiguredKeyVaultUrl -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
@@ -69,7 +69,7 @@ function New-IntermediateCA
 
   $policy = $global:subCaPolicy
   $policy.policy.x509_props.subject = $policy.policy.x509_props.subject.Replace('{{TenantId}}', $subscription.tenantId)
-  
+
   $csr = New-IntermediateCaCsr -vaultUrl $vaultUrl -certificateName $certificateName -policy $policy
 
   Write-Information "Created a CSR. Submit the CSR to a CA and merge the signed certificate in the Azure Portal"
@@ -101,7 +101,7 @@ function Reset-IntermediateCaPolicy () {
   if (-not [string]::IsNullOrWhiteSpace($Organization)) {
     $Organization = $Organization -replace ',','\,'
     $policy.policy.x509_props.subject += ",O=$Organization"
-  } 
+  }
 
   Set-IntermediateCaPolicy -Policy $policy
 }

@@ -156,7 +156,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
     try {
         $definedPreference = $PSNativeCommandUseErrorActionPreference
         $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
-        
+
         while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
             if ($callAzNatively) {
                 $lastAzOutput = az $azCommand 2>&1
