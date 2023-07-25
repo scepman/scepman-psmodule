@@ -2,6 +2,9 @@ name: Analyze PowerShell
 
 on: push
 
+permissions:
+  security-events: write  # Required to upload SARIF results
+
 jobs:
   analyze-powershell-script:
     runs-on: ubuntu-latest
