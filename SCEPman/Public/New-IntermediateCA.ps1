@@ -93,10 +93,15 @@ function Set-IntermediateCaPolicy () {
 function Reset-IntermediateCaPolicy () {
   [CmdletBinding()]
   param(
-    $Organization
+    $Organization,
+    [switch]$UseEccKey
   )
 
-  $policy = Get-RsaDefaultPolicy
+  if ($UseEccKey.IsPresent) {
+    $policy = Get-EccDefaultPolicy
+  } else {
+    $policy = Get-RsaDefaultPolicy
+  }
 
   if (-not [string]::IsNullOrWhiteSpace($Organization)) {
     $Organization = $Organization -replace ',','\,'
