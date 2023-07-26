@@ -85,12 +85,15 @@ function Get-IntermediateCaPolicy () {
 }
 
 function Set-IntermediateCaPolicy () {
-  [CmdletBinding()]
+  [CmdletBinding(SupportsShouldProcess=$true)]
   param(
       $Policy
   )
 
-  $global:subCaPolicy = $Policy
+  if ($PSCmdlet.ShouldProcess("Intermediate CA Policy in this PowerShell Session"))
+  {
+    $global:subCaPolicy = $Policy
+  }
 }
 
 function Reset-IntermediateCaPolicy () {
@@ -112,7 +115,7 @@ function Reset-IntermediateCaPolicy () {
   }
 
   if ($PSCmdlet.ShouldProcess("Intermediate CA Policy in this PowerShell Session"))
-  {  
+  {
     Set-IntermediateCaPolicy -Policy $policy
   }
 }
