@@ -24,7 +24,7 @@
    #>
 function New-IntermediateCA
 {
-  [CmdletBinding()]
+  [CmdletBinding(SupportsShouldProcess=$true)]
   param(
       $SCEPmanAppServiceName,
       $SCEPmanResourceGroup,
@@ -46,8 +46,6 @@ function New-IntermediateCA
 
   $GraphBaseUri = $GraphBaseUri.TrimEnd('/')
 
-  Write-Information "Configuring SCEPman and CertMaster"
-
   Write-Information "Logging in to az"
   $null = AzLogin
 
@@ -65,15 +63,20 @@ function New-IntermediateCA
   $vaultUrl = FindConfiguredKeyVaultUrl -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
   $certificateName = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName'].value | [0]" --output tsv
-  Write-Information "Found Key Vault configuration with URL $vaultUrl and certificate name $certificateName. Creating certificate request in Key Vault ..."
+  Write-Information "Found Key Vault configuration with URL $vaultUrl and certificate name $certificateName."
 
   $policy = $global:subCaPolicy
   $policy.policy.x509_props.subject = $policy.policy.x509_props.subject.Replace('{{TenantId}}', $subscription.tenantId)
 
-  $csr = New-IntermediateCaCsr -vaultUrl $vaultUrl -certificateName $certificateName -policy $policy
+  if ($PSCmdlet.ShouldProcess("Key Vault {0}" -f $vaultUrl, "Create CSR with name {0}" -f $certificateName))
+  {
+    Write-Information "Creating certificate request in Key Vault"
 
-  Write-Information "Created a CSR. Submit the CSR to a CA and merge the signed certificate in the Azure Portal"
-  Write-Output $csr
+    $csr = New-IntermediateCaCsr -vaultUrl $vaultUrl -certificateName $certificateName -policy $policy
+
+    Write-Information "Created a CSR. Submit the CSR to a CA and merge the signed certificate in the Azure Portal"
+    Write-Output $csr
+  }
 }
 
 function Get-IntermediateCaPolicy () {
@@ -82,28 +85,39 @@ function Get-IntermediateCaPolicy () {
 }
 
 function Set-IntermediateCaPolicy () {
-  [CmdletBinding()]
+  [CmdletBinding(SupportsShouldProcess=$true)]
   param(
       $Policy
   )
 
-  $global:subCaPolicy = $Policy
+  if ($PSCmdlet.ShouldProcess("Intermediate CA Policy in this PowerShell Session"))
+  {
+    $global:subCaPolicy = $Policy
+  }
 }
 
 function Reset-IntermediateCaPolicy () {
-  [CmdletBinding()]
+  [CmdletBinding(SupportsShouldProcess=$true)]
   param(
-    $Organization
+    $Organization,
+    [switch]$UseEccKey
   )
 
-  $policy = Get-RsaDefaultPolicy
+  if ($UseEccKey.IsPresent) {
+    $policy = Get-EccDefaultPolicy
+  } else {
+    $policy = Get-RsaDefaultPolicy
+  }
 
   if (-not [string]::IsNullOrWhiteSpace($Organization)) {
     $Organization = $Organization -replace ',','\,'
     $policy.policy.x509_props.subject += ",O=$Organization"
   }
 
-  Set-IntermediateCaPolicy -Policy $policy
+  if ($PSCmdlet.ShouldProcess("Intermediate CA Policy in this PowerShell Session"))
+  {
+    Set-IntermediateCaPolicy -Policy $policy
+  }
 }
 
 Reset-IntermediateCaPolicy

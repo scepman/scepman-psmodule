@@ -107,7 +107,7 @@ function New-SCEPmanClone
 
         Write-Information "Adding permissions to Storage Account"
         if($null -ne $ScStorageAccount) {
-            SetStorageAccountPermissions -SubscriptionId $targetSubscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+            SetStorageAccountPermissions -SubscriptionId $SourceSubscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
         } else {
             Write-Warning "No Storage Account found. Not adding any permissions."
         }
