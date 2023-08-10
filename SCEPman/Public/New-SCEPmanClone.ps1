@@ -113,7 +113,7 @@ function New-SCEPmanClone
         }
 
         Write-Information "Adding permissions to Key Vault"
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
+        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId -SubscriptionId $SourceSubscription.Id
 
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
