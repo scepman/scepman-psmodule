@@ -93,7 +93,7 @@ function New-SCEPmanDeploymentSlot
     $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
     Write-Verbose "Key Vault $keyvaultname identified"
     if ($PSCmdlet.ShouldProcess($keyvaultname, "Adding key vault permissions to new deployment slot")) {
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId
+        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId --SubscriptionId $subscription.Id
     }
 
     Write-Information "Adding permissions for Graph and Intune"
