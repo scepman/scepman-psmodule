@@ -60,7 +60,7 @@ jobs:
         shell: powershell
         run: |
           # Uninstall any previous version of az
-          $azPackage = Get-Package -Name "*Azure CLI"
+          $azPackage = Get-Package -Name "*Azure CLI" 2>$null
           if ($null -ne $azPackage) { $azPackage | Uninstall-Package }
 
           # Find download URL of target az installer
