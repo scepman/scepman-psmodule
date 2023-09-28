@@ -85,6 +85,10 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
             $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
         }
     }
+    if ($sp.appRoleAssignmentRequired -eq $false) {
+        Write-Verbose "Updating appRoleAssignmentRequired to true for application $appId"
+        $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --set appRoleAssignmentRequired=true"
+    }
 
     if (AzUsesAADGraph) {
       return $sp.objectId
