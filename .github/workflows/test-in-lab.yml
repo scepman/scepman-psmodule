@@ -60,8 +60,9 @@ jobs:
         shell: powershell
         run: |
           # Uninstall any previous version of az
-          $azPackage = Get-Package -Name "*Azure CLI" 2>$null
+          $azPackage = Get-Package -Name "*Azure CLI" -ErrorAction SilentlyContinue
           if ($null -ne $azPackage) { $azPackage | Uninstall-Package }
+          else { Write-Output "No previous version of az found" }
 
           # Find download URL of target az installer
           if ('edge' -eq '${{ matrix.azver }}') {  $installUrl = 'https://aka.ms/InstallAzureCliWindowsEdge' }
