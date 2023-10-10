@@ -1,7 +1,7 @@
-function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId) {
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --key-permissions get create unwrapKey sign"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --secret-permissions get list set delete"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --certificate-permissions get list create managecontacts"
+function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId, $SubscriptionId) {
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --key-permissions get create unwrapKey sign"
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --secret-permissions get list set delete"
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --certificate-permissions get list create managecontacts"
 }
 
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
@@ -40,13 +40,11 @@ function New-IntermediateCaCsr ($vaultUrl, $certificateName, $policy) {
   return $creationResponse.csr
 }
 
-function Get-RsaDefaultPolicy {
+function Get-DefaultPolicyWithoutKey {
   return @{
     "policy" = @{
       "key_props" = @{
         "exportable" = $false
-        "kty" = "RSA"
-        "key_size" = 2048
         "reuse_key" = $false
       }
       "secret_props" = @{
@@ -89,4 +87,23 @@ function Get-RsaDefaultPolicy {
       }
     }
   }
+}
+
+function Get-EccDefaultPolicy {
+  $policy = Get-DefaultPolicyWithoutKey
+  $policy.policy.key_props.kty = "EC-HSM"
+  $policy.policy.key_props.crv = "P-256K"
+  $policy.policy.key_props.key_size = 256
+
+  $policy.policy.x509_props.key_usage = @( "cRLSign", "digitalSignature", "keyCertSign" )
+
+  return $policy
+}
+
+function Get-RsaDefaultPolicy {
+  $policy = Get-DefaultPolicyWithoutKey
+  $policy.policy.key_props.kty = "RSA-HSM"
+  $policy.policy.key_props.key_size = 2048
+
+  return $policy
 }

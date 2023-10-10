@@ -274,10 +274,10 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
       continue
     }
     Write-Verbose "Setting $settingName to $settingValueEscaped"
-    if ($PSVersionTable.OS.StartsWith("Microsoft Windows")) {
-      $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
-    } else {
+    if ($PSVersionTable.PSVersion.Major -eq 5 -or -not $PSVersionTable.OS.StartsWith("Microsoft Windows")) {
       $settingAssignment = "$settingName=$settingValueEscaped"
+    } else {
+      $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
     }
     $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
   }

@@ -46,7 +46,7 @@ function GetSCEPmanResourcePermissions() {
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
     ### Managed identity permissions for SCEPman
-    if ($null -eq $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), there is IntuneAppId can be $null
+    if ($null -eq $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), the IntuneAppId can be $null
         return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
                 [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;},
@@ -84,6 +84,10 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
         if ($hideApp) {
             $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
         }
+    }
+    if ($sp.appRoleAssignmentRequired -eq $false) {
+        Write-Verbose "Updating appRoleAssignmentRequired to true for application $appId"
+        $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --set appRoleAssignmentRequired=true"
     }
 
     if (AzUsesAADGraph) {
