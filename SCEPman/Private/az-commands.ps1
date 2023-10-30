@@ -55,6 +55,8 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
                         # Ignore, we know that
+                    } elseif ($outputElement.ToString().StartsWith("WARNING: App settings have been redacted.")) {
+                        # Ignore, this is a new behavior of az 2.53.1 and affects the output of az webapp settings set, which we do not use anyway.
                     } else
                     {
                         Write-Warning $outputElement.ToString()
@@ -123,7 +125,7 @@ function AzLogin {
             $accountInfo = Convert-LinesToObject($account)
         } catch {
             Write-Verbose "Raw output from az account show: $account"
-            Write-Error "Error parsing output from az account show:´n$_"
+            Write-Error "Error parsing output from az account show:ï¿½n$_"
             throw $_
         }
         Write-Information "Logged in to az as $($accountInfo.user.name)"
