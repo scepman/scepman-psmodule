@@ -22,12 +22,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
-        psver: [latest, preview]
+        psver: [latest, preview, windows]
         azver: [latest, edge]
         exclude:
             # This does not work yet, as Windows does not support containers.
           - os: windows-latest
-            psver: preview        
+            psver: preview
+            # Obviously, Windows PowerShell is not available on Linux
+          - os: ubuntu-latest
+            psver: windows
     environment: AzureLab
     runs-on: ${{ matrix.os }}
       # containers only run on Linux, this weird syntax seems to do it
@@ -60,8 +63,9 @@ jobs:
         shell: powershell
         run: |
           # Uninstall any previous version of az
-          $azPackage = Get-Package -Name "*Azure CLI"
+          $azPackage = Get-Package -Name "*Azure CLI" -ErrorAction SilentlyContinue
           if ($null -ne $azPackage) { $azPackage | Uninstall-Package }
+          else { Write-Output "No previous version of az found" }
 
           # Find download URL of target az installer
           if ('edge' -eq '${{ matrix.azver }}') {  $installUrl = 'https://aka.ms/InstallAzureCliWindowsEdge' }
@@ -99,7 +103,8 @@ jobs:
           allow-no-subscriptions: true
           enable-AzPSSession: false
 
-      - name: Complete SCEPman installation in PowerShell
+      - name: Complete SCEPman installation in PowerShell 7
+        if: matrix.psver != 'windows'
         shell: pwsh
         run: |
           $PSVersionTable.PSVersion
@@ -111,3 +116,17 @@ jobs:
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $certmasterappid
+
+      - name: Complete SCEPman installation in PowerShell 5
+        if: matrix.psver == 'windows'
+        shell: powershell
+        run: |
+          $PSVersionTable.PSVersion
+          cd SCEPman
+          Import-Module ./SCEPman.psd1
+          $RandomAppRegNumber = Get-Random
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
+          $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
+          az ad app delete --id $scepmanappid
+          $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
+          az ad app delete --id $certmasterappid          
