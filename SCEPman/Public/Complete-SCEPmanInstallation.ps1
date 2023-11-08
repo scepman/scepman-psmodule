@@ -64,6 +64,10 @@ function Complete-SCEPmanInstallation
     $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
     Write-Information "Detected az version: $cliVersion"
 
+    If ($PSBoundParameters['Debug']) {
+        $DebugPreference='Continue' # Do not ask user for confirmation, so that the script can run unattended
+    }
+
     if ([String]::IsNullOrWhiteSpace($SCEPmanAppServiceName)) {
         $SCEPmanAppServiceName = Read-Host "Please enter the SCEPman app service name"
     }

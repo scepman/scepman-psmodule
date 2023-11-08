@@ -50,15 +50,19 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
                     Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
                 } elseif ($outputElement.ToString().Contains("Blowfish") -or $outputElement.ToString().Contains('cryptography on a 32-bit Python')) {
+                    Write-Debug "Ignoring expected warning about Blowfish: $outputElement"
                     # Ignore, this is an issue of az 2.45.0 and az 2.45.0-preview
                 } elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
+                        Write-Debug "Ignoring expected warning about Graph API migration: $outputElement"
                         # Ignore, we know that
                     } elseif ($outputElement.ToString().StartsWith("WARNING: App settings have been redacted.")) {
+                        Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                         # Ignore, this is a new behavior of az 2.53.1 and affects the output of az webapp settings set, which we do not use anyway.
                     } else
                     {
+                        Write-Debug "Warning about unexpected az output"
                         Write-Warning $outputElement.ToString()
                     }
                 } else {
@@ -68,6 +72,7 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                         $errorMessages += "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
                     }
 
+                    Write-Debug "Error about unexpected az output: $outputElement"
                     $errorMessages += $outputElement
                 }
             } else {
