@@ -171,6 +171,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                 $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
             }
             $azErrorCode = $LastExitCode
+            Write-Debug "az command $azCommand returned with error code $azErrorCode"
             try {
                 $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
                     # If we were requested to check that the permission is there and there was no error, do the check now.
