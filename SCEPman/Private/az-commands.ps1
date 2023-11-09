@@ -165,12 +165,15 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
         $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
 
         while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
+            $PreviousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             if ($callAzNatively) {
                 $lastAzOutput = az $azCommand 2>&1
             } else {
                 $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
             }
             $azErrorCode = $LastExitCode
+            $ErrorActionPreference = $PreviousErrorActionPreference
             Write-Debug "az command $azCommand returned with error code $azErrorCode"
             try {
                 $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
