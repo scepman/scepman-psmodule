@@ -120,9 +120,16 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
     }
 
     Write-Verbose "Configuring table storage endpoints in SCEPman, SCEPman's deployment slots (if any), and CertMaster"
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings AppConfig:AzureStorage:TableStorageEndpoint=$storageAccountTableEndpoint"
-    $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:CertificateStorage:TableStorageEndpoint=$storageAccountTableEndpoint"
+    $storageSettingForCm = @(
+        @{name='AppConfig:AzureStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
+    )
+    SetAppSettings -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -Settings  $storageSettingForCm
+
+    $storageSettingForSm = @(
+        @{name='AppConfig:CertificateStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
+    )
+    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings  $storageSettingForCm
     ForEach($tempDeploymentSlot in $DeploymentSlots) {
-        $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings AppConfig:CertificateStorage:TableStorageEndpoint=$storageAccountTableEndpoint --slot $tempDeploymentSlot"
+        SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings  $storageSettingForCm -Slot $tempDeploymentSlot
     }
 }

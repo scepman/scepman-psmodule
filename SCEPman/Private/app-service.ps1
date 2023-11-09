@@ -265,7 +265,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
   }
 }
 
-function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
+function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.Replace('"','\"')
@@ -279,7 +279,13 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
     } else {
       $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
     }
-    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+
+    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+    if ($null -ne $Slot) {
+      $command += @('--slot', $Slot)
+    }
+    
+    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $command
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
