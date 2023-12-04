@@ -6,6 +6,16 @@ function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNam
     return ExecuteAzCommandRobustly -azCommand "az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam $identityShowParams" | Convert-LinesToObject
 }
 
+function GetUserAssignedPrincipalIdsFromServicePrincipal($servicePrincipal) {
+    $userAssignedPrincipalIds = @()
+    if($null -ne $servicePrincipal.userAssignedIdentities) {
+        foreach ($userAssignedIdentity in $servicePrincipal.userAssignedIdentities.psobject.Properties) {
+            $userAssignedPrincipalIds += $servicePrincipal.userAssignedIdentities.($userAssignedIdentity.Name).principalId
+        }
+    }
+    return $userAssignedPrincipalIds
+}
+
 function GetAzureResourceAppId($appId) {
     if (AzUsesAADGraph) {
         $queryParam = '[0].objectId'

@@ -23,6 +23,9 @@
  .Parameter SubscriptionId
   The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
+ .PARAMETER SkipAppRoleAssignments
+  Set this flag to skip the app role assignments. This is useful if you don't have Global Administrator permissions. You will have to assign the app roles manually later, but the CMDlet will show which az commands to execute manually for the assignment.
+
  .Parameter AzureADAppNameForSCEPman
   Name of the Azure AD app registration for SCEPman
 
@@ -114,14 +117,45 @@ function Complete-SCEPmanInstallation
     $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
 
     Write-Verbose "Collecting Service Principals of SCEPman, its deployment slots, and Certificate Master"
+
     # Service principal of System-assigned identity of SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
 
     # Service principal of System-assigned identity of CertMaster
     $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
 
-    $servicePrincipals = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId, $serviceprincipalcm.principalId )
-    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( $serviceprincipalsc.principalId )
+    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( )
+    $servicePrincipals = [System.Collections.ArrayList]@( )
+    if ($null -eq $serviceprincipalcm.principalId) {
+        Write-Error "Certificate Master does not have a System-assigned Managed Identity turned on. Please turn on the System-assigned Managed Identity."
+    } else {
+        $servicePrincipals.Add($serviceprincipalcm.principalId)
+    }
+
+    $smUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalsc
+    if ($smUserAssignedMSIPrincipals.Count -gt 0) {
+        Write-Information "SCEPman has $($smUserAssignedMSIPrincipals.Count) user-assigned managed identities, which will be configured."
+    }
+    if ($null -eq $serviceprincipalsc.principalId) {
+        Write-Information "SCEPman does not have a System-assigned Managed Identity turned on"
+        if ($smUserAssignedMSIPrincipals.Count -eq 0) {
+            Write-Error "SCEPman does not have a System-assigned Managed Identity turned on and no user-assigned managed identities were found. Please turn on the System-assigned Managed Identity."
+            throw "SCEPman does not have a System-assigned Managed Identity turned on and no user-assigned managed identities were found. Please turn on the System-assigned Managed Identity."
+        }
+    } else {
+        $serviceprincipalOfScDeploymentSlots.Add($serviceprincipalsc.principalId)
+        $servicePrincipals.Add($serviceprincipalsc.principalId)
+    }
+
+
+    $servicePrincipals.AddRange($smUserAssignedMSIPrincipals)
+    $serviceprincipalOfScDeploymentSlots.AddRange($smUserAssignedMSIPrincipals)
+
+    $cmUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalcm
+    $servicePrincipals.AddRange($cmUserAssignedMSIPrincipals)
+    if ($cmUserAssignedMSIPrincipals.Count -gt 0) {
+        Write-Warning "Certificate Master has user-assigned managed identities. This is not supported by this CMDlet. Please configure the app roles manually."
+    }
 
     if($deploymentSlotsSc.Count -gt 0) {
         ForEach($deploymentSlot in $deploymentSlotsSc) {
