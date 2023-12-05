@@ -129,12 +129,14 @@ function Complete-SCEPmanInstallation
     if ($null -eq $serviceprincipalcm.principalId) {
         Write-Error "Certificate Master does not have a System-assigned Managed Identity turned on. Please turn on the System-assigned Managed Identity."
     } else {
-        $servicePrincipals.Add($serviceprincipalcm.principalId)
+        $null = $servicePrincipals.Add($serviceprincipalcm.principalId)
     }
 
     $smUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalsc
     if ($smUserAssignedMSIPrincipals.Count -gt 0) {
         Write-Information "SCEPman has $($smUserAssignedMSIPrincipals.Count) user-assigned managed identities, which will be configured."
+        $servicePrincipals.AddRange($smUserAssignedMSIPrincipals)
+        $serviceprincipalOfScDeploymentSlots.AddRange($smUserAssignedMSIPrincipals)
     }
     if ($null -eq $serviceprincipalsc.principalId) {
         Write-Information "SCEPman does not have a System-assigned Managed Identity turned on"
@@ -143,18 +145,14 @@ function Complete-SCEPmanInstallation
             throw "SCEPman does not have a System-assigned Managed Identity turned on and no user-assigned managed identities were found. Please turn on the System-assigned Managed Identity."
         }
     } else {
-        $serviceprincipalOfScDeploymentSlots.Add($serviceprincipalsc.principalId)
-        $servicePrincipals.Add($serviceprincipalsc.principalId)
+        $null = $serviceprincipalOfScDeploymentSlots.Add($serviceprincipalsc.principalId)
+        $null = $servicePrincipals.Add($serviceprincipalsc.principalId)
     }
 
-
-    $servicePrincipals.AddRange($smUserAssignedMSIPrincipals)
-    $serviceprincipalOfScDeploymentSlots.AddRange($smUserAssignedMSIPrincipals)
-
     $cmUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalcm
-    $servicePrincipals.AddRange($cmUserAssignedMSIPrincipals)
     if ($cmUserAssignedMSIPrincipals.Count -gt 0) {
         Write-Warning "Certificate Master has user-assigned managed identities. This is not supported by this CMDlet. Please configure the app roles manually."
+        $servicePrincipals.AddRange($cmUserAssignedMSIPrincipals)   # Let's still try it. It reduces the manual work.
     }
 
     if($deploymentSlotsSc.Count -gt 0) {
@@ -175,6 +173,12 @@ function Complete-SCEPmanInstallation
 
     Write-Information "Connecting Web Apps to Storage Account"
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+
+    Write-Information "Adding permissions for SCEPman on the Key Vault"
+    $keyVaultName = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyVaultName -SubscriptionId $subscription.Id -PrincipalId $scepmanServicePrincipal
+    }
 
     ### Set managed identity permissions for SCEPman
     $allPermissionsAreGranted = $true
