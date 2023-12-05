@@ -26,6 +26,9 @@
  .PARAMETER SkipAppRoleAssignments
   Set this flag to skip the app role assignments. This is useful if you don't have Global Administrator permissions. You will have to assign the app roles manually later, but the CMDlet will show which az commands to execute manually for the assignment.
 
+ .PARAMETER SkipCertificateMaster
+  Set this flag to skip configuration of the Certificate Master App Service. This is useful for SCEPman clones, where the Certificate Master App Service already exists next to the main instance.
+
  .Parameter AzureADAppNameForSCEPman
   Name of the Azure AD app registration for SCEPman
 
@@ -55,6 +58,7 @@ function Complete-SCEPmanInstallation
         $DeploymentSlotName,
         $SubscriptionId,
         [switch]$SkipAppRoleAssignments,
+        [switch]$SkipCertificateMaster,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster',
         $GraphBaseUri = 'https://graph.microsoft.com'
@@ -63,6 +67,11 @@ function Complete-SCEPmanInstallation
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand)"
     Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
+
+    if ($SkipCertificateMaster.IsPresent -and ($null -ne $CertMasterAppServiceName -or $null -ne $CertMasterResourceGroup)) {
+        Write-Error "You cannot specify a Certificate Master App Service name or resource group and skip the configuration of the Certificate Master App Service at the same time. Error: -SkipCertificateMaster is set and -CertMasterAppServiceName or -CertMasterResourceGroup is set"
+        throw "You cannot specify a Certificate Master App Service name and skip the configuration of the Certificate Master App Service at the same time."
+    }
 
     $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
     Write-Information "Detected az version: $cliVersion"
@@ -80,7 +89,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Installing az resource graph extension"
     az extension add --name resource-graph --only-show-errors
 
-    Write-Information "Configuring SCEPman and CertMaster"
+    Write-Information "Configuring SCEPman"
 
     Write-Information "Logging in to az"
     $null = AzLogin
@@ -113,24 +122,17 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    Write-Information "Getting Certificate Master web app"
-    $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+    if (-not $SkipCertificateMaster.IsPresent) {
+        Write-Information "Getting Certificate Master web app"
+        $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+    }
 
     Write-Verbose "Collecting Service Principals of SCEPman, its deployment slots, and Certificate Master"
+    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( )
+    $servicePrincipals = [System.Collections.ArrayList]@( )
 
     # Service principal of System-assigned identity of SCEPman
     $serviceprincipalsc = GetServicePrincipal -appServiceNameParam $SCEPmanAppServiceName -resourceGroupParam $SCEPmanResourceGroup
-
-    # Service principal of System-assigned identity of CertMaster
-    $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
-
-    $serviceprincipalOfScDeploymentSlots = [System.Collections.ArrayList]@( )
-    $servicePrincipals = [System.Collections.ArrayList]@( )
-    if ($null -eq $serviceprincipalcm.principalId) {
-        Write-Error "Certificate Master does not have a System-assigned Managed Identity turned on. Please turn on the System-assigned Managed Identity."
-    } else {
-        $null = $servicePrincipals.Add($serviceprincipalcm.principalId)
-    }
 
     $smUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalsc
     if ($smUserAssignedMSIPrincipals.Count -gt 0) {
@@ -149,10 +151,21 @@ function Complete-SCEPmanInstallation
         $null = $servicePrincipals.Add($serviceprincipalsc.principalId)
     }
 
-    $cmUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalcm
-    if ($cmUserAssignedMSIPrincipals.Count -gt 0) {
-        Write-Warning "Certificate Master has user-assigned managed identities. This is not supported by this CMDlet. Please configure the app roles manually."
-        $servicePrincipals.AddRange($cmUserAssignedMSIPrincipals)   # Let's still try it. It reduces the manual work.
+    # Service principal of System-assigned identity of CertMaster
+    if (-not $SkipCertificateMaster.IsPresent) {
+        $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
+
+        if ($null -eq $serviceprincipalcm.principalId) {
+            Write-Error "Certificate Master does not have a System-assigned Managed Identity turned on. Please turn on the System-assigned Managed Identity."
+        } else {
+            $null = $servicePrincipals.Add($serviceprincipalcm.principalId)
+        }
+
+        $cmUserAssignedMSIPrincipals = GetUserAssignedPrincipalIdsFromServicePrincipal -servicePrincipal $serviceprincipalcm
+        if ($cmUserAssignedMSIPrincipals.Count -gt 0) {
+            Write-Warning "Certificate Master has user-assigned managed identities. This is not supported by this CMDlet. Please configure the app roles manually."
+            $servicePrincipals.AddRange($cmUserAssignedMSIPrincipals)   # Let's still try it. It reduces the manual work.
+        }
     }
 
     if($deploymentSlotsSc.Count -gt 0) {
@@ -167,9 +180,12 @@ function Complete-SCEPmanInstallation
         }
     }
 
-    Write-Verbose "Checking update channels of SCEPman and Certificate Master"
+    Write-Verbose "Checking update channel of SCEPman"
     SwitchToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
-    SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+    if (-not $SkipCertificateMaster.IsPresent) {
+        Write-Verbose "Checking update channel of Certificate Master"
+        SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+    }
 
     Write-Information "Connecting Web Apps to Storage Account"
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
@@ -190,20 +206,27 @@ function Complete-SCEPmanInstallation
     }
 
     ### Set Managed Identity permissions for CertMaster
-    Write-Information "Setting up permissions for Certificate Master"
-    $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-    $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
+    if (-not $SkipCertificateMaster.IsPresent) {
+        Write-Information "Setting up permissions for Certificate Master"
+        $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
+        $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
 
-    $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
+        $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
-    $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
-    $CertMasterBaseURL = $CertMasterBaseURLs[0]
-    Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
+        $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+        $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
+        $CertMasterBaseURL = $CertMasterBaseURLs[0]
+        Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-    $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+        $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+    }
 
-    ConfigureAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -DeploymentSlots $deploymentSlotsSc -AppRoleAssignmentsFinished $allPermissionsAreGranted
+    ConfigureScepManAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -DeploymentSlots $deploymentSlotsSc -AppRoleAssignmentsFinished $allPermissionsAreGranted
+    if ($SkipCertificateMaster.IsPresent) {
+        Write-Information "Skipping configuration of Certificate Master App Service"
+    } else {
+        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -AppRoleAssignmentsFinished $allPermissionsAreGranted
+    }
 
-    Write-Information "SCEPman and SCEPman Certificate Master configuration completed"
+    Write-Information "SCEPman configuration completed"
 }
