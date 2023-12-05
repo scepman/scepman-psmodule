@@ -13,7 +13,7 @@ function GetUserAssignedPrincipalIdsFromServicePrincipal($servicePrincipal) {
             $userAssignedPrincipalIds += $servicePrincipal.userAssignedIdentities.($userAssignedIdentity.Name).principalId
         }
     }
-    return $userAssignedPrincipalIds
+    Write-Output $userAssignedPrincipalIds -NoEnumerate # The switch prevents an empty array to be returned as $null, otherwise this is similar to return
 }
 
 function GetAzureResourceAppId($appId) {
