@@ -207,18 +207,19 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
   }
 }
 
-function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $CertMasterAppId, $AppRoleAssignmentsFinished, $DeploymentSlots = @()) {
+function ConfigureScepManAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $AppRoleAssignmentsFinished, $DeploymentSlots) {
   Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and Certificate Master web app settings"
-
-  $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   # Add ApplicationId and some additional defaults in SCEPman web app settings
 
   $ScepManAppSettings = @{
     'AppConfig:AuthConfig:ApplicationId' = $SCEPmanAppID
-    'AppConfig:CertMaster:URL' = $CertMasterBaseURL
     'AppConfig:IntuneValidation:DeviceDirectory' = 'AADAndIntune'
-    'AppConfig:DirectCSRValidation:Enabled' = 'true'
+  }
+
+  if (-not [string]::IsNullOrEmpty($CertMasterBaseURL)) {
+    $ScepManAppSettings['AppConfig:CertMaster:URL'] = $CertMasterBaseURL
+    $ScepManAppSettings['AppConfig:DirectCSRValidation:Enabled'] = 'true'
   }
 
   $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
@@ -230,8 +231,11 @@ function ConfigureAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $Ce
   ForEach($tempDeploymentSlot in $DeploymentSlots) {
     ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -DeploymentSlotName $tempDeploymentSlot -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished
   }
+}
 
+function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppServiceName, $SCEPmanAppId, $CertMasterAppId, $AppRoleAssignmentsFinished) {
   Write-Verbose "Setting Certificate Master configuration"
+  $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
   $CertmasterAppSettings = @{
@@ -265,7 +269,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
   }
 }
 
-function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
+function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.Replace('"','\"')
@@ -279,7 +283,13 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings) {
     } else {
       $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
     }
-    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+
+    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+    if ($null -ne $Slot) {
+      $command += @('--slot', $Slot)
+    }
+    
+    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $command
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')

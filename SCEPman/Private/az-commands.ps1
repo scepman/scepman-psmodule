@@ -50,15 +50,19 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
                     Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
                 } elseif ($outputElement.ToString().Contains("Blowfish") -or $outputElement.ToString().Contains('cryptography on a 32-bit Python')) {
+                    Write-Debug "Ignoring expected warning about Blowfish: $outputElement"
                     # Ignore, this is an issue of az 2.45.0 and az 2.45.0-preview
                 } elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
+                        Write-Debug "Ignoring expected warning about Graph API migration: $outputElement"
                         # Ignore, we know that
                     } elseif ($outputElement.ToString().StartsWith("WARNING: App settings have been redacted.")) {
+                        Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                         # Ignore, this is a new behavior of az 2.53.1 and affects the output of az webapp settings set, which we do not use anyway.
                     } else
                     {
+                        Write-Debug "Warning about unexpected az output"
                         Write-Warning $outputElement.ToString()
                     }
                 } else {
@@ -68,6 +72,7 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                         $errorMessages += "You have insufficient privileges to complete the operation. Please ensure that you run this CMDlet with required privileges e.g. Global Administrator"
                     }
 
+                    Write-Debug "Error about unexpected az output: $outputElement"
                     $errorMessages += $outputElement
                 }
             } else {
@@ -160,12 +165,16 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
         $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
 
         while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
+            $PreviousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             if ($callAzNatively) {
                 $lastAzOutput = az $azCommand 2>&1
             } else {
                 $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
             }
             $azErrorCode = $LastExitCode
+            $ErrorActionPreference = $PreviousErrorActionPreference
+            Write-Debug "az command $azCommand returned with error code $azErrorCode"
             try {
                 $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
                     # If we were requested to check that the permission is there and there was no error, do the check now.
