@@ -208,8 +208,8 @@ function Complete-SCEPmanInstallation
     ### Set Managed Identity permissions for CertMaster
     if (-not $SkipCertificateMaster.IsPresent) {
         Write-Information "Setting up permissions for Certificate Master"
-        $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-        $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
+        #$resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
+        #$allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
 
         $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
@@ -225,7 +225,7 @@ function Complete-SCEPmanInstallation
     if ($SkipCertificateMaster.IsPresent) {
         Write-Information "Skipping configuration of Certificate Master App Service"
     } else {
-        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -AppRoleAssignmentsFinished $allPermissionsAreGranted
+        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -AppRoleAssignmentsFinished $false
     }
 
     Write-Information "SCEPman configuration completed"
