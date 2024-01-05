@@ -104,6 +104,9 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
+  # Expose CertMaster API
+  ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregcm.appId) --identifier-uris `"api://$($appregcm.appId)`""
+
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
   # Add Microsoft Graph's User.Read as delegated permission for CertMaster
   AddDelegatedPermissionToCertMasterApp -appId $appregcm.appId -SkipAutoGrant $SkipAutoGrant
