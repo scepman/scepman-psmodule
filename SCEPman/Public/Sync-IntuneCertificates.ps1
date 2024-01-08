@@ -59,16 +59,22 @@ function Sync-IntuneCertificates
           throw "Could not find App ID of Certificate Master"
         }
       }
+      Write-Information "Making sure that Certificate Master exposes its API"
       ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
 
       # Add az as Client Application to SCEPman-CertMaster
+      Write-Information "Making sure that az is authorized to access Certificate Master"
       $CertMasterAppJson = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('ad', 'app', 'show', '--id', $CertMasterAppId)
       $CertMasterApp = Convert-LinesToObject -Lines $CertMasterAppJson
 
-      $AccessCertMasterId = $CertMasterApp.api.oauth2PermissionScopes | Where-Object { $_.value -eq 'user_impersonation' } | Select-Object -ExpandProperty id
-      $PreAuthorizationJson = "{'api':{'preAuthorizedApplications':[{'appId':'$AzAppId', 'permissionIds':['$AccessCertMasterId']}]}}"
+      $existingAzAuthorization = $CertMasterApp.api.preAuthorizedApplications | Where-Object { $_.appId -eq $AzAppId }
+      if ($null -eq $existingAzAuthorization) {
+        Write-Information "Adding az as authorized application to Certificate Master"
+        $AccessCertMasterId = $CertMasterApp.api.oauth2PermissionScopes | Where-Object { $_.value -eq 'user_impersonation' } | Select-Object -ExpandProperty id
+        $PreAuthorizationJson = "{'api':{'preAuthorizedApplications':[{'appId':'$AzAppId', 'permissionIds':['$AccessCertMasterId']}]}}"
 
-      $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($CertMasterApp.id)", '--body', $PreAuthorizationJson, '--headers', 'Content-Type=application/json')
+        $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($CertMasterApp.id)", '--body', $PreAuthorizationJson, '--headers', 'Content-Type=application/json')
+      }
 
       # Get Token to log on to Certificate Master
       $cm_token = $(az account get-access-token --scope api://$CertMasterAppId/.default --query accessToken --output tsv) | ConvertTo-SecureString -AsPlainText -Force
@@ -83,4 +89,12 @@ function Sync-IntuneCertificates
       $migrationResponseLines = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri $CertMasterBaseURL/migrate-certificates/$currentSearchFilter --resource $CertMasterBaseURL"
       $migrationResponse = Convert-LinesToObject -lines $migrationResponseLines
 
+      if ($null -eq $existingAzAuthorization) { # Only revert if we added the authorization
+        Write-Information "Reverting az access to Certificate Master"
+
+        $previousPreAuthorizationsInner = ConvertTo-Json -InputObject $CertMasterApp.api.preAuthorizedApplications -Compress
+        $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
+
+        $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($CertMasterApp.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+      }
 }
