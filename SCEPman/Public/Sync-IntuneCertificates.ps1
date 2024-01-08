@@ -62,7 +62,13 @@ function Sync-IntuneCertificates
       ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
 
       # Add az as Client Application to SCEPman-CertMaster
-#      az ad app update --id $CertMasterAppId --add preAuthorizedApplications "{'appId':'04b07795-8ddb-461a-bbee-02f9e1bf7b46', 'permissionIds':['d7c0a602-03f1-42f3-8408-7422e01f1b0e']}"
+      $CertMasterAppJson = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('ad', 'app', 'show', '--id', $CertMasterAppId)
+      $CertMasterApp = Convert-LinesToObject -Lines $CertMasterAppJson
+
+      $AccessCertMasterId = $CertMasterApp.api.oauth2PermissionScopes | Where-Object { $_.value -eq 'user_impersonation' } | Select-Object -ExpandProperty id
+      $PreAuthorizationJson = "{'api':{'preAuthorizedApplications':[{'appId':'$AzAppId', 'permissionIds':['$AccessCertMasterId']}]}}"
+
+      $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($CertMasterApp.id)", '--body', $PreAuthorizationJson, '--headers', 'Content-Type=application/json')
 
       # Get Token to log on to Certificate Master
       $cm_token = $(az account get-access-token --scope api://$CertMasterAppId/.default --query accessToken --output tsv) | ConvertTo-SecureString -AsPlainText -Force

@@ -2,6 +2,7 @@
 New-Variable -Name "MSGraphAppId" -Value "00000003-0000-0000-c000-000000000000" -Scope "Script" -Option ReadOnly
 #$MSGraphAppId = "00000003-0000-0000-c000-000000000000"
 New-Variable -Name "MSGraphUserReadPermission" -Value "e1fe6dd8-ba31-4d61-89e7-88639da4683d" -Scope "Script" -Option ReadOnly
+New-Variable -Name "AzAppId" -Value "04b07795-8ddb-461a-bbee-02f9e1bf7b46" -Scope "Script" -Option ReadOnly # Well-known App ID of the Azure CLI
 
 New-Variable -Name "MSGraphDirectoryReadAllPermission" -Value "7ab1d382-f21e-4acd-a863-ba3e13f7da61" -Scope "Script" -Option ReadOnly
 New-Variable -Name "MSGraphDeviceManagementReadPermission" -Value "2f51be20-0bb4-4fed-bf7b-db946066c75e" -Scope "Script" -Option ReadOnly
