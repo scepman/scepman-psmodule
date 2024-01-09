@@ -78,7 +78,6 @@ function Sync-IntuneCertificates
       $currentSearchFilter = $CertificateSearchString
       Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing
 
-
       $migrationResponseLines = ExecuteAzCommandRobustly -azCommand "az rest --method post --uri $CertMasterBaseURL/migrate-certificates/$currentSearchFilter --resource $CertMasterBaseURL"
       $migrationResponse = Convert-LinesToObject -lines $migrationResponseLines
 

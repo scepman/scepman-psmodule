@@ -150,6 +150,10 @@ function Remove-AsAsTrustedClientApplication ($AppId) {
 
   $authorizationsWithoutAz = $AppObject.api.preAuthorizedApplications | Where-Object { $_.appId -ne $AzAppId }
 
+  if ($null -eq $authorizationsWithoutAz) {
+    $authorizationsWithoutAz = @()
+  }
+
   $previousPreAuthorizationsInner = ConvertTo-Json -InputObject $authorizationsWithoutAz -Compress
   $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
