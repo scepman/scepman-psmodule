@@ -70,13 +70,48 @@ function Sync-IntuneCertificates
       $AzAuthorizationWasAdded = Add-AzAsTrustedClientApplication -AppId $CertMasterAppId
 
       # Get Token to log on to Certificate Master
+      if ($AzAuthorizationWasAdded) {
+        # TODO: Some delay is required here, otherwise we cannot get a token
+      }
       $cm_token = $(az account get-access-token --scope api://$CertMasterAppId/.default --query accessToken --output tsv) | ConvertTo-SecureString -AsPlainText -Force
 
       # TODO: Find CertMaster version and check if it is compatible
 
+      # Some definitions to iterate through the search filters
+      function IsEverythingFinished([string]$CurrentSearchFilter, [string]$GlobalSearchFilter) {
+        if ('STOP' -eq $CurrentSearchFilter) {
+          return $true
+        }
+
+        $startOfCurrentSearchFilter = $CurrentSearchFilter.Substring(0, $GlobalSearchFilter.Length)
+        if ([Convert]::ToInt32($startOfCurrentSearchFilter, 16) -gt [Convert]::ToInt32($GlobalSearchFilter, 16)) {
+          return $true
+        }
+
+        return $false
+      }
+
+      function NextSearchFilter([string]$CurrentSearchFilter) {
+        if ([String]::IsNullOrWhiteSpace($CurrentSearchFilter)) {
+          return 'STOP'
+        }
+        for ([int]$pos = $currentSearchFilter.Length - 1; $pos -ge 0; $pos--) {
+          if ($currentSearchFilter[$pos] -eq 'f') {
+            $CurrentSearchFilter[$pos] = '0'
+          } else {
+            $CurrentSearchFilter[$pos] = [char]([int]$CurrentSearchFilter[$pos] + 1)  # TODO: Ensure this is hex
+            return $CurrentSearchFilter
+        }
+        return 'STOP' # The filter is ff...f, so we are done
+      }
+
       Write-Information "Instructing Certificate Master to sync certificates"
-      $currentSearchFilter = $CertificateSearchString
-      Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing
+      for ($currentSearchFilter = $CertificateSearchString; -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchFilter); $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter) {
+        Write-Information "Syncing certificates with filter '$currentSearchFilter'"
+        $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing
+
+        # TODO: Check the status code and print the number of certificates that were synced
+      }
 
       if ($AzAuthorizationWasAdded) { # Only revert if we added the authorization
         Write-Information "Reverting az access to Certificate Master"
