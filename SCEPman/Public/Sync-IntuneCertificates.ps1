@@ -5,80 +5,84 @@
 #>
 function Sync-IntuneCertificates
 {
-    [CmdletBinding()]
-    param(
-      $CertMasterAppServiceName,
-      $CertMasterResourceGroup,
-      [switch]$SearchAllSubscriptions,
-      $SubscriptionId,
-      $CertificateSearchString
-      )
+  [CmdletBinding()]
+  param(
+    $CertMasterAppServiceName,
+    $CertMasterResourceGroup,
+    [switch]$SearchAllSubscriptions,
+    $SubscriptionId,
+    $CertificateSearchString
+    )
 
-      $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
-      Write-Verbose "Invoked $($MyInvocation.MyCommand)"
-      Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
-  
-      $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
-      Write-Information "Detected az version: $cliVersion"
+    $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
+    Write-Verbose "Invoked $($MyInvocation.MyCommand)"
+    Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
 
-      If ($PSBoundParameters['Debug']) {
-          $DebugPreference='Continue' # Do not ask user for confirmation, so that the script can run unattended
-      }
+    $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
+    Write-Information "Detected az version: $cliVersion"
 
-      if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
-          $CertMasterAppServiceName = Read-Host "Please enter the Certificate Master app service name"
-      }
+    If ($PSBoundParameters['Debug']) {
+        $DebugPreference='Continue' # Do not ask user for confirmation, so that the script can run unattended
+    }
 
-      Write-Information "Copying Intune Certificates from Intune API to Certificate Master Storage Account using filter '$CertificateSearchString'"
-  
-      Write-Information "Logging in to az"
-      $null = AzLogin
-  
-      Write-Information "Getting subscription details"
-      $subscription = GetSubscriptionDetails -AppServiceName $CertMasterAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
-      Write-Information "Subscription is set to $($subscription.name)"
+    if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
+        $CertMasterAppServiceName = Read-Host "Please enter the Certificate Master app service name"
+    }
 
-      Write-Information "Setting resource group"
-      if ([String]::IsNullOrWhiteSpace($CertMasterResourceGroup)) {
-          # No resource group given, search for it now
-          $CertMasterResourceGroup = GetResourceGroup -SCEPmanAppServiceName $CertMasterAppServiceName
-      }
+    Write-Information "Copying Intune Certificates from Intune API to Certificate Master Storage Account using filter '$CertificateSearchString'"
 
-      Write-Information "Finding API endpoint of Certificate Master"
-      $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $CertMasterResourceGroup
-      $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
-      $CertMasterBaseURL = $CertMasterBaseURLs[0]
-      Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
+    Write-Information "Logging in to az"
+    $null = AzLogin
 
-      Write-Information "Getting App ID of Certificate Master"
-      $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:HomeApplicationId'].value | [0]"" --output tsv")
+    Write-Information "Getting subscription details"
+    $subscription = GetSubscriptionDetails -AppServiceName $CertMasterAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
+    Write-Information "Subscription is set to $($subscription.name)"
+
+    Write-Information "Setting resource group"
+    if ([String]::IsNullOrWhiteSpace($CertMasterResourceGroup)) {
+        # No resource group given, search for it now
+        $CertMasterResourceGroup = GetResourceGroup -SCEPmanAppServiceName $CertMasterAppServiceName
+    }
+
+    Write-Information "Finding API endpoint of Certificate Master"
+    $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $CertMasterResourceGroup
+    $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
+    $CertMasterBaseURL = $CertMasterBaseURLs[0]
+    Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
+
+    Write-Information "Getting App ID of Certificate Master"
+    $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:HomeApplicationId'].value | [0]"" --output tsv")
+    if ([String]::IsNullOrWhiteSpace($CertMasterAppId)) {
+      $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]"" --output tsv")
       if ([String]::IsNullOrWhiteSpace($CertMasterAppId)) {
-        $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]"" --output tsv")
-        if ([String]::IsNullOrWhiteSpace($CertMasterAppId)) {
-          Write-Error "Could not find App ID of Certificate Master"
-          throw "Could not find App ID of Certificate Master"
-        }
+        Write-Error "Could not find App ID of Certificate Master"
+        throw "Could not find App ID of Certificate Master"
       }
-      Write-Verbose "Certificate Master App ID is $CertMasterAppId"
+    }
+    Write-Verbose "Certificate Master App ID is $CertMasterAppId"
 
-      # Expose CertMaster API
-      Write-Information "Making sure that Certificate Master exposes its API"
-      ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
+    # Expose CertMaster API
+    Write-Information "Making sure that Certificate Master exposes its API"
+    ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
 
-      # Add az as Client Application to SCEPman-CertMaster
-      Write-Information "Making sure that az is authorized to access Certificate Master"
-      $AzAuthorizationWasAdded = Add-AzAsTrustedClientApplication -AppId $CertMasterAppId
+    # Add az as Client Application to SCEPman-CertMaster
+    Write-Information "Making sure that az is authorized to access Certificate Master"
+    $AzAuthorizationWasAdded = Add-AzAsTrustedClientApplication -AppId $CertMasterAppId
 
-      # Get Token to log on to Certificate Master
-      if ($AzAuthorizationWasAdded) {
-        # TODO: Some delay is required here, otherwise we cannot get a token
-      }
-      $cm_token = $(az account get-access-token --scope api://$CertMasterAppId/.default --query accessToken --output tsv) | ConvertTo-SecureString -AsPlainText -Force
+    # Get Token to log on to Certificate Master
+    if ($AzAuthorizationWasAdded) {
+      Write-Information "Waiting five seconds for az authorization to be effective"
+      Start-Sleep -Seconds 5
+    }
+    $cm_token = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $('account', 'get-access-token', '--scope', "api://$CertMasterAppId/.default", '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
 
+    try {
+        
       # TODO: Find CertMaster version and check if it is compatible
 
       # Some definitions to iterate through the search filters
       function IsEverythingFinished([string]$CurrentSearchFilter, [string]$GlobalSearchFilter) {
+        Write-Debug "IsEverythingFinished: CurrentSearchFilter=$CurrentSearchFilter, GlobalSearchFilter=$GlobalSearchFilter"
         if ('STOP' -eq $CurrentSearchFilter) {
           return $true
         }
@@ -95,27 +99,58 @@ function Sync-IntuneCertificates
         if ([String]::IsNullOrWhiteSpace($CurrentSearchFilter)) {
           return 'STOP'
         }
-        for ([int]$pos = $currentSearchFilter.Length - 1; $pos -ge 0; $pos--) {
-          if ($currentSearchFilter[$pos] -eq 'f') {
-            $CurrentSearchFilter[$pos] = '0'
-          } else {
-            $CurrentSearchFilter[$pos] = [char]([int]$CurrentSearchFilter[$pos] + 1)  # TODO: Ensure this is hex
-            return $CurrentSearchFilter
+
+        if ($CurrentSearchFilter.EndsWith('x')) {  # The special code for "retry with more narrow search filter"
+          $CurrentSearchFilter[$CurrentSearchFilter.Length - 1] = '0'
+          return $CurrentSearchFilter
+        } else {
+          for ([int]$pos = $currentSearchFilter.Length - 1; $pos -ge 0; $pos--) {
+            if ($currentSearchFilter[$pos] -eq 'f') {
+              $CurrentSearchFilter[$pos] = '0'
+            } else {
+              $CurrentSearchFilter[$pos] = [char]([int]$CurrentSearchFilter[$pos] + 1)  # TODO: Ensure this is hex
+              return $CurrentSearchFilter
+            }
+          }
+          return 'STOP' # The filter is ff...f, so we are done
         }
-        return 'STOP' # The filter is ff...f, so we are done
       }
 
       Write-Information "Instructing Certificate Master to sync certificates"
-      for ($currentSearchFilter = $CertificateSearchString; -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchFilter); $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter) {
+      for ($currentSearchFilter = $CertificateSearchString; -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString); $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter) {
         Write-Information "Syncing certificates with filter '$currentSearchFilter'"
-        $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing
 
-        # TODO: Check the status code and print the number of certificates that were synced
+        # TODO: Use Invoke-WebMethod and parse the JSON manually, as otherwise we'll lose the status code
+        $result = Invoke-RestMethod -Method Post -Uri "$CertMasterBaseURL/api/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
+
+        switch ($result.StatusCode) {
+          201 { # Created
+            Write-Information "Successfully synced $($result.MigratedCertificates) certificates with filter '$currentSearchFilter'; There were $($result.FailedCertificates) certificates in failures"
+          }
+          401 { # Unauthorized
+            Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+            throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+          }
+          504 { # Gateway Timeout
+            Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($result.MigratedCertificates) certificates were synched, while $($result.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
+            $currentSearchFilter += 'x' # The special code for "retry with more narrow search filter"
+            if ($currentSearchFilter.Length -gt 8) {
+              Write-Error "The search filter is already very narrow, but still the gateway timed out. Giving up."
+              throw "The search filter is already very narrow, but still the gateway timed out. Giving up."
+            }
+          }
+          default {
+            Write-Error "Failed to sync certificates with filter '$currentSearchFilter'"
+            throw "Failed to sync certificates with filter '$currentSearchFilter'"
+          }
+        }
       }
-
+    }
+    finally {
       if ($AzAuthorizationWasAdded) { # Only revert if we added the authorization
         Write-Information "Reverting az access to Certificate Master"
 
         Remove-AsAsTrustedClientApplication -AppId $CertMasterAppId
       }
+    }
 }
