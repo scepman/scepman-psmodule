@@ -78,7 +78,7 @@ function Sync-IntuneCertificates
     $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
 
     try {
-        
+
       # TODO: Find CertMaster version and check if it is compatible
 
       # Some definitions to iterate through the search filters
@@ -128,8 +128,8 @@ function Sync-IntuneCertificates
       $totalFailedCount = 0
       $retryAuthorization = $true
       for (
-        $currentSearchFilter = $CertificateSearchString; 
-        -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString); 
+        $currentSearchFilter = $CertificateSearchString;
+        -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString);
         $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter -ProgressCondition $retryAuthorization
       ) {
         Write-Verbose "Syncing certificates with filter '$currentSearchFilter'"
