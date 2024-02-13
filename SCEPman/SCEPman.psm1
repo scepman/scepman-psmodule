@@ -26,4 +26,4 @@ Export-ModuleMember -Function New-IntermediateCA
 Export-ModuleMember -Function Get-IntermediateCaPolicy
 Export-ModuleMember -Function Set-IntermediateCaPolicy
 Export-ModuleMember -Function Reset-IntermediateCaPolicy
-Export-ModuleMember -Function Sync-IntuneCertificates
+Export-ModuleMember -Function Sync-IntuneCertificate
