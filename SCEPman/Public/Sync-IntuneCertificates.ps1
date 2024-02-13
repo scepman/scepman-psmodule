@@ -101,16 +101,17 @@ function Sync-IntuneCertificates
         }
 
         if ($CurrentSearchFilter.EndsWith('x')) {  # The special code for "retry with more narrow search filter"
-          $CurrentSearchFilter[$CurrentSearchFilter.Length - 1] = '0'
-          return $CurrentSearchFilter
+          $CurrentSearchFilter = $CurrentSearchFilter.Substring(0, $CurrentSearchFilter.Length - 1) # Remove the 'x'
+          return $CurrentSearchFilter + '0'  # Retry with more narrow search filter
         } else {
           for ([int]$pos = $currentSearchFilter.Length - 1; $pos -ge 0; $pos--) {
             if ($currentSearchFilter[$pos] -eq 'f') {
-              $CurrentSearchFilter[$pos] = '0'
+              $CurrentSearchFilter = $CurrentSearchFilter.Substring(0, $pos) + '0' + $CurrentSearchFilter.Substring($pos + 1)
             } else {
-              $CurrentSearchFilter[$pos] = [char]([int]$CurrentSearchFilter[$pos] + 1)  # TODO: Ensure this is hex
-              return $CurrentSearchFilter
-            }
+              $currentDigitValue = [Convert]::ToInt32($CurrentSearchFilter[$pos].ToString(),16)
+              $nextChar = [Convert]::ToString($currentDigitValue + 1, 16)  # Increment the hex number at the position
+              $CurrentSearchFilter = $CurrentSearchFilter.Substring(0, $pos) + $nextChar + $CurrentSearchFilter.Substring($pos + 1)
+              return $CurrentSearchFilter}
           }
           return 'STOP' # The filter is ff...f, so we are done
         }
@@ -120,19 +121,22 @@ function Sync-IntuneCertificates
       for ($currentSearchFilter = $CertificateSearchString; -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString); $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter) {
         Write-Information "Syncing certificates with filter '$currentSearchFilter'"
 
-        # TODO: Use Invoke-WebMethod and parse the JSON manually, as otherwise we'll lose the status code
-        $result = Invoke-RestMethod -Method Post -Uri "$CertMasterBaseURL/api/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
+        # Invoke-RestMethod is not possible, since we would lose access to the StatusCode. Therefore we must parse the JSON manually.
+        $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/maintenance/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
 
         switch ($result.StatusCode) {
           201 { # Created
-            Write-Information "Successfully synced $($result.MigratedCertificates) certificates with filter '$currentSearchFilter'; There were $($result.FailedCertificates) certificates in failures"
+            $jsonContent = $result.Content | ConvertFrom-Json
+            Write-Information "Successfully synced $($jsonContent.SuccessfulCertificates) certificates with filter '$currentSearchFilter'; $($jsonContent.SkippedCertificates) were skipped; There were $($jsonContent.FailedCertificates) certificate failures"
           }
           401 { # Unauthorized
+            # TODO: Refresh token and retry
             Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
             throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
           }
           504 { # Gateway Timeout
-            Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($result.MigratedCertificates) certificates were synched, while $($result.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
+            $jsonContent = $result.Content | ConvertFrom-Json
+            Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($jsonContent.SuccessfulCertificates) certificates were synched and $($jsonContent.SkippedCertificates) were skipped, while $($jsonContent.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
             $currentSearchFilter += 'x' # The special code for "retry with more narrow search filter"
             if ($currentSearchFilter.Length -gt 8) {
               Write-Error "The search filter is already very narrow, but still the gateway timed out. Giving up."
