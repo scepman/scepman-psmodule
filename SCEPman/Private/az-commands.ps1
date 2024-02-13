@@ -1,4 +1,4 @@
-$MAX_RETRY_COUNT = 4  # for some operations, retry a couple of times
+﻿$MAX_RETRY_COUNT = 4  # for some operations, retry a couple of times
 $SNAILMODE_MAX_RETRY_COUNT = 10 # For very slow tenants, retry more often
 
 $script:Snail_Mode = $false
