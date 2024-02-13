@@ -74,7 +74,8 @@ function Sync-IntuneCertificates
       Write-Information "Waiting five seconds for az authorization to be effective"
       Start-Sleep -Seconds 5
     }
-    $cm_token = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $('account', 'get-access-token', '--scope', "api://$CertMasterAppId/.default", '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
+
+    $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
 
     try {
         
@@ -95,7 +96,11 @@ function Sync-IntuneCertificates
         return $false
       }
 
-      function NextSearchFilter([string]$CurrentSearchFilter) {
+      function NextSearchFilter([string]$CurrentSearchFilter, [bool]$ProgressCondition) {
+        if (-not $ProgressCondition) {
+          return $CurrentSearchFilter
+        }
+
         if ([String]::IsNullOrWhiteSpace($CurrentSearchFilter)) {
           return 'STOP'
         }
@@ -118,8 +123,16 @@ function Sync-IntuneCertificates
       }
 
       Write-Information "Instructing Certificate Master to sync certificates"
-      for ($currentSearchFilter = $CertificateSearchString; -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString); $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter) {
-        Write-Information "Syncing certificates with filter '$currentSearchFilter'"
+      $totalSuccessCount = 0
+      $totalSkippedCount = 0
+      $totalFailedCount = 0
+      $retryAuthorization = $true
+      for (
+        $currentSearchFilter = $CertificateSearchString; 
+        -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString); 
+        $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter -ProgressCondition $retryAuthorization
+      ) {
+        Write-Verbose "Syncing certificates with filter '$currentSearchFilter'"
 
         # Invoke-RestMethod is not possible, since we would lose access to the StatusCode. Therefore we must parse the JSON manually.
         $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/maintenance/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
@@ -128,20 +141,33 @@ function Sync-IntuneCertificates
           201 { # Created
             $jsonContent = $result.Content | ConvertFrom-Json
             Write-Information "Successfully synced $($jsonContent.SuccessfulCertificates) certificates with filter '$currentSearchFilter'; $($jsonContent.SkippedCertificates) were skipped; There were $($jsonContent.FailedCertificates) certificate failures"
+            $totalSuccessCount += $jsonContent.SuccessfulCertificates
+            $totalSkippedCount += $jsonContent.SkippedCertificates
+            $totalFailedCount += $jsonContent.FailedCertificates
+            $retryAuthorization = $true
           }
           401 { # Unauthorized
-            # TODO: Refresh token and retry
-            Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
-            throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+            if ($retryAuthorization) {
+              Write-Warning "Unauthorized to sync certificates with filter '$currentSearchFilter'. Retrying with new token..."
+              $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
+              $retryAuthorization = $false
+            } else {
+              Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+              throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+            }
           }
           504 { # Gateway Timeout
             $jsonContent = $result.Content | ConvertFrom-Json
             Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($jsonContent.SuccessfulCertificates) certificates were synched and $($jsonContent.SkippedCertificates) were skipped, while $($jsonContent.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
+            $totalSuccessCount += $jsonContent.SuccessfulCertificates
+            $totalSkippedCount += $jsonContent.SkippedCertificates
+            $totalFailedCount += $jsonContent.FailedCertificates
             $currentSearchFilter += 'x' # The special code for "retry with more narrow search filter"
             if ($currentSearchFilter.Length -gt 8) {
               Write-Error "The search filter is already very narrow, but still the gateway timed out. Giving up."
               throw "The search filter is already very narrow, but still the gateway timed out. Giving up."
             }
+            $retryAuthorization = $true
           }
           default {
             Write-Error "Failed to sync certificates with filter '$currentSearchFilter'"
@@ -149,6 +175,8 @@ function Sync-IntuneCertificates
           }
         }
       }
+
+      Write-Information "Syncing certificates finished. Total: $totalSuccessCount certificates were synched, $totalSkippedCount were skipped (possibly multiple times if there have been Gateway Timeouts), and $totalFailedCount failed"
     }
     finally {
       if ($AzAuthorizationWasAdded) { # Only revert if we added the authorization
