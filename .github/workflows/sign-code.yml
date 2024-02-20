@@ -20,7 +20,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install AzureSignTool
         run: dotnet tool install --no-cache --global AzureSignTool
@@ -52,7 +52,7 @@ jobs:
             -ifl .\input.txt
 
       - name: Upload signed module to artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Signed Module
           path: ./SCEPman
