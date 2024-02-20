@@ -182,7 +182,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     $deploymentSlotTargetingParamString = " --slot $DeploymentSlotName"
   }
 
-  $existingApplicationId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]""" + $deploymentSlotTargetingParamString)
+  $existingApplicationId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]""" + $deploymentSlotTargetingParamString) -noSecretLeakageWarning
   $existingApplicationId = $existingApplicationId.Trim('"')
   if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $SCEPmanAppId) {
     if ($existingApplicationId -notmatch $RegExGuid) {
@@ -193,13 +193,14 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationId"
   }
   $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings '$ScepManAppSettings'" + $deploymentSlotTargetingParamString)
-  $existingApplicationKeySc = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]""" + $deploymentSlotTargetingParamString)
+    # The following setting AppConfig:AuthConfig:ApplicationKey is a secret, but we make sure it doesn't appear in the logs. Not even through az's echoes.
+  $existingApplicationKeySc = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]""" + $deploymentSlotTargetingParamString) -noSecretLeakageWarning
   Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Wrote SCEPman application Settings"
   if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
     if ($existingApplicationKeySc.Contains("'")) {
       throw "SCEPman Application Key contains at least one single-quote character ('), which is unexpected. Aborting on unexpected setting"
     }
-    $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings 'BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc'" + $deploymentSlotTargetingParamString)
+    $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings 'BackUp:AppConfig:AuthConfig:ApplicationKey=$existingApplicationKeySc'" + $deploymentSlotTargetingParamString) -noSecretLeakageWarning
     $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings delete --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --setting-names AppConfig:AuthConfig:ApplicationKey" + $deploymentSlotTargetingParamString)
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationKey"
   }
