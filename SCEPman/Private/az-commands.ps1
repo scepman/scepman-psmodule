@@ -34,7 +34,7 @@ function Convert-LinesToObject {
 
 $PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
 
-function CheckAzOutput($azOutput, $fThrowOnError) {
+function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $false) {
     [String[]]$errorMessages = @()
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
@@ -60,6 +60,8 @@ function CheckAzOutput($azOutput, $fThrowOnError) {
                     } elseif ($outputElement.ToString().StartsWith("WARNING: App settings have been redacted.")) {
                         Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                         # Ignore, this is a new behavior of az 2.53.1 and affects the output of az webapp settings set, which we do not use anyway.
+                    } elseif ($noSecretLeakageWarning -and $outputElement.ToString().StartsWith("WARNING: [Warning] This output may compromise security by showing")) {
+                        Write-Debug "Ignoring expected warning about secret leakage: $outputElement"
                     } else
                     {
                         Write-Debug "Warning about unexpected az output"
@@ -174,8 +176,8 @@ function IsAzureCloudShell {
 
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
-#
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $callAzNatively = $false) {
+# $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, [switch]$callAzNatively, [switch]$noSecretLeakageWarning) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
@@ -196,7 +198,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             $ErrorActionPreference = $PreviousErrorActionPreference
             Write-Debug "az command $azCommand returned with error code $azErrorCode"
             try {
-                $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true
+                $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true -noSecretLeakageWarning $noSecretLeakageWarning
                     # If we were requested to check that the permission is there and there was no error, do the check now.
                     # However, if the permission has been there previously already, we can skip the check
                 if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {

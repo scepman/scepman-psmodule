@@ -121,7 +121,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
 Adds az as an Authorized CLient Application to an existing App Registration. Returns $true if the authorization was added, $false if it already existed.
 #>
 function Add-AzAsTrustedClientApplication ($AppId) {
-  $AppJson = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('ad', 'app', 'show', '--id', $AppId)
+  $AppJson = ExecuteAzCommandRobustly -callAzNatively -azCommand @('ad', 'app', 'show', '--id', $AppId)
   $AppObject = Convert-LinesToObject -Lines $AppJson
 
   $existingAzAuthorization = $AppObject.api.preAuthorizedApplications | Where-Object { $_.appId -eq $AzAppId }
@@ -135,7 +135,7 @@ function Add-AzAsTrustedClientApplication ($AppId) {
     $previousPreAuthorizationsInner = ConvertTo-Json -InputObject $existingAzAuthorization -Compress
     $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
-    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
 
     return $true
   } else {
@@ -144,7 +144,7 @@ function Add-AzAsTrustedClientApplication ($AppId) {
 }
 
 function Remove-AsAsTrustedClientApplication ($AppId) {
-  $AppJson = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('ad', 'app', 'show', '--id', $AppId)
+  $AppJson = ExecuteAzCommandRobustly -callAzNatively -azCommand @('ad', 'app', 'show', '--id', $AppId)
   $AppObject = Convert-LinesToObject -Lines $AppJson
 
   $authorizationsWithoutAz = $AppObject.api.preAuthorizedApplications | Where-Object { $_.appId -ne $AzAppId }
@@ -156,5 +156,5 @@ function Remove-AsAsTrustedClientApplication ($AppId) {
   $previousPreAuthorizationsInner = ConvertTo-Json -InputObject $authorizationsWithoutAz -Compress
   $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
-  $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+  $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
 }

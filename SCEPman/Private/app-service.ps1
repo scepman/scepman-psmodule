@@ -256,7 +256,8 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
-  $intendedChannel = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query ""[?name=='Update_Channel'].value | [0]"" --output tsv"
+  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, 
+    "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
@@ -265,7 +266,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
       Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
-      $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings ""WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl"""
+      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl") -callAzNatively
       $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
     }
   }
@@ -279,7 +280,8 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
       Write-Warning "Setting name $settingName contains at least one equal sign (=), which is unsupported. Skipping this setting."
       continue
     }
-    Write-Verbose "Setting $settingName to $settingValueEscaped"
+    Write-Verbose "Setting app setting $settingName of app $AppServiceName in slot [$Slot]"
+    Write-Debug "Setting $settingName to $settingValueEscaped"  # there could be cases where this is a secret, so we do not use Write-Verbose
     if ($PSVersionTable.PSVersion.Major -eq 5 -or -not $PSVersionTable.OS.StartsWith("Microsoft Windows")) {
       $settingAssignment = "$settingName=$settingValueEscaped"
     } else {
@@ -291,7 +293,7 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
       $command += @('--slot', $Slot)
     }
 
-    $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $command
+    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
