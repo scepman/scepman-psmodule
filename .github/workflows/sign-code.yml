@@ -40,7 +40,7 @@ jobs:
 
       - name: Create Input File list
         run: |
-          Get-ChildItem -Path .\SCEPman -Recurse -Include *.ps1,*.psm1 | Select-Object -ExpandProperty FullName | Out-File -FilePath .\input.txt -Encoding utf8
+          Get-ChildItem -Path .\SCEPman -Recurse -Include *.ps1,SCEPman.psm1,SCEPman.psd1 | Select-Object -ExpandProperty FullName | Out-File -FilePath .\input.txt -Encoding utf8
 
       - name: Sign all PowerShell files
         run: |
