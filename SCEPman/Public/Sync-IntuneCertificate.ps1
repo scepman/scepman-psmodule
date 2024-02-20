@@ -75,6 +75,7 @@ function Sync-IntuneCertificate
       Start-Sleep -Seconds 5
     }
 
+    Write-Information "Getting access token for Certificate Master"
     $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
 
     try {
