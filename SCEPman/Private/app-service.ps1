@@ -290,7 +290,7 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     if ($null -ne $Slot) {
       $command += @('--slot', $Slot)
     }
-    
+
     $null = ExecuteAzCommandRobustly -callAzNatively $true -azCommand $command
   }
   # The following does not work, as equal signs split this into incomprehensible gibberish:

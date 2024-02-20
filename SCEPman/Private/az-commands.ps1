@@ -1,4 +1,4 @@
-$MAX_RETRY_COUNT = 4  # for some operations, retry a couple of times
+﻿$MAX_RETRY_COUNT = 4  # for some operations, retry a couple of times
 $SNAILMODE_MAX_RETRY_COUNT = 10 # For very slow tenants, retry more often
 
 $script:Snail_Mode = $false
@@ -152,6 +152,26 @@ function AzUsesAADGraph {
     return $cliVersion -lt '2.37'
 }
 
+# Check heuristically whether we are in Azure Cloud Shell
+function IsAzureCloudShell {
+    $cloudShellProves = 0   # The more proves, the more likely we are in Azure Cloud Shell. We use a 2 out of 3 vote.
+    $azuredrive = get-psdrive -Name Azure -ErrorAction Ignore
+    if ($null -ne $azuredrive) {
+        ++$cloudShellProves
+    }
+
+    $cloudDrive = Get-ChildItem -Path ~\clouddrive
+    if ($null -ne $cloudDrive) {
+        ++$cloudShellProves
+    }
+
+    if ($PSVersionTable.Platform -eq "Unix") {
+        ++$cloudShellProves
+    }
+
+    return $cloudShellProves -ge 2
+}
+
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 #
@@ -192,6 +212,13 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             catch {
                 Write-Warning $_
                 $azErrorCode = 654  # a number not 0
+
+                if ($_.Contains("Failed to connect to MSI. Please make sure MSI is configured correctly") -and $_.Contains("400")) {
+                  if (IsAzureCloudShell) {
+                    Write-Warning "Trying to log in again to Azure CLI, as this usually fixes the token issue in Azure Cloud Shell"
+                    az login
+                  }
+                }
             }
             if ($azErrorCode -ne 0) {
                 ++$retryCount
