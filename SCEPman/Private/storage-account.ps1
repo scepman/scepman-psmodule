@@ -1,6 +1,6 @@
 
 function GetStorageAccount ($ResourceGroup) {
-    $storageaccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
+    $storageaccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId")
     if($storageaccounts.count -gt 0) {
         $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $ResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
         if(!$potentialStorageAccountName) {
@@ -23,7 +23,7 @@ function GetStorageAccount ($ResourceGroup) {
 }
 
 function GetExistingStorageAccount ($dataTableEndpoint) {
-    $storageAccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints")
+    $storageAccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId")
     Write-Debug "When searching for Storage Account $dataTableEndpoint, $($storageAccounts.count) accounts look like the searched one"
     $storageAccounts = $storageAccounts.data | Where-Object { $_.primaryEndpoints.table.TrimEnd('/') -eq $dataTableEndpoint.TrimEnd('/')}
     if ($null -ne $storageAccounts.count) { # In PS 7 (?), $storageAccounts is an array; In PS 5, $null has a count property with value 0
@@ -39,6 +39,10 @@ function GetExistingStorageAccount ($dataTableEndpoint) {
 
 function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $servicePrincipals) {
     Write-Information "Setting permissions in storage account for $($servicePrincipals.Count) App Service identities"
+
+    if ($null -ne $ScStorageAccount.SubscriptionId) {
+        $SubscriptionId = $ScStorageAccount.SubscriptionId
+    }
 
     $SAScope = "/subscriptions/$SubscriptionId/resourceGroups/$($ScStorageAccount.resourceGroup)/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
@@ -77,9 +81,9 @@ function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrinci
 
 function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
     if ($null -eq $DeploymentSlotName) {
-        return ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"" --output tsv"
+        return ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--query", "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
     } else {
-        return ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]"" --slot $DeploymentSlotName --output tsv"
+        return ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--query", "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]", "--slot", $DeploymentSlotName, "--output", "tsv") -callAzNatively -noSecretLeakageWarning
     }
 }
 
@@ -91,7 +95,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
     }
 
     if ($null -ne $CertMasterAppServiceName) {
-        $existingTableStorageEndpointSettingCm = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]"" --output tsv"
+        $existingTableStorageEndpointSettingCm = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--query", "[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
         if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm) -and $existingTableStorageEndpointSettingSc -ne $existingTableStorageEndpointSettingCm) {
             Write-Error "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"

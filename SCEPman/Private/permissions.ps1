@@ -139,5 +139,5 @@ function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
 }
 
 function Get-AccessTokenForApp($scope) {
-    return ExecuteAzCommandRobustly -callAzNatively $true -azCommand $('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
+    return ExecuteAzCommandRobustly -callAzNatively -azCommand $('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
 }
