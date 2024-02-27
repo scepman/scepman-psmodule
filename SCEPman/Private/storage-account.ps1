@@ -40,6 +40,10 @@ function GetExistingStorageAccount ($dataTableEndpoint) {
 function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $servicePrincipals) {
     Write-Information "Setting permissions in storage account for $($servicePrincipals.Count) App Service identities"
 
+    if ($null -ne $ScStorageAccount.SubscriptionId) {
+        $SubscriptionId = $ScStorageAccount.SubscriptionId
+    }
+
     $SAScope = "/subscriptions/$SubscriptionId/resourceGroups/$($ScStorageAccount.resourceGroup)/providers/Microsoft.Storage/storageAccounts/$($ScStorageAccount.name)"
     Write-Debug "Storage Account Scope: $SAScope"
     ForEach($tempServicePrincipal in $servicePrincipals) {
