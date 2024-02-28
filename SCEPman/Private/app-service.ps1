@@ -183,7 +183,10 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
   }
 
   $existingApplicationId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]""" + $deploymentSlotTargetingParamString) -noSecretLeakageWarning
-  $existingApplicationId = $existingApplicationId.Trim('"')
+
+  if ($null -ne $existingApplicationId) {
+    $existingApplicationId = $existingApplicationId.Trim('"')
+  }
   if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $SCEPmanAppId) {
     if ($existingApplicationId -notmatch $RegExGuid) {
       Write-Debug "Existing SCEPman Application ID is not a Guid. IsNullOrEmpty? $([string]::IsNullOrEmpty($existingApplicationId)); Is it different than the new one? $($existingApplicationId -ne $SCEPmanAppId); New ID: $SCEPmanAppId; Existing ID: $existingApplicationId"
