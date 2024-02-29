@@ -1,18 +1,21 @@
-function AddSCEPmanPermissionsToKeyVault ($KeyVaultName, $PrincipalId, $SubscriptionId) {
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --key-permissions get create unwrapKey sign"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --secret-permissions get list set delete"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $KeyVaultName --object-id $PrincipalId --subscription $SubscriptionId --certificate-permissions get list create managecontacts"
+function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --key-permissions get create unwrapKey sign"
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --secret-permissions get list set delete"
+  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --certificate-permissions get list create managecontacts"
 }
 
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
   [uri]$configuredKeyVaultURL = FindConfiguredKeyVaultUrl -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
 
-  # The URL format is https://<KeyVaultName>.vault.azure.net/
-  $keyVaultName = $configuredKeyVaultURL.Host.Split('.')[0]
-  if ([String]::IsNullOrWhiteSpace($keyVaultName)) {
-    throw "Retrieved Key Vault URL '$configuredKeyVaultURL' and couldn't parse Key Vault Name from this"
+  $keyVault = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name, subscriptionId")
+
+  if($keyVault.count -eq 1) {
+    return $keyVault.data
+  } else {
+    $errorMessage = "We are unable to determine the correct Key Vault. We found $($keyVault.count) Key Vaults where the Key Vault URL starts with $configuredKeyVaultURL."
+    Write-Error $errorMessage
+    throw $errorMessage
   }
-  return $keyVaultName
 }
 
 function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
