@@ -191,9 +191,9 @@ function Complete-SCEPmanInstallation
     SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
-    $keyVaultName = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyVaultName -SubscriptionId $subscription.Id -PrincipalId $scepmanServicePrincipal
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal
     }
 
     ### Set managed identity permissions for SCEPman
