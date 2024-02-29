@@ -79,8 +79,8 @@ function New-SCEPmanClone
     }
 
     Write-Information "Reading Key Vault registration from source"
-    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
-    Write-Verbose "Key Vault $keyvaultname identified"
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
+    Write-Verbose "Key Vault $($keyvault.name) identified"
 
     Write-Information "Getting target subscription details"
     $targetSubscription = GetSubscriptionDetails -AppServicePlanName $TargetAppServicePlan -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $TargetSubscriptionId
@@ -113,7 +113,7 @@ function New-SCEPmanClone
         }
 
         Write-Information "Adding permissions to Key Vault"
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId -SubscriptionId $SourceSubscription.Id
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
 
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
