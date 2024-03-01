@@ -48,8 +48,7 @@ function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $serv
     Write-Debug "Storage Account Scope: $SAScope"
     ForEach($tempServicePrincipal in $servicePrincipals) {
         Write-Information "Setting Storage account permission for principal id $tempServicePrincipal"
-        $azOutput = az role assignment create --role 'Storage Table Data Contributor' --assignee-object-id $tempServicePrincipal --assignee-principal-type 'ServicePrincipal' --scope $SAScope 2>&1
-        $null = CheckAzOutput -azOutput $azOutput -fThrowOnError $true
+        $null = ExecuteAzCommandRobustly -azCommand @("role", "assignment", "create", "--role", "Storage Table Data Contributor", "--assignee-object-id", $tempServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $SAScope) -callAzNatively
     }
 }
 
