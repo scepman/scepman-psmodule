@@ -91,7 +91,8 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
       "AppConfig:AuthConfig:TenantId" = $TenantId;
       "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
     }
-    $CertMasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettingsTable
+    $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+    $CertMasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettingsTable ettingsTable convertForLinux $isCertMasterLinux
 
     Write-Verbose 'Configuring CertMaster web app settings'
     $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
@@ -117,6 +118,19 @@ function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionI
   return $asp
 }
 
+New-Variable -Name "DictAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
+
+function [bool]IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
+  if ($DictAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
+    $kind = $DictAppServiceKinds["$AppServiceName $ResourceGroup"]
+  } else {
+    $appService = ExecuteAzCommandRobustly -azCommand "az webapp show --name $AppServiceName --resource-group $ResourceGroup" | Convert-LinesToObject
+    $kind = $appService.kind
+    $DictAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
+  }
+  return $kind -eq "app,linux"
+}
+
 function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
   if ($null -eq $DeploymentSlotName) {
     return ExecuteAzCommandRobustly -azCommand "az webapp config hostname list --webapp-name $AppServiceName --resource-group $SCEPmanResourceGroup --query `"[].name`" --output tsv"
@@ -128,7 +142,7 @@ function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $Deploy
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
   $existingHostnameConfiguration = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname'].value | [0]" --output tsv
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
-    $null = az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot-settings AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName
+    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName})
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
 
@@ -160,17 +174,14 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Marking SCEPman App Service as configured (timestamp $managedIdentityEnabledOn)"
-  $azSetConfigCommand = "az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup"
 
-  # The docs (2.37) say that az webapp config appsettings set takes a space separated list of KEY=VALUE.
-  # For --settings, we use JSON, contrary to documentation
-  # Neither works for --slot-settings in tests :-(. Thus, the individual calls
-  if ($null -ne $DeploymentSlotName) {
-    $azSetConfigCommand += " --slot $DeploymentSlotName"
-  }
-  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime=$managedIdentityEnabledOn"""
-  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings ""AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname=$SCEPmanSlotHostName"""
-  $null = ExecuteAzCommandRobustly -azCommand "$azSetConfigCommand --slot-settings `"AppConfig:AuthConfig:ManagedIdentityPermissionLevel=2`""
+  $MarkAsConfiguredSettings = @( 
+    @{name="AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime"; value=$managedIdentityEnabledOn},
+    @{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName},
+    @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=2}
+  )
+
+  SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName
 }
 
 $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
@@ -283,6 +294,9 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     if ($settingName.Contains("=")) {
       Write-Warning "Setting name $settingName contains at least one equal sign (=), which is unsupported. Skipping this setting."
       continue
+    }
+    if (IsAppServiceLinux($AppServiceName, $ResourceGroup)) {
+      $settingName = $settingName.Replace(":", "__")
     }
     Write-Verbose "Setting app setting $settingName of app $AppServiceName in slot [$Slot]"
     Write-Debug "Setting $settingName to $settingValueEscaped"  # there could be cases where this is a secret, so we do not use Write-Verbose
