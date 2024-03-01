@@ -256,3 +256,16 @@ function HashTable2AzJson($psHashTable) {
     }
       return $output
 }
+
+function AppSettingsHashTable2AzJson($psHashTable, $convertForLinux) {
+    if ($convertForLinux) {
+        $escapedpsHashTable = @{}
+        foreach ($key in $psHashTable.Keys) {
+            $escapedpsHashTable.Add($key.Replace(":","__"), $psHashTable[$key])
+        }
+    } else {
+        $escapedpsHashTable = $psHashTable
+    }
+
+    return HashTable2AzJson -psHashTable $escapedpsHashTable
+}

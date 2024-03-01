@@ -120,7 +120,7 @@ function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionI
 
 New-Variable -Name "DictAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
 
-function [bool]IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
+function IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
   if ($DictAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
     $kind = $DictAppServiceKinds["$AppServiceName $ResourceGroup"]
   } else {
@@ -175,7 +175,7 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
 
   Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Marking SCEPman App Service as configured (timestamp $managedIdentityEnabledOn)"
 
-  $MarkAsConfiguredSettings = @( 
+  $MarkAsConfiguredSettings = @(
     @{name="AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime"; value=$managedIdentityEnabledOn},
     @{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName},
     @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=2}
@@ -207,7 +207,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationId"
   }
   $null = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --settings '$ScepManAppSettings'" + $deploymentSlotTargetingParamString)
-    # The following setting AppConfig:AuthConfig:ApplicationKey is a secret, but we make sure it doesn't appear in the logs. Not even through az's echoes.
+    # The following setting AppConfig:AuthConfig:ApplicationKey is a secret, but we make sure it doesn't appear in the logs. Not even through az's echoes. Therefore we can ignore the leakage warning
   $existingApplicationKeySc = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationKey'].value | [0]""" + $deploymentSlotTargetingParamString) -noSecretLeakageWarning
   Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Wrote SCEPman application Settings"
   if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
@@ -239,7 +239,8 @@ function ConfigureScepManAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceNa
     $ScepManAppSettings['AppConfig:DirectCSRValidation:Enabled'] = 'true'
   }
 
-  $ScepManAppSettingsJson = HashTable2AzJson -psHashTable $ScepManAppSettings
+  $isScepmanLinux = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+  $ScepManAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $ScepManAppSettings -convertForLinux $isScepmanLinux
 
   if ($null -eq $DeploymentSlotName) {
     ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettingsJson -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished -SCEPmanAppId $SCEPmanAppID
@@ -265,7 +266,8 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
     $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityPermissionLevel'] = 2
   }
 
-  $CertmasterAppSettingsJson = HashTable2AzJson -psHashTable $CertmasterAppSettings
+  $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+  $CertmasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettings -convertForLinux $isCertMasterLinux
 
   $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings '$CertmasterAppSettingsJson'"
 }
@@ -327,4 +329,19 @@ function ReadAppSettings($AppServiceName, $ResourceGroup) {
     slotSettings = $slotSettings
     settings = $unboundSettings
   }
+}
+
+function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $null) {
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+  if ($isAppServiceLinux) {
+    $SettingName = $SettingName.Replace(":", "__")
+  }
+
+  $azCommand = @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup,
+  "--query", "[?name=='$SettingName'].value | [0]")
+  if ($null -ne $Slot) {
+    $azCommand += @("--slot", $Slot)
+  }
+  
+  return ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand -noSecretLeakageWarning
 }
