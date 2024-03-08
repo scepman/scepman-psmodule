@@ -62,7 +62,7 @@ function New-IntermediateCA
 
   $vaultUrl = FindConfiguredKeyVaultUrl -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
-  $certificateName = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName'].value | [0]" --output tsv
+  $certificateName = ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName"
   Write-Information "Found Key Vault configuration with URL $vaultUrl and certificate name $certificateName."
 
   $policy = $global:subCaPolicy

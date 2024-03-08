@@ -19,8 +19,8 @@ function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) 
 }
 
 function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
-  [uri]$configuredKeyVaultURL = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, 
-    "--query", "[?name=='AppConfig:KeyVaultConfig:KeyVaultURL'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
+  [uri]$configuredKeyVaultURL = ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:KeyVaultConfig:KeyVaultURL"
+  
   Write-Verbose "Configured Key Vault URL is $configuredKeyVaultURL"
 
   return $configuredKeyVaultURL

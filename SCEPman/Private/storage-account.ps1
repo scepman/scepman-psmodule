@@ -79,23 +79,19 @@ function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrinci
 }
 
 function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
-    if ($null -eq $DeploymentSlotName) {
-        return ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--query", "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
-    } else {
-        return ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--query", "[?name=='AppConfig:CertificateStorage:TableStorageEndpoint'].value | [0]", "--slot", $DeploymentSlotName, "--output", "tsv") -callAzNatively -noSecretLeakageWarning
-    }
+    return ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:CertificateStorage:TableStorageEndpoint" -DeploymentSlotName $DeploymentSlotName
 }
 
 function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $servicePrincipals, $DeploymentSlotName, $DeploymentSlots) {
     $storageAccountTableEndpoint = $null
-    $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+    $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc)) {
         $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc.Trim('"')
     }
 
     if ($null -ne $CertMasterAppServiceName) {
-        $existingTableStorageEndpointSettingCm = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--query", "[?name=='AppConfig:AzureStorage:TableStorageEndpoint'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
-
+        $existingTableStorageEndpointSettingCm = ReadAppSetting -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -SettingName "AppConfig:AzureStorage:TableStorageEndpoint"
+        
         if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm) -and $existingTableStorageEndpointSettingSc -ne $existingTableStorageEndpointSettingCm) {
             Write-Error "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"
             throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"
