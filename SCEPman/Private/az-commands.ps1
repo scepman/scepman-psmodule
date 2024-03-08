@@ -215,7 +215,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                 Write-Warning $_
                 $azErrorCode = 654  # a number not 0
 
-                if ($_.Contains("Failed to connect to MSI. Please make sure MSI is configured correctly") -and $_.Contains("400")) {
+                $message = $_.ToString()
+                if ($message.Contains("Failed to connect to MSI. Please make sure MSI is configured correctly") -and $message.Contains("400")) {
                   if (IsAzureCloudShell) {
                     Write-Warning "Trying to log in again to Azure CLI, as this usually fixes the token issue in Azure Cloud Shell"
                     az login
