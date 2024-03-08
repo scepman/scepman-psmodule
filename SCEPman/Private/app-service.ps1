@@ -32,7 +32,10 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
   return $null
 }
 
-function SelectBestDotNetRuntime {
+function SelectBestDotNetRuntime ($ForLinux = $false) {
+  if ($ForLinux) {
+    return "DOTNETCORE:8.0" # Linux does not include auto-updating runtimes. Therefore we must select a specific one.
+  }
   try
   {
       $runtimes = ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows" | Convert-LinesToObject
@@ -75,7 +78,9 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
-    $runtime = SelectBestDotNetRuntime
+    $isLinuxAppService = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+
+    $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
     $null = az webapp create --resource-group $CertMasterResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
     Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
@@ -103,7 +108,13 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 }
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
-  $runtime = SelectBestDotNetRuntime
+  # Find out which OS the App Service Plan uses
+  $aspInfo = ExecuteAzCommandRobustly -azCommand "az appservice plan show --id $AppServicePlanId" | Convert-LinesToObject
+  if ($null -eq $aspInfo) {
+    throw "App Service Plan $AppServicePlanId not found"
+  }
+  $isLinuxAsp = $aspInfo.kind -eq "linux"
+  $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
   $null = ExecuteAzCommandRobustly -azCommand "az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime"
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
 
