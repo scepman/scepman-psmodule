@@ -86,7 +86,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
     $storageAccountTableEndpoint = $null
     $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc)) {
-        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc.Trim('"')
+        $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc
         Write-Verbose "Found existing storage account table endpoint in SCEPman's app settings"
     }
 
@@ -99,7 +99,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
         }
 
         if([string]::IsNullOrEmpty($storageAccountTableEndpoint) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm)) {
-            $storageAccountTableEndpoint = $existingTableStorageEndpointSettingCm.Trim('"')
+            $storageAccountTableEndpoint = $existingTableStorageEndpointSettingCm
             Write-Verbose "Found existing storage account table endpoint in CertMaster's app settings"
         }
     }

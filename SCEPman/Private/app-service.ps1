@@ -360,5 +360,11 @@ function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $
     $azCommand += @("--slot", $Slot)
   }
 
-  return ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand -noSecretLeakageWarning
+  $settingValue = ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand -noSecretLeakageWarning
+
+  if(![string]::IsNullOrEmpty($settingValue)) {
+    return $settingValue.Trim('"')
+  } else {
+    return $settingValue
+  }
 }
