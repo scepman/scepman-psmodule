@@ -199,15 +199,18 @@ $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?
 
 function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $AppRoleAssignmentsFinished, $SCEPmanAppId, $DeploymentSlotName = $null) {
   $existingApplicationId = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ApplicationId" -Slot $DeploymentSlotName
-  
+  Write-Debug "Existing Application Id is set to $existingApplicationId in slot $DeploymentSlotName. The new ID shall be $SCEPmanAppId."
+
   if ($null -ne $existingApplicationId) {
     $existingApplicationId = $existingApplicationId.Trim('"')
   }
+  Write-Debug "The new ID is different to the existing ID? $($existingApplicationId -ne $SCEPmanAppId)"
   if(![string]::IsNullOrEmpty($existingApplicationId) -and $existingApplicationId -ne $SCEPmanAppId) {
     if ($existingApplicationId -notmatch $RegExGuid) {
       Write-Debug "Existing SCEPman Application ID is not a Guid. IsNullOrEmpty? $([string]::IsNullOrEmpty($existingApplicationId)); Is it different than the new one? $($existingApplicationId -ne $SCEPmanAppId); New ID: $SCEPmanAppId; Existing ID: $existingApplicationId"
       throw "SCEPman Application ID $existingApplicationId (Setting AppConfig:AuthConfig:ApplicationId) is not a GUID (Deployment Slot: $DeploymentSlotName). Aborting on unexpected setting."
     }
+    Write-Debug "Creating backup of existing ApplicationId $existingApplicationId in slot $DeploymentSlotName"
     SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="BackUp:AppConfig:AuthConfig:ApplicationId"; value=$existingApplicationId}) -Slot $DeploymentSlotName
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationId"
   }
@@ -216,7 +219,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
   # The following setting AppConfig:AuthConfig:ApplicationKey is a secret, but we make sure it doesn't appear in the logs. Not even through az's echoes. Therefore we can ignore the leakage warning
   $existingApplicationKeySc = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ApplicationKey" -Slot $DeploymentSlotName
 
-  Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Wrote SCEPman application Settings"
+  Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Wrote SCEPman application settings"
   if(![string]::IsNullOrEmpty($existingApplicationKeySc)) {
     if ($existingApplicationKeySc.Contains("'")) {
       throw "SCEPman Application Key contains at least one single-quote character ('), which is unexpected. Aborting on unexpected setting"
@@ -245,14 +248,14 @@ function ConfigureScepManAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceNa
 
   # Add ApplicationId and some additional defaults in SCEPman web app settings
 
-  $ScepManAppSettings = @{
-    'AppConfig:AuthConfig:ApplicationId' = $SCEPmanAppID
-    'AppConfig:IntuneValidation:DeviceDirectory' = 'AADAndIntune'
-  }
+  $ScepManAppSettings = @(
+    @{ name='AppConfig:AuthConfig:ApplicationId'; value=$SCEPmanAppID },
+    @{ name='AppConfig:IntuneValidation:DeviceDirectory'; value='AADAndIntune'}
+  )
 
   if (-not [string]::IsNullOrEmpty($CertMasterBaseURL)) {
-    $ScepManAppSettings['AppConfig:CertMaster:URL'] = $CertMasterBaseURL
-    $ScepManAppSettings['AppConfig:DirectCSRValidation:Enabled'] = 'true'
+    $ScepManAppSettings += @{ name='AppConfig:CertMaster:URL'; value=$CertMasterBaseURL }
+    $ScepManAppSettings += @{ name='AppConfig:DirectCSRValidation:Enabled'; value='true' }
   }
 
   if ($null -eq $DeploymentSlotName) {
@@ -305,12 +308,13 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
-    $settingValueEscaped = $oneSetting.value.Replace('"','\"')
+    $settingValueEscaped = $oneSetting.value.ToString().Replace('"','\"')
     if ($settingName.Contains("=")) {
       Write-Warning "Setting name $settingName contains at least one equal sign (=), which is unsupported. Skipping this setting."
       continue
     }
-    if (IsAppServiceLinux($AppServiceName, $ResourceGroup)) {
+    $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+    if ($isAppServiceLinux) {
       $settingName = $settingName.Replace(":", "__")
     }
     Write-Verbose "Setting app setting $settingName of app $AppServiceName in slot [$Slot]"

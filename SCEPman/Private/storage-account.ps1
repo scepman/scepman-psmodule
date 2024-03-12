@@ -84,7 +84,7 @@ function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServi
 
 function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $servicePrincipals, $DeploymentSlotName, $DeploymentSlots) {
     $storageAccountTableEndpoint = $null
-    $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+    $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc)) {
         $storageAccountTableEndpoint = $existingTableStorageEndpointSettingSc.Trim('"')
         Write-Verbose "Found existing storage account table endpoint in SCEPman's app settings"
@@ -128,7 +128,8 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
         $storageSettingForCm = @(
             @{name='AppConfig:AzureStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
         )
-        SetAppSettings -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -Settings  $storageSettingForCm
+        Write-Debug "Setting storage account table endpoint in CertMaster"
+        SetAppSettings -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -Settings $storageSettingForCm
     }
 
     $storageSettingForSm = @(
