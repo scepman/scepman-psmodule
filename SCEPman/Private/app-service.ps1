@@ -151,7 +151,7 @@ function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $Deploy
 
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
   $existingHostnameConfiguration = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
-  
+
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
     SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName})
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
@@ -359,6 +359,6 @@ function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $
   if ($null -ne $Slot) {
     $azCommand += @("--slot", $Slot)
   }
-  
+
   return ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand -noSecretLeakageWarning
 }

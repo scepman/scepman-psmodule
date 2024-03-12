@@ -20,7 +20,7 @@ function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) 
 
 function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
   [uri]$configuredKeyVaultURL = ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:KeyVaultConfig:KeyVaultURL"
-  
+
   Write-Verbose "Configured Key Vault URL is $configuredKeyVaultURL"
 
   return $configuredKeyVaultURL
