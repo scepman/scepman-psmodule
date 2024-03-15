@@ -68,6 +68,12 @@ function New-SCEPmanDeploymentSlot
         throw "Deployment slot $DeploymentSlotName already exists."
     }
 
+    Write-Information "Checking VNET integration of SCEPman"
+    $scepManVnetId = GetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    if ($null -ne $scepManVnetId) {
+        Write-Warning "SCEPman App Service is connected to VNET $ScepManVnetId. Cloning VNET settings is not yet supported. Please configure the VNET integration manually."
+    }
+
     if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Creating SCEPman Deployment Slot")) {
         Write-Information "Creating new Deployment Slot $DeploymentSlotName"
         # Returns the Service principal of the deployment slot
