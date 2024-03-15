@@ -162,6 +162,14 @@ function GetAppServiceVnetId ($AppServiceName, $ResourceGroup) {
   return $vnetId
 }
 
+function SetAppServiceVnetId ($AppServiceName, $ResourceGroup, $vnetId, $DeploymentSlotName) {
+  $command = @("webapp", "update", "--name", $AppServiceName, "-g", $ResourceGroup, "--set", "virtualNetworkSubnetId=$vnetId")
+  if ($null -ne $DeploymentSlotName) {
+    $command += @("--slot", $DeploymentSlotName)
+  }
+  $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+}
+
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
   $existingHostnameConfiguration = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
 

@@ -124,8 +124,11 @@ function New-SCEPmanClone
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
+        Write-Information "Adding VNET integration to Clone"
+        SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $scepManVnetId
+
         $DelayForSecurityPrincipals = 3000
-        Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
+        Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
         $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
