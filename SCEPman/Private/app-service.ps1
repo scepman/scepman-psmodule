@@ -134,8 +134,7 @@ function IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
   if ($DictAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
     $kind = $DictAppServiceKinds["$AppServiceName $ResourceGroup"]
   } else {
-    $appService = ExecuteAzCommandRobustly -azCommand "az webapp show --name $AppServiceName --resource-group $ResourceGroup" | Convert-LinesToObject
-    $kind = $appService.kind
+    $kind = ExecuteAzCommandRobustly -callAzNatively -azCommand @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'kind', "--output", "tsv")
     $DictAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
   }
   return $kind -eq "app,linux"
@@ -149,10 +148,33 @@ function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $Deploy
   }
 }
 
+function GetPrimaryAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
+  $SCEPmanHostNames = GetAppServiceHostNames -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
+  if ($SCEPmanHostNames -is [array]) {
+    return $SCEPmanHostNames[0]
+  } else {
+    return $SCEPmanHostNames
+  }
+}
+
+function GetAppServiceVnetId ($AppServiceName, $ResourceGroup) {
+  $vnetId = ExecuteAzCommandRobustly -callAzNatively -azCommand @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'virtualNetworkSubnetId', "--output", "tsv")
+  return $vnetId
+}
+
+function SetAppServiceVnetId ($AppServiceName, $ResourceGroup, $vnetId, $DeploymentSlotName) {
+  $command = @("webapp", "update", "--name", $AppServiceName, "-g", $ResourceGroup, "--set", "virtualNetworkSubnetId=$vnetId")
+  if ($null -ne $DeploymentSlotName) {
+    $command += @("--slot", $DeploymentSlotName)
+  }
+  $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+}
+
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
   $existingHostnameConfiguration = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
 
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
+    $SCEPmanSlotHostName = GetPrimaryAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName})
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
@@ -175,12 +197,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
 
 function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName = $null) {
   # Add a setting to tell the Deployment slot that it has been configured
-  $SCEPmanSlotHostNames = GetAppServiceHostNames -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-  if ($SCEPmanSlotHostNames -is [array]) {
-    $SCEPmanSlotHostName = $SCEPmanSlotHostNames[0]
-  } else {
-    $SCEPmanSlotHostName = $SCEPmanSlotHostNames
-  }
+  $SCEPmanSlotHostName = GetPrimaryAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
 
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
