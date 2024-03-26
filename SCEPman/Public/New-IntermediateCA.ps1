@@ -62,8 +62,11 @@ function New-IntermediateCA
 
   $vaultUrl = FindConfiguredKeyVaultUrl -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
 
-  $certificateName = az webapp config appsettings list --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --query "[?name=='AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName'].value | [0]" --output tsv
+  $certificateName = ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName"
   Write-Information "Found Key Vault configuration with URL $vaultUrl and certificate name $certificateName."
+  if ($certificateName.Contains(' ')) {
+    throw "The certificate name $certificatename contains spaces. This is not supported. Please change the setting AppConfig:KeyVaultConfig:RootCertificateConfig:CertificateName in the App Service to a name without spaces."
+  }
 
   $policy = $global:subCaPolicy
   $policy.policy.x509_props.subject = $policy.policy.x509_props.subject.Replace('{{TenantId}}', $subscription.tenantId)

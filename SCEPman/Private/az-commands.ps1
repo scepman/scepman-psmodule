@@ -215,7 +215,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                 Write-Warning $_
                 $azErrorCode = 654  # a number not 0
 
-                if ($_.Contains("Failed to connect to MSI. Please make sure MSI is configured correctly") -and $_.Contains("400")) {
+                $message = $_.ToString()
+                if ($message.Contains("Failed to connect to MSI. Please make sure MSI is configured correctly") -and $message.Contains("400")) {
                   if (IsAzureCloudShell) {
                     Write-Warning "Trying to log in again to Azure CLI, as this usually fixes the token issue in Azure Cloud Shell"
                     az login
@@ -255,4 +256,17 @@ function HashTable2AzJson($psHashTable) {
       return $output.Insert(1,' ') # Seemingly, there needs to be a space in the JSON somewhere in the beginning for PS 5 to pass consecutive spaces to az instead of having space-separated parameters
     }
       return $output
+}
+
+function AppSettingsHashTable2AzJson($psHashTable, $convertForLinux) {
+    if ($convertForLinux) {
+        $escapedpsHashTable = @{}
+        foreach ($key in $psHashTable.Keys) {
+            $escapedpsHashTable.Add($key.Replace(":","__"), $psHashTable[$key])
+        }
+    } else {
+        $escapedpsHashTable = $psHashTable
+    }
+
+    return HashTable2AzJson -psHashTable $escapedpsHashTable
 }

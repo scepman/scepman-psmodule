@@ -65,6 +65,12 @@ function New-SCEPmanClone
         $SourceResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SourceAppServiceName
     }
 
+    Write-Information "Checking VNET integration of SCEPman"
+    $scepManVnetId = GetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    if ($null -ne $scepManVnetId) {
+        Write-Warning "SCEPman App Service is connected to VNET $ScepManVnetId. Cloning VNET settings is not yet supported. Please configure the VNET integration manually."
+    }
+
     Write-Information "Reading base App Service settings from source"
     $SCEPmanSourceSettings = ReadAppSettings -AppServiceName $SourceAppServiceName -resourceGroup $SourceResourceGroup
 
@@ -79,8 +85,8 @@ function New-SCEPmanClone
     }
 
     Write-Information "Reading Key Vault registration from source"
-    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
-    Write-Verbose "Key Vault $keyvaultname identified"
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
+    Write-Verbose "Key Vault $($keyvault.name) identified"
 
     Write-Information "Getting target subscription details"
     $targetSubscription = GetSubscriptionDetails -AppServicePlanName $TargetAppServicePlan -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $TargetSubscriptionId
@@ -113,13 +119,16 @@ function New-SCEPmanClone
         }
 
         Write-Information "Adding permissions to Key Vault"
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId -SubscriptionId $SourceSubscription.Id
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
 
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
+        Write-Information "Adding VNET integration to Clone"
+        SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $scepManVnetId
+
         $DelayForSecurityPrincipals = 3000
-        Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
+        Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
         $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 

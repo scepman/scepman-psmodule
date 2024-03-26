@@ -68,12 +68,23 @@ function New-SCEPmanDeploymentSlot
         throw "Deployment slot $DeploymentSlotName already exists."
     }
 
+    Write-Information "Checking VNET integration of SCEPman"
+    $scepManVnetId = GetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    if ($null -ne $scepManVnetId) {
+        Write-Information "SCEPman App Service is connected to VNET $ScepManVnetId. The Deployment Slot will inherit this configuration."
+    }
+
     if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Creating SCEPman Deployment Slot")) {
         Write-Information "Creating new Deployment Slot $DeploymentSlotName"
         # Returns the Service principal of the deployment slot
         $serviceprincipalsc = CreateSCEPmanDeploymentSlot -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName
         $servicePrincipals = @( $serviceprincipalsc.principalId )
         Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
+    }
+
+    if ($PSCmdlet.ShouldProcess($scepManVnetId, "Adding VNET integration to new deployment slot")) {
+        Write-Information "Adding VNET integration to new Deployment Slot"
+        SetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -VnetId $scepManVnetId -DeploymentSlotName $DeploymentSlotName
     }
 
     if ($PSCmdlet.ShouldProcess($ScSDeploymentSlotNametorageAccount, "Adding storage account permissions to new deployment slot")) {
@@ -90,10 +101,10 @@ function New-SCEPmanDeploymentSlot
     }
 
     Write-Information "Adding permissions to Key Vault"
-    $keyvaultname = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
     Write-Verbose "Key Vault $keyvaultname identified"
-    if ($PSCmdlet.ShouldProcess($keyvaultname, "Adding key vault permissions to new deployment slot")) {
-        AddSCEPmanPermissionsToKeyVault -KeyVaultName $keyvaultname -PrincipalId $serviceprincipalsc.principalId --SubscriptionId $subscription.Id
+    if ($PSCmdlet.ShouldProcess($keyvault.name, "Adding key vault permissions to new deployment slot")) {
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
     }
 
     Write-Information "Adding permissions for Graph and Intune"

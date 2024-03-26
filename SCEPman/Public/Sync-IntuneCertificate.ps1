@@ -51,9 +51,9 @@ function Sync-IntuneCertificate
     Write-Verbose "CertMaster web app url is $CertMasterBaseURL"
 
     Write-Information "Getting App ID of Certificate Master"
-    $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:HomeApplicationId'].value | [0]"" --output tsv")
+    $CertMasterAppId = ReadAppSetting -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -SettingName "AppConfig:AuthConfig:HomeApplicationId"
     if ([String]::IsNullOrWhiteSpace($CertMasterAppId)) {
-      $CertMasterAppId = ExecuteAzCommandRobustly -azCommand ("az webapp config appsettings list --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --query ""[?name=='AppConfig:AuthConfig:ApplicationId'].value | [0]"" --output tsv")
+      $CertMasterAppId = ReadAppSetting -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -SettingName "AppConfig:AuthConfig:ApplicationId"
       if ([String]::IsNullOrWhiteSpace($CertMasterAppId)) {
         Write-Error "Could not find App ID of Certificate Master"
         throw "Could not find App ID of Certificate Master"
