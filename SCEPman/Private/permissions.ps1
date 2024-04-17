@@ -27,7 +27,8 @@ function GetAzureResourceAppId($appId) {
 }
 
 function SetManagedIdentityPermissions($principalId, $resourcePermissions, $GraphBaseUri, $SkipAppRoleAssignments = $false) {
-    $allPermissionsAreGranted = $true  # Assume all permissions are granted
+    $permissionLevelFail = [Int32]::MaxValue
+    $permissionLevelReached = -1
 
     $graphEndpointForAppRoleAssignments = "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments"
     $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
@@ -35,49 +36,48 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
     ForEach($resourcePermission in $resourcePermissions) {
         if($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) {
             Write-Verbose "Permission is already there (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
+            $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
         } else {
             Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $azCommand = "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'"
             if ($SkipAppRoleAssignments) {
                 Write-Warning "Skipping app role assignment (please execute manually): $azCommand"
-                $allPermissionsAreGranted = $false
+                $permissionLevelFail = $resourcePermission.permissionLevel -lt $permissionLevelFail ? $resourcePermission.permissionLevel : $permissionLevelFail
             } else {
                 $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
+                $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
             }
         }
     }
 
-    return $allPermissionsAreGranted
+    return $permissionLevelReached -gt $permissionLevelFail ? ($permissionLevelFail - 1) : $permissionLevelReached
 }
 
 function GetSCEPmanResourcePermissions() {
     $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
     $intuneResourceId = GetAzureResourceAppId -appId $IntuneAppId
 
+    $permissions = @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission; 'permissionLevel' = 0;},
+        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission; 'permissionLevel' = 1;},
+        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll; 'permissionLevel' = 1;},
+        [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphIdentityRiskyUserReadPermission; 'permissionLevel' = 2;}
+    )
+
     ### Managed identity permissions for SCEPman
-    if ($null -eq $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), the IntuneAppId can be $null
-        return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphIdentityRiskyUserReadPermission;}
-            )
-    } else {
-        return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDirectoryReadAllPermission;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;},
-                [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphIdentityRiskyUserReadPermission;},
-                [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission;}
-            )
+    if ($null -ne $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), the IntuneAppId can be $null
+        $permissions += [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission; 'permissionLevel' = 0;}
     }
+
+    return $permissions
 }
 
 function GetCertMasterResourcePermissions() {
     $graphResourceId = GetAzureResourceAppId -appId $MSGraphAppId
 
     ### Managed identity permissions for CertMaster
-    return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission;},
-             [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll;}
+    return @([pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementReadPermission; 'permissionLevel' = 2;},
+             [pscustomobject]@{'resourceId'=$graphResourceId;'appRoleId'=$MSGraphDeviceManagementConfigurationReadAll; 'permissionLevel' = 2;}
     )
 }
 
