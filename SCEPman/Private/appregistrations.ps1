@@ -65,6 +65,25 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
         # Reload app registration with new roles
       $azureAdAppReg = Convert-LinesToObject -lines $(az ad app show --id $azureAdAppReg.id)
     }
+
+    if ($null -ne $replyUrls) {
+      $existingReplyUrls = $azureAdAppReg.web.redirectUris
+      $newReplyUrls = $replyUrls -split " "
+      $replyUrlsToAdd = $newReplyUrls | Where-Object { $existingReplyUrls -notcontains $_ }
+      if ($replyUrlsToAdd.Count -gt 0) {
+        Write-Information "Adding reply URLs to app registration $name"
+        $azCommandToAddReplyUrls = @("ad", "app", "update", "--id", $azureAdAppReg.appId)
+        if (AzUsesAADGraph) {
+          $azCommandToAddReplyUrls += "--reply-urls"
+        } else {
+          $azCommandToAddReplyUrls += "--web-redirect-uris"
+          # ExecuteAzCommandRobustly -callAzNatively -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--web-home-page-url", $homepage, "--web-redirect-uris", $allReplyUrls)
+        }
+        $azCommandToAddReplyUrls += $existingReplyUrls + $replyUrlsToAdd
+        ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommandToAddReplyUrls
+      }
+    }
+    $azureAdAppReg.web.redirectUris
   }
 
   return $azureAdAppReg
@@ -86,7 +105,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
     throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
   }
 
-  $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);})
+  $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);'permissionLevel'=0})
   $null = SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
 
   return $appregsc

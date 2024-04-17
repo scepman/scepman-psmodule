@@ -197,19 +197,25 @@ function Complete-SCEPmanInstallation
     }
 
     ### Set managed identity permissions for SCEPman
-    $allPermissionsAreGranted = $true
+    $permissionLevelScepman = [int]::MaxValue    # the same level for all deployment slots and user-assigned managed identities, this makes it easier to manage the level. This will be overwritten at least once.
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
-        $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
+        $permissionLevelReached = SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
+        $permissionLevelScepman = $permissionLevelReached -lt $permissionLevelScepman ? $permissionLevelReached : $permissionLevelScepman
+        Write-Verbose "Reaching permission level $permissionLevelReached for this deployment slot"
     }
+    Write-Information "SCEPman's permission level is $permissionLevelScepman"
+
+    $permissionLevelCertMaster = -1
 
     ### Set Managed Identity permissions for CertMaster
     if (-not $SkipCertificateMaster.IsPresent) {
         Write-Information "Setting up permissions for Certificate Master"
         $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-        $allPermissionsAreGranted = $allPermissionsAreGranted -and (SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments)
+        $permissionLevelCertMaster = SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
+        Write-Information "Certificate Master's permission level is $permissionLevelCertMaster"
 
         $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
@@ -221,11 +227,16 @@ function Complete-SCEPmanInstallation
         $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
     }
 
-    ConfigureScepManAppServices -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -DeploymentSlots $deploymentSlotsSc -AppRoleAssignmentsFinished $allPermissionsAreGranted
+    Write-Information "Configuring settings for the SCEPman web app and its deployment slots (if any)"
+    ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $null -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
+    foreach ($currentDeploymentSlot in $deploymentSlotsSc) {
+        ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $currentDeploymentSlot -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
+    }
+    
     if ($SkipCertificateMaster.IsPresent) {
         Write-Information "Skipping configuration of Certificate Master App Service"
     } else {
-        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -AppRoleAssignmentsFinished $allPermissionsAreGranted
+        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -PermissionLevel $permissionLevelCertMaster
     }
 
     Write-Information "SCEPman configuration completed"
