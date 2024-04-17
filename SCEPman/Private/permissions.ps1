@@ -45,8 +45,24 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
                 Write-Warning "Skipping app role assignment (please execute manually): $azCommand"
                 $permissionLevelFail = $resourcePermission.permissionLevel -lt $permissionLevelFail ? $resourcePermission.permissionLevel : $permissionLevelFail
             } else {
-                $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
-                $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
+                try {
+                    $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
+                    $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
+                }
+                catch {
+                    $exceptionMessage = $_.ToString()
+                    if ($exceptionMessage.Contains($PERMISSION_DOES_NOT_EXIST)) {
+                        Write-Warning "The app role $($resourcePermission.appRoleId) does not exist in application $($resourcePermission.resourceId) already exists. It is required for permission level $($resourcePermission.permissionLevel)."
+                        if ($resourcePermission.permissionLevel -eq 0) {
+                            Write-Error "Couldn't assign permission of permission level 0"
+                            throw $_
+                        } else {
+                            $permissionLevelFail = $resourcePermission.permissionLevel -lt $permissionLevelFail ? $resourcePermission.permissionLevel : $permissionLevelFail
+                        }
+                    } else {
+                        throw $_
+                    }
+                }
             }
         }
     }
