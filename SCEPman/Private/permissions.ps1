@@ -36,18 +36,24 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
     ForEach($resourcePermission in $resourcePermissions) {
         if($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) {
             Write-Verbose "Permission is already there (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
-            $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
+            if ($resourcePermission.permissionLevel -gt $permissionLevelReached) {
+                $permissionLevelReached = $resourcePermission.permissionLevel
+            }
         } else {
             Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $azCommand = "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'"
             if ($SkipAppRoleAssignments) {
                 Write-Warning "Skipping app role assignment (please execute manually): $azCommand"
-                $permissionLevelFail = $resourcePermission.permissionLevel -lt $permissionLevelFail ? $resourcePermission.permissionLevel : $permissionLevelFail
+                if ($resourcePermission.permissionLevel -lt $permissionLevelFail) {
+                    $permissionLevelFail = $resourcePermission.permissionLevel
+                }
             } else {
                 try {
                     $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
-                    $permissionLevelReached = $resourcePermission.permissionLevel -gt $permissionLevelReached ? $resourcePermission.permissionLevel : $permissionLevelReached
+                    if ($resourcePermission.permissionLevel -gt $permissionLevelReached) {
+                        $permissionLevelReached = $resourcePermission.permissionLevel
+                    }
                 }
                 catch {
                     $exceptionMessage = $_.ToString()
@@ -57,7 +63,9 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
                             Write-Error "Couldn't assign permission of permission level 0"
                             throw $_
                         } else {
-                            $permissionLevelFail = $resourcePermission.permissionLevel -lt $permissionLevelFail ? $resourcePermission.permissionLevel : $permissionLevelFail
+                            if ($resourcePermission.permissionLevel -lt $permissionLevelFail) {
+                                $permissionLevelFail = $resourcePermission.permissionLevel
+                            }
                         }
                     } else {
                         throw $_
@@ -67,7 +75,11 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
         }
     }
 
-    return $permissionLevelReached -gt $permissionLevelFail ? ($permissionLevelFail - 1) : $permissionLevelReached
+    if ($permissionLevelReached -ge $permissionLevelFail) {
+        return $permissionLevelFail - 1
+    } else {
+        return $permissionLevelReached
+    }
 }
 
 function GetSCEPmanResourcePermissions() {

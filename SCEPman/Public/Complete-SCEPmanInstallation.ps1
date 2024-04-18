@@ -203,7 +203,9 @@ function Complete-SCEPmanInstallation
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
         $permissionLevelReached = SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
-        $permissionLevelScepman = $permissionLevelReached -lt $permissionLevelScepman ? $permissionLevelReached : $permissionLevelScepman
+        if ($permissionLevelReached -lt $permissionLevelScepman) {
+            $permissionLevelScepman = $permissionLevelReached
+        }
         Write-Verbose "Reaching permission level $permissionLevelReached for this deployment slot"
     }
     Write-Information "SCEPman's permission level is $permissionLevelScepman"
