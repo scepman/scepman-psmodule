@@ -130,9 +130,9 @@ function New-SCEPmanClone
         $DelayForSecurityPrincipals = 3000
         Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-        $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
 
         Write-Information "Copying app settings from source App Service to target"
         SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
