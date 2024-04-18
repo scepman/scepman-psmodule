@@ -234,7 +234,7 @@ function Complete-SCEPmanInstallation
     foreach ($currentDeploymentSlot in $deploymentSlotsSc) {
         ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $currentDeploymentSlot -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
     }
-    
+
     if ($SkipCertificateMaster.IsPresent) {
         Write-Information "Skipping configuration of Certificate Master App Service"
     } else {

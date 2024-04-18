@@ -297,7 +297,7 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
-  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, 
+  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
