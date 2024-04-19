@@ -167,5 +167,6 @@ function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
 }
 
 function Get-AccessTokenForApp($scope) {
+    Write-Warning "Acquiring token for scope $scope. This can expose unencrypted token information in memory or verbose logs. Please use with caution."
     return ExecuteAzCommandRobustly -callAzNatively -azCommand $('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
 }
