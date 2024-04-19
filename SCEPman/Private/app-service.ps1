@@ -195,7 +195,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
   }
 }
 
-function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName = $null) {
+function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServiceName, $PermissionLevel, $DeploymentSlotName = $null) {
   # Add a setting to tell the Deployment slot that it has been configured
   $SCEPmanSlotHostName = GetPrimaryAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
 
@@ -206,7 +206,7 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
   $MarkAsConfiguredSettings = @(
     @{name="AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime"; value=$managedIdentityEnabledOn},
     @{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName},
-    @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=2}
+    @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=$PermissionLevel}
   )
 
   SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName
@@ -214,7 +214,7 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
 
 $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
 
-function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $AppRoleAssignmentsFinished, $SCEPmanAppId, $DeploymentSlotName = $null) {
+function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $ScepManAppSettings, $PermissionLevel, $SCEPmanAppId, $DeploymentSlotName = $null) {
   $existingApplicationId = ReadAppSetting -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -SettingName "AppConfig:AuthConfig:ApplicationId" -Slot $DeploymentSlotName
   Write-Debug "Existing Application Id is set to $existingApplicationId in slot $DeploymentSlotName. The new ID shall be $SCEPmanAppId."
 
@@ -255,19 +255,16 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationKey"
   }
 
-  if ($AppRoleAssignmentsFinished) {
-    MarkDeploymentSlotAsConfigured -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
-  }
+  MarkDeploymentSlotAsConfigured -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -PermissionLevel $PermissionLevel
 }
 
-function ConfigureScepManAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $AppRoleAssignmentsFinished, $DeploymentSlots) {
-  Write-Information "Configuring SCEPman, SCEPman's deployment slots (if any), and Certificate Master web app settings"
+function ConfigureScepManAppService($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName, $CertMasterBaseURL, $SCEPmanAppId, $PermissionLevel) {
+  Write-Verbose "Configuring SCEPman web app settings for Deployment Slot [$DeploymentSlotName]"
 
   # Add ApplicationId and some additional defaults in SCEPman web app settings
 
   $ScepManAppSettings = @(
-    @{ name='AppConfig:AuthConfig:ApplicationId'; value=$SCEPmanAppID },
-    @{ name='AppConfig:IntuneValidation:DeviceDirectory'; value='AADAndIntune'}
+    @{ name='AppConfig:AuthConfig:ApplicationId'; value=$SCEPmanAppID }
   )
 
   if (-not [string]::IsNullOrEmpty($CertMasterBaseURL)) {
@@ -275,17 +272,11 @@ function ConfigureScepManAppServices($SCEPmanResourceGroup, $SCEPmanAppServiceNa
     $ScepManAppSettings += @{ name='AppConfig:DirectCSRValidation:Enabled'; value='true' }
   }
 
-  if ($null -eq $DeploymentSlotName) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished -SCEPmanAppId $SCEPmanAppID
-  }
-
-  ForEach($tempDeploymentSlot in $DeploymentSlots) {
-    ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings -DeploymentSlotName $tempDeploymentSlot -AppRoleAssignmentsFinished $AppRoleAssignmentsFinished -SCEPmanAppId $SCEPmanAppID
-  }
+  ConfigureSCEPmanInstance -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -ScepManAppSettings $ScepManAppSettings -PermissionLevel $PermissionLevel -SCEPmanAppId $SCEPmanAppID -DeploymentSlotName $DeploymentSlotName
 }
 
-function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppServiceName, $SCEPmanAppId, $CertMasterAppId, $AppRoleAssignmentsFinished) {
-  Write-Verbose "Setting Certificate Master configuration"
+function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppServiceName, $SCEPmanAppId, $CertMasterAppId, $PermissionLevel) {
+  Write-Information "Setting Certificate Master configuration"
   $managedIdentityEnabledOn = ([DateTimeOffset]::UtcNow).ToUnixTimeSeconds()
 
   # Add ApplicationId and SCEPman API scope in certmaster web app settings
@@ -294,9 +285,9 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
     'AppConfig:AuthConfig:SCEPmanAPIScope' = "api://$SCEPmanAppId"
   }
 
-  if ($AppRoleAssignmentsFinished) {
+  if ($PermissionLevel -ge 0) {
     $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityEnabledOnUnixTime'] = "$managedIdentityEnabledOn"
-    $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityPermissionLevel'] = 2
+    $CertmasterAppSettings['AppConfig:AuthConfig:ManagedIdentityPermissionLevel'] = $PermissionLevel
   }
 
   $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
@@ -306,7 +297,7 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
-  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, 
+  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {

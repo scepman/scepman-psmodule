@@ -33,15 +33,19 @@ function Convert-LinesToObject {
 }
 
 $PERMISSION_ALREADY_ASSIGNED = "Permission already assigned"
+$PERMISSION_DOES_NOT_EXIST = "Permission does not exist"
 
 function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $false) {
     [String[]]$errorMessages = @()
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {  # TODO: Does this work in non-English environments?
+                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {
                     Write-Information "Permission is already assigned when executing $azCommand"
                     Write-Output $PERMISSION_ALREADY_ASSIGNED
+                } elseif ($outputElement.ToString().Contains("Permission being assigned was not found on")) {
+                    Write-Information "Could not assign permission, as it does not exist for this application, when executing $azCommand"
+                    Write-Output $PERMISSION_DOES_NOT_EXIST
                 } elseif ($outputElement.ToString().EndsWith("does not exist or one of its queried reference-property objects are not present.")) {
                     # This indicates we are in a tenant with especially long delays between creation of an object and when it becomes available via Graph (this happens and it seems to be tenant-specific).
                     # Let's go into snail mode and thereby grant Graph more time
@@ -89,7 +93,6 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
         } else {
             Write-Error $ErrorMessageOneLiner
         }
-
     }
 }
 
@@ -186,7 +189,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
         $definedPreference = $PSNativeCommandUseErrorActionPreference
         $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
 
-        while ($azErrorCode -ne 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
+        while ($azErrorCode -gt 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
             $PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             if ($callAzNatively) {
@@ -209,6 +212,8 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                     }
                 } elseif ($null -ne $appRoleId -and $PERMISSION_ALREADY_ASSIGNED -eq $lastAzOutput) {
                     $azErrorCode = 0  # The permission was already there, so we are done. Ignore the error message that the permission was already there.
+                } elseif ($null -ne $appRoleId -and $PERMISSION_DOES_NOT_EXIST -eq $lastAzOutput) {
+                    $azErrorCode = -24  # This kind of permission doesn't even exist. We are probably not in the global cloud or something else is unusual. No need to retry.
                 }
             }
             catch {
@@ -223,7 +228,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                   }
                 }
             }
-            if ($azErrorCode -ne 0) {
+            if ($azErrorCode -gt 0) {
                 ++$retryCount
                 Write-Verbose "Retry $retryCount for $azCommand after $($retryCount * $SLEEP_FACTOR) seconds of sleep because Error Code is $azErrorCode"
                 Start-Sleep ($retryCount * $SLEEP_FACTOR) # Sleep for some seconds, as the grant sometimes only works after some time
@@ -240,7 +245,6 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             # might be an object[]
         $readableAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $false
       }
-      Write-Error "Error $azErrorCode when executing $azCommand : $readableAzOutput"
       throw "Error $azErrorCode when executing $azCommand : $readableAzOutput"
     }
     else {

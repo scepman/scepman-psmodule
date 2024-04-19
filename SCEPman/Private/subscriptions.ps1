@@ -1,8 +1,17 @@
 function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
-    Write-Information "Finding correct subscription"
+    Write-Information "Finding correct subscription for App Service $AppServiceName among the $($subscriptions.count) selected subscriptions"
     $scWebAppsAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name =~ '$AppServiceName' | project name, subscriptionId")
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
-        return $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        Write-Verbose "App Service $AppServiceName is in subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
+        $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        if ($null -eq $fittingSubscription) {
+            $selectedSubscriptionString = $subscriptions | ForEach-Object { "$($_.id) - $($_.name)" } | Join-String -Separator ', '
+            $errorMessage = "The subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId) is not among the selected subscriptions: $selectedSubscriptionString"
+            Write-Error $errorMessage
+            throw $errorMessage
+        }
+
+        return $fittingSubscription
     }
 
     $errorMessage = "We are unable to determine the correct subscription. Please start over"
@@ -11,10 +20,18 @@ function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
 }
 
 function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
-    Write-Information "Finding correct subscription"
+    Write-Information "Finding correct subscription for App Service Plan $AppServicePlanName among the $($subscriptions.count) selected subscriptions"
     $scPlansAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
-        return $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        Write-Verbose "App Service Plan $AppServicePlanName is in subscription $($scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
+        $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
+        if ($null -eq $fittingSubscription) {
+            $selectedSubscriptionString = $subscriptions | ForEach-Object { "$($_.id) - $($_.name)" } | Join-String -Separator ', '
+            $errorMessage = "The subscription $($scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId) is not among the selected subscriptions: $selectedSubscriptionString"
+            Write-Error $errorMessage
+            throw $errorMessage
+        }
+        return $fittingSubscription
     }
 
     $errorMessage = "We are unable to determine the correct subscription. Please start over"

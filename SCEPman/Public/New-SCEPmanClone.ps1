@@ -66,7 +66,7 @@ function New-SCEPmanClone
     }
 
     Write-Information "Checking VNET integration of SCEPman"
-    $scepManVnetId = GetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    $scepManVnetId = GetAppServiceVnetId -AppServiceName $SourceAppServiceName -ResourceGroup $SourceResourceGroup
     if ($null -ne $scepManVnetId) {
         Write-Warning "SCEPman App Service is connected to VNET $ScepManVnetId. Cloning VNET settings is not yet supported. Please configure the VNET integration manually."
     }
@@ -124,15 +124,17 @@ function New-SCEPmanClone
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
-        Write-Information "Adding VNET integration to Clone"
-        SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $scepManVnetId
+        if ($null -ne $scepManVnetId) {
+            Write-Information "Adding VNET integration to Clone"
+            SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $scepManVnetId
+        }
 
         $DelayForSecurityPrincipals = 3000
         Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-        $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
 
         Write-Information "Copying app settings from source App Service to target"
         SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings

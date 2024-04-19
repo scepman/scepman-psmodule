@@ -92,7 +92,7 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
 
     if ($null -ne $CertMasterAppServiceName) {
         $existingTableStorageEndpointSettingCm = ReadAppSetting -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -SettingName "AppConfig:AzureStorage:TableStorageEndpoint"
-        
+
         if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm) -and $existingTableStorageEndpointSettingSc -ne $existingTableStorageEndpointSettingCm) {
             Write-Error "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"
             throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different storage accounts configured"

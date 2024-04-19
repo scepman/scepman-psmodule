@@ -82,9 +82,11 @@ function New-SCEPmanDeploymentSlot
         Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
     }
 
-    if ($PSCmdlet.ShouldProcess($scepManVnetId, "Adding VNET integration to new deployment slot")) {
-        Write-Information "Adding VNET integration to new Deployment Slot"
-        SetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -VnetId $scepManVnetId -DeploymentSlotName $DeploymentSlotName
+    if ($null -ne $scepManVnetId) {
+        if ($PSCmdlet.ShouldProcess($scepManVnetId, "Adding VNET integration to new deployment slot")) {
+            Write-Information "Adding VNET integration to new Deployment Slot"
+            SetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -VnetId $scepManVnetId -DeploymentSlotName $DeploymentSlotName
+        }
     }
 
     if ($PSCmdlet.ShouldProcess($ScSDeploymentSlotNametorageAccount, "Adding storage account permissions to new deployment slot")) {
@@ -114,8 +116,8 @@ function New-SCEPmanDeploymentSlot
     Write-Verbose "Waiting for some $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
     Start-Sleep -Milliseconds $DelayForSecurityPrincipals
     if ($PSCmdlet.ShouldProcess($DeploymentSlotName, "Adding permissions for new deployment slot to access Microsoft Graph")) {
-        $null = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup
+        $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName -SCEPmanResourceGroup $SCEPmanResourceGroup -PermissionLevel $permissionLevelScepman
     }
 
     Write-Information "SCEPman Deployment Slot $DeploymentSlotName successfully created"
