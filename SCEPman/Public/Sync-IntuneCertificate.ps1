@@ -127,13 +127,21 @@ function Sync-IntuneCertificate
         }
       }
 
+      function GetStartFilter([string]$GlobalSearchFilter) {
+        if ([String]::IsNullOrWhiteSpace($GlobalSearchFilter)) {
+          return '0'
+        }
+
+        return $GlobalSearchFilter
+      }
+
       Write-Information "Instructing Certificate Master to sync certificates"
       $totalSuccessCount = 0
       $totalSkippedCount = 0
       $totalFailedCount = 0
       $retryAuthorization = $true
       for (
-        $currentSearchFilter = $CertificateSearchString;
+        $currentSearchFilter = GetStartFilter($CertificateSearchString);
         -not (IsEverythingFinished -currentSearchFilter $currentSearchFilter -GlobalSearchFilter $CertificateSearchString);
         $currentSearchFilter = NextSearchFilter -currentSearchFilter $currentSearchFilter -ProgressCondition $retryAuthorization
       ) {
