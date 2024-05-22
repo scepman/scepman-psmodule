@@ -248,7 +248,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
       $applicationKeyKey = $applicationKeyKey.Replace(':', '__')
     }
     $azCommand = @("webapp", "config", "appsettings", "delete", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--setting-names", $applicationKeyKey)
-    if ($null -eq $DeploymentSlotName) {
+    if ($null -ne $DeploymentSlotName) {
       $azCommand += @("--slot", $DeploymentSlotName)
     }
     $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand
