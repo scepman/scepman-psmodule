@@ -1,9 +1,10 @@
 BeforeAll {
+    . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/key-vault.ps1
 }
 
 Describe 'Key Vault' {
-    It 'RSA Default Policy should be reasonable' {
+    It 'generates a reasonable RSA Default Policy' {
         $policy = Get-RsaDefaultPolicy
         $policy.policy.key_props.kty | Should -Be "RSA-HSM"
         $policy.policy.key_props.key_size | Should -BeGreaterOrEqual 2048
@@ -20,5 +21,25 @@ Describe 'Key Vault' {
 
         $policy.policy.key_props.exportable | Should -Be $false -Because "For security reasons"
         $policy.policy.key_props.reuse_key | Should -Be $false -Because "It is usually the first certificate"
+    }
+
+    Context "When a Policy has been Configured" {
+        BeforeEach {
+            $policy = Get-RsaDefaultPolicy
+            $policy.policy.x509_props.subject += ",O=Test Organization"
+
+            Mock ExecuteAzCommandRobustly {
+                param($azCommand, [switch]$callAzNatively)
+                
+                return '{ "val": "x", "request_id": "123", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}'
+            }
+        }
+
+        It 'Generates a CSR' {
+            $csr = New-IntermediateCaCsr -vaultUrl "https://test.vault.azure.net" -certificateName "test-certificate" -policy $policy
+            $csr | Should -Match "-----BEGIN CERTIFICATE REQUEST-----"
+
+            Should -Invoke ExecuteAzCommandRobustly -Exactly 1 -ParameterFilter { $azCommand.Where( { $_.StartsWith('https') }) -like "*/create*" }
+        }
     }
 }
