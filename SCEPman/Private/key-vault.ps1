@@ -117,7 +117,7 @@ function Get-EccDefaultPolicy {
 function Get-RsaDefaultPolicy {
   $policy = Get-DefaultPolicyWithoutKey
   $policy.policy.key_props.kty = "RSA-HSM"
-  $policy.policy.key_props.key_size = 2048
+  $policy.policy.key_props.key_size = 4096
 
   return $policy
 }
