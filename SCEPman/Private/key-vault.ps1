@@ -45,7 +45,7 @@ function New-IntermediateCaCsr {
 
       # The direct graph call instead works
     $creationResponseLines = ExecuteAzCommandRobustly -azCommand @("rest", "--method", "post", "--uri", "$($vaultUrl)certificates/$certificateName/create?api-version=7.0",
-    "--headers", "'Content-Type=application/json'", "--resource", $vaultDomain, "--body", $caPolicyJson) -callAzNatively
+    "--headers", "Content-Type=application/json", "--resource", $vaultDomain, "--body", $caPolicyJson) -callAzNatively
     $creationResponse = Convert-LinesToObject -lines $creationResponseLines
 
     Write-Information "Created a CSR with Request ID $($creationResponse.request_id)"
