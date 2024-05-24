@@ -68,7 +68,7 @@ function New-SCEPmanClone
     Write-Information "Checking VNET integration of SCEPman"
     $scepManVnetId = GetAppServiceVnetId -AppServiceName $SourceAppServiceName -ResourceGroup $SourceResourceGroup
     if ($null -ne $scepManVnetId) {
-        Write-Warning "SCEPman App Service is connected to VNET $ScepManVnetId. Cloning VNET settings is not yet supported. Please configure the VNET integration manually."
+        Write-Information "SCEPman App Service is connected to VNET $ScepManVnetId. Cloned SCEPman instance will be added to the VNET later."
     }
 
     Write-Information "Reading base App Service settings from source"
