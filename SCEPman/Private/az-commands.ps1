@@ -177,6 +177,10 @@ function IsAzureCloudShell {
     return $cloudShellProves -ge 2
 }
 
+function Invoke-Az ($azCommand) {
+    return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively
+}
+
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 # $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.

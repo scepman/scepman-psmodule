@@ -115,12 +115,12 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
   }
   $isLinuxAsp = $aspInfo.kind -eq "linux"
   $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime"
+  $null = Invoke-Az @("webapp", "create", "--resource-group", $SCEPmanResourceGroup, "--plan", $AppServicePlanId, "--name", $SCEPmanAppServiceName, "--assign-identity", "[system]", "--runtime", $runtime)
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
 
   Write-Verbose 'Configuring SCEPman General web app settings'
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process false --ftps-state 'Disabled' --always-on true"
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled false"
+  $null = Invoke-Az @("webapp", "config", "set", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
+  $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
