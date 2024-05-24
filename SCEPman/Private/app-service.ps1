@@ -44,7 +44,7 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   }
   catch
   {
-      return "dotnet:6"
+      return "dotnet:8"
   }
 }
 
