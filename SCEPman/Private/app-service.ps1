@@ -38,7 +38,7 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   }
   try
   {
-      $runtimes = ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows" | Convert-LinesToObject
+      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
@@ -109,7 +109,7 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
   # Find out which OS the App Service Plan uses
-  $aspInfo = ExecuteAzCommandRobustly -azCommand "az appservice plan show --id $AppServicePlanId" | Convert-LinesToObject
+  $aspInfo = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId)
   if ($null -eq $aspInfo) {
     throw "App Service Plan $AppServicePlanId not found"
   }

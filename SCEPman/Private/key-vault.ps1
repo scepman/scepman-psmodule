@@ -26,6 +26,15 @@ function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceNam
   return $configuredKeyVaultURL
 }
 
+function Grant-VnetAccessToKeyVault ($KeyVaultName, $SubnetId, $SubscriptionId) {
+  $kvJson = Invoke-Az @("keyvault", "network-rule", "add", "--name", $KeyVaultName, "--subnet", $SubnetId, "--subscription", $SubscriptionId)
+  $keyVault = Convert-LinesToObject -lines $kvJson
+  if ($keyVault.properties.networkAcls.defaultAction -ieq "Deny" -and $keyVault.properties.publicNetworkAccess -ine "Enabled") {
+      Write-Information "Key Vault $($keyVault.name) is configured to deny all traffic from public networks. Allowing traffic from configured VNETs"
+      $null = Invoke-Az @("keyvault", "update", "--name", $keyVault.name, "--public-network-access", "Enabled", "--subscription", $SubscriptionId)
+  }  
+}
+
 function New-IntermediateCaCsr {
   [CmdletBinding(SupportsShouldProcess=$true)]
   param(

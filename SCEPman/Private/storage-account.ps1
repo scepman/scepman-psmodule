@@ -78,6 +78,16 @@ function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrinci
     return $ScStorageAccount
 }
 
+function Grant-VnetAccessToStorageAccount ($ScStorageAccount, $SubnetId, $SubscriptionId) {
+    Write-Verbose "Adding VNET access to storage account $($ScStorageAccount.name) from Subnet $SubnetId"
+    $ScStorageAccountJson = Invoke-Az @("storage", "account", "network-rule", "add", "--account-name", $ScStorageAccount.name, "--subnet", $SubnetId, "--subscription", $SubscriptionId)
+    $ScStorageAccount = Convert-LinesToObject -lines $ScStorageAccountJson
+    if ($ScStorageAccount.networkRuleSet.defaultAction -ieq "Deny" -and $ScStorageAccount.publicNetworkAccess -ine "Enabled") {
+        Write-Information "Storage Account $($ScStorageAccount.name) is configured to deny all traffic from public networks. Allowing traffic from configured VNETs"
+        $null = Invoke-Az @("storage", "account", "update", "--name", $ScStorageAccount.name, "--public-network-access", "Enabled", "--subscription", $SubscriptionId)
+    }
+}
+
 function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
     return ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:CertificateStorage:TableStorageEndpoint" -DeploymentSlotName $DeploymentSlotName
 }
