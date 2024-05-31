@@ -38,13 +38,13 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   }
   try
   {
-      $runtimes = ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows" | Convert-LinesToObject
+      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
   catch
   {
-      return "dotnet:6"
+      return "dotnet:8"
   }
 }
 
@@ -109,18 +109,18 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
   # Find out which OS the App Service Plan uses
-  $aspInfo = ExecuteAzCommandRobustly -azCommand "az appservice plan show --id $AppServicePlanId" | Convert-LinesToObject
+  $aspInfo = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId)
   if ($null -eq $aspInfo) {
     throw "App Service Plan $AppServicePlanId not found"
   }
   $isLinuxAsp = $aspInfo.kind -eq "linux"
   $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime"
+  $null = Invoke-Az @("webapp", "create", "--resource-group", $SCEPmanResourceGroup, "--plan", $AppServicePlanId, "--name", $SCEPmanAppServiceName, "--assign-identity", "[system]", "--runtime", $runtime)
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
 
   Write-Verbose 'Configuring SCEPman General web app settings'
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process false --ftps-state 'Disabled' --always-on true"
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled false"
+  $null = Invoke-Az @("webapp", "config", "set", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
+  $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -248,7 +248,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
       $applicationKeyKey = $applicationKeyKey.Replace(':', '__')
     }
     $azCommand = @("webapp", "config", "appsettings", "delete", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--setting-names", $applicationKeyKey)
-    if ($null -eq $DeploymentSlotName) {
+    if ($null -ne $DeploymentSlotName) {
       $azCommand += @("--slot", $DeploymentSlotName)
     }
     $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand
@@ -297,7 +297,7 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
 }
 
 function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
-  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, 
+  $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {

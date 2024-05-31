@@ -82,9 +82,11 @@ function New-SCEPmanDeploymentSlot
         Write-Debug "Created SCEPman Deployment Slot has Managed Identity Principal $serviceprincipalsc"
     }
 
-    if ($PSCmdlet.ShouldProcess($scepManVnetId, "Adding VNET integration to new deployment slot")) {
-        Write-Information "Adding VNET integration to new Deployment Slot"
-        SetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -VnetId $scepManVnetId -DeploymentSlotName $DeploymentSlotName
+    if ($null -ne $scepManVnetId) {
+        if ($PSCmdlet.ShouldProcess($scepManVnetId, "Adding VNET integration to new deployment slot")) {
+            Write-Information "Adding VNET integration to new Deployment Slot"
+            SetAppServiceVnetId -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -VnetId $scepManVnetId -DeploymentSlotName $DeploymentSlotName
+        }
     }
 
     if ($PSCmdlet.ShouldProcess($ScSDeploymentSlotNametorageAccount, "Adding storage account permissions to new deployment slot")) {
