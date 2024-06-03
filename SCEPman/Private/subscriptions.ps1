@@ -105,3 +105,19 @@ function GetResourceGroupFromPlanName ($AppServicePlanName) {
     Write-Error "Unable to determine the resource group. This generally happens when a wrong name is entered for the App Service Plan!"
     throw "Unable to determine the resource group. This generally happens when a wrong name is entered for the App Service Plan!"
 }
+
+function GetAzureRegions() {
+    $locationsJson = Invoke-Az @( "account", "list-locations")
+    $regions = Convert-LinesToObject $locationsJson
+    return $regions
+}
+
+function AreTwoRegionsInTheSameGeo($Region1, $Region2) {
+    $regions = GetAzureRegions
+    $region1data = $regions | Where-Object { $_.name -eq $Region1 -or $_.displayName -eq $Region1}
+    $region2data = $regions | Where-Object { $_.name -eq $Region2 -or $_.displayName -eq $Region2}
+    if($null -eq $region1data -or $null -eq $region2data) {
+        throw "One or both regions are not valid. What we have found: $Region1 - $($null -ne $region1data); $Region2 - $($null -ne $region2data)"
+    }
+    return $region1data.metadata.geographyGroup -eq $region2data.metadata.geographyGroup
+}
