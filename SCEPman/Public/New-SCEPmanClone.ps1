@@ -142,7 +142,7 @@ function New-SCEPmanClone
                 }
             }
             Write-Information "Creating VNET $TargetVnetName for Clone"
-            $subnet = New-Vnet -ResourceGroupName $TargetResourceGroup -VnetName $TargetVnetName -SubnetName "sub-scepman"
+            $subnet = New-Vnet -ResourceGroupName $TargetResourceGroup -VnetName $TargetVnetName -SubnetName "sub-scepman" -Location $trgtAsp.Location -StorageAccountLocation $ScStorageAccount.Location
             SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $subnet.id
             Write-Information "Allowing access to Key Vault and Storage Account from the clone's new VNET"
             Grant-VnetAccessToKeyVault -KeyVaultName $keyvault.name -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
