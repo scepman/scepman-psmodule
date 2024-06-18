@@ -6,7 +6,7 @@ function New-Vnet ($ResourceGroupName, $VnetName, $SubnetName, $Location, $Stora
     } else {
         $StorageAccountServiceEndpoint = 'Microsoft.Storage.Global'
     }
-    
+
     $subnetJson = Invoke-Az @( "network", "vnet", "subnet", "update", "--resource-group", $ResourceGroupName, "--vnet-name", $VnetName, "--name", $SubnetName, "--service-endpoints", "['Microsoft.KeyVault', '$StorageAccountServiceEndpoint']", "--delegations", "Microsoft.Web/serverFarms" )
     return Convert-LinesToObject -lines $subnetJson
 }

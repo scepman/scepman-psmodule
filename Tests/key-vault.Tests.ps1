@@ -30,7 +30,7 @@ Describe 'Key Vault' {
 
             Mock ExecuteAzCommandRobustly {
                 param($azCommand, [switch]$callAzNatively)
-                
+
                 return '{ "val": "x", "request_id": "123", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}'
             }
         }

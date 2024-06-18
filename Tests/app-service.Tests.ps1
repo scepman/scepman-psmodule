@@ -9,13 +9,13 @@ Describe 'App Service' {
 
         Mock Invoke-Az {
             param($azCommand)
-            
+
             if ($azCommand[0] -ne 'webapp' -or $azCommand[1] -ne 'list-runtimes' -or $azCommand[2] -ne '--os' -or $azCommand[3] -ne 'windows')
             {
                 throw "Unexpected command: $azCommand"
             }
 
-            return @(   
+            return @(
                 "dotnet:8",
                 "dotnet:7",
                 "dotnet:6",
