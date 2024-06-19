@@ -175,7 +175,7 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
 
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
     $SCEPmanSlotHostName = GetPrimaryAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
-    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName})
+    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName}) -AsSlotSettings $true -Slot $DeploymentSlotName
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
 
@@ -209,7 +209,7 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
     @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=$PermissionLevel}
   )
 
-  SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName
+  SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName -AsSlotSettings $true
 }
 
 $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
@@ -313,7 +313,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
   }
 }
 
-function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null) {
+function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null, $AsSlotSettings = $false) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.ToString().Replace('"','\"')
@@ -333,7 +333,12 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
       $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
     }
 
-    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup)
+    if ($AsSlotSettings) {
+      $command += @('--slot-settings', $settingAssignment)
+    } else {
+      $command += @('--settings', $settingAssignment)
+    }
     if ($null -ne $Slot) {
       $command += @('--slot', $Slot)
     }
