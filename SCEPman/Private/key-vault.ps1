@@ -32,7 +32,7 @@ function Grant-VnetAccessToKeyVault ($KeyVaultName, $SubnetId, $SubscriptionId) 
   if ($keyVault.properties.networkAcls.defaultAction -ieq "Deny" -and $keyVault.properties.publicNetworkAccess -ine "Enabled") {
       Write-Information "Key Vault $($keyVault.name) is configured to deny all traffic from public networks. Allowing traffic from configured VNETs"
       $null = Invoke-Az @("keyvault", "update", "--name", $keyVault.name, "--public-network-access", "Enabled", "--subscription", $SubscriptionId)
-  }  
+  }
 }
 
 function New-IntermediateCaCsr {

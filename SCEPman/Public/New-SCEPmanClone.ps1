@@ -154,10 +154,10 @@ function New-SCEPmanClone
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
         $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
-
         Write-Information "Copying app settings from source App Service to target"
         SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
+
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
 
         Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
     }

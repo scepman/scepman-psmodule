@@ -8,7 +8,7 @@ Describe 'Geos' {
     BeforeAll {
         Mock Invoke-Az {
             param($azCommand)
-            
+
             if ($azCommand[0] -ne 'account' -or $azCommand[1] -ne 'list-locations')
             {
                 throw "Unexpected command: $azCommand"
