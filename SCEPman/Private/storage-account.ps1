@@ -100,9 +100,9 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
         [Parameter(Mandatory=$true)]        [string]$SCEPmanAppServiceName,
         [Parameter(Mandatory=$false)]        [string]$CertMasterResourceGroup,
         [Parameter(Mandatory=$false)]        [string]$CertMasterAppServiceName,
-        [Parameter(Mandatory=$true)]        [string]$servicePrincipals,
+        [Parameter(Mandatory=$true)]        [System.Collections.IList]$servicePrincipals,
         [Parameter(Mandatory=$false)]        [string]$DeploymentSlotName,
-        [Parameter(Mandatory=$false)]        [string]$DeploymentSlots
+        [Parameter(Mandatory=$false)]        [System.Collections.IList]$DeploymentSlots
     )
 
     $storageAccountTableEndpoint = $null
@@ -165,11 +165,8 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
     $storageSettingForSm = @(
         @{name='AppConfig:CertificateStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
     )
-    if ($PSCmdlet.ShouldProcess($SCEPmanAppServiceName, "Setting storage account table endpoint in SCEPman")) {
-        SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm
-    }
     ForEach($tempDeploymentSlot in $DeploymentSlots) {
-        if ($PSCmdlet.ShouldProcess($tempDeploymentSlot, "Setting storage account table endpoint in SCEPman deployment slot")) {
+        if ($PSCmdlet.ShouldProcess("$SCEPmanAppServiceName $tempDeploymentSlot", "Setting storage account table endpoint in SCEPman")) {
             SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm -Slot $tempDeploymentSlot
         }
     }
