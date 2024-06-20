@@ -92,7 +92,19 @@ function GetSCEPmanStorageAccountConfig( $SCEPmanResourceGroup, $SCEPmanAppServi
     return ReadAppSetting -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -SettingName "AppConfig:CertificateStorage:TableStorageEndpoint" -DeploymentSlotName $DeploymentSlotName
 }
 
-function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $servicePrincipals, $DeploymentSlotName, $DeploymentSlots) {
+function Set-TableStorageEndpointsInScAndCmAppSettings {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param (
+        [Parameter(Mandatory=$true)]        [string]$SubscriptionId,
+        [Parameter(Mandatory=$true)]        [string]$SCEPmanResourceGroup,
+        [Parameter(Mandatory=$true)]        [string]$SCEPmanAppServiceName,
+        [Parameter(Mandatory=$false)]        [string]$CertMasterResourceGroup,
+        [Parameter(Mandatory=$false)]        [string]$CertMasterAppServiceName,
+        [Parameter(Mandatory=$true)]        [string]$servicePrincipals,
+        [Parameter(Mandatory=$false)]        [string]$DeploymentSlotName,
+        [Parameter(Mandatory=$false)]        [string]$DeploymentSlots
+    )
+
     $storageAccountTableEndpoint = $null
     $existingTableStorageEndpointSettingSc = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -DeploymentSlotName $DeploymentSlotName
     if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc)) {
@@ -116,8 +128,10 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Information "Creating storage account"
-        $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals
-        $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
+        if ($PSCmdlet.ShouldProcess($storageAccountTableEndpoint, "Create storage account")) {
+            $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals
+            $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
+        }
     } else {
         Write-Verbose 'Storage account table endpoint found in app settings'
 
@@ -125,11 +139,15 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
         if ($null -eq $ScStorageAccount) {
             Write-Warning "Data Table endpoint $storageAccountTableEndpoint is configured in either SCEPman or Certificate Master, but no such storage account could be found"
 
-            $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals
-            $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
+            if ($PSCmdlet.ShouldProcess($storageAccountTableEndpoint, "Create storage account")) {
+                $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals
+                $storageAccountTableEndpoint = $($ScStorageAccount.primaryEndpoints.table)
+            }
         } else {
             Write-Verbose "Found existing storage account $($ScStorageAccount.Name)"
-            SetStorageAccountPermissions -SubscriptionId $SubscriptionId -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+            if ($PSCmdlet.ShouldProcess($storageAccountTableEndpoint, "Set storage account permissions for service principals")) {
+                SetStorageAccountPermissions -SubscriptionId $SubscriptionId -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
+            }
         }
     }
 
@@ -139,14 +157,20 @@ function SetTableStorageEndpointsInScAndCmAppSettings ($SubscriptionId, $SCEPman
             @{name='AppConfig:AzureStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
         )
         Write-Debug "Setting storage account table endpoint in CertMaster"
-        SetAppSettings -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -Settings $storageSettingForCm
+        if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, "Setting storage account table endpoint in CertMaster")) {
+            SetAppSettings -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -Settings $storageSettingForCm
+        }
     }
 
     $storageSettingForSm = @(
         @{name='AppConfig:CertificateStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
     )
-    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm
+    if ($PSCmdlet.ShouldProcess($SCEPmanAppServiceName, "Setting storage account table endpoint in SCEPman")) {
+        SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm
+    }
     ForEach($tempDeploymentSlot in $DeploymentSlots) {
-        SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm -Slot $tempDeploymentSlot
+        if ($PSCmdlet.ShouldProcess($tempDeploymentSlot, "Setting storage account table endpoint in SCEPman deployment slot")) {
+            SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $storageSettingForSm -Slot $tempDeploymentSlot
+        }
     }
 }

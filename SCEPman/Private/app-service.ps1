@@ -55,8 +55,8 @@ function New-CertMasterAppService {
     [Parameter(Mandatory=$true)]    [string]$SCEPmanResourceGroup,
     [Parameter(Mandatory=$true)]    [string]$SCEPmanAppServiceName,
     [Parameter(Mandatory=$true)]    [string]$CertMasterResourceGroup,
-    [Parameter(Mandatory=$true)]    [string]$CertMasterAppServiceName,
-    [Parameter(Mandatory=$true)]    [string]$DeploymentSlotName,
+    [Parameter(Mandatory=$false)][AllowEmptyString()]    [string]$CertMasterAppServiceName,
+    [Parameter(Mandatory=$false)]    [string]$DeploymentSlotName,
     [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod"
   )
 

@@ -191,13 +191,13 @@ function Complete-SCEPmanInstallation
         Update-ToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
     }
 
-    if ($PSCmdlet.ShouldProcess($TargetResourceGroup, "Adding permissions for web apps to other azure resources")) {
-        Write-Information "Connecting Web Apps to Storage Account"
-        SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+    Write-Information "Connecting Web Apps to Storage Account"
+    Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
-        Write-Information "Adding permissions for SCEPman on the Key Vault"
-        $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
-        foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+    Write-Information "Adding permissions for SCEPman on the Key Vault"
+    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+        if ($PSCmdlet.ShouldProcess($keyVault.name, "Adding permissions for SCEPman on the Key Vault")) {
             AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal
         }
     }
@@ -222,7 +222,7 @@ function Complete-SCEPmanInstallation
 
     ### Set Managed Identity permissions for CertMaster
     if (-not $SkipCertificateMaster) {
-        if ($PSCmdlet.ShouldProcess($serviceprincipalcm, "Set permissions for Certificate Master")) {
+        if ($PSCmdlet.ShouldProcess($serviceprincipalcm.principalId, "Set permissions for Certificate Master")) {
             Write-Information "Setting up permissions for Certificate Master"
             $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
             $permissionLevelCertMaster = SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
