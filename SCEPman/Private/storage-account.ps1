@@ -48,7 +48,7 @@ function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $serv
     Write-Debug "Storage Account Scope: $SAScope"
     ForEach($tempServicePrincipal in $servicePrincipals) {
         Write-Information "Setting Storage account permission for principal id $tempServicePrincipal"
-        $null = ExecuteAzCommandRobustly -azCommand @("role", "assignment", "create", "--role", "Storage Table Data Contributor", "--assignee-object-id", $tempServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $SAScope) -callAzNatively
+        $null = Invoke-Az @("role", "assignment", "create", "--role", "Storage Table Data Contributor", "--assignee-object-id", $tempServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $SAScope)
     }
 }
 
@@ -112,7 +112,7 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
         Write-Verbose "Found existing storage account table endpoint in SCEPman's app settings"
     }
 
-    if ($null -ne $CertMasterAppServiceName) {
+    if (![string]::IsNullOrEmpty($CertMasterAppServiceName)) {
         $existingTableStorageEndpointSettingCm = ReadAppSetting -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -SettingName "AppConfig:AzureStorage:TableStorageEndpoint"
 
         if(![string]::IsNullOrEmpty($existingTableStorageEndpointSettingSc) -and ![string]::IsNullOrEmpty($existingTableStorageEndpointSettingCm) -and $existingTableStorageEndpointSettingSc -ne $existingTableStorageEndpointSettingCm) {
@@ -152,7 +152,7 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
     }
 
     Write-Verbose "Configuring table storage endpoints in SCEPman, SCEPman's deployment slots (if any), and CertMaster"
-    if ($null -ne $CertMasterAppServiceName) {
+    if (![string]::IsNullOrEmpty($CertMasterAppServiceName)) {
         $storageSettingForCm = @(
             @{name='AppConfig:AzureStorage:TableStorageEndpoint'; value=$storageAccountTableEndpoint}
         )
