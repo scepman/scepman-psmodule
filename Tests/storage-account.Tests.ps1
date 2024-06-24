@@ -26,7 +26,7 @@ Describe 'Storage Account' {
 }
 ],
 "skip_token": null,
-"total_records": 1 
+"total_records": 1
 }' } -ParameterFilter { $args[0] -eq 'graph' -and $args[1] -eq "query" }
     Mock az {
       throw "Unexpected parameter for az: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
