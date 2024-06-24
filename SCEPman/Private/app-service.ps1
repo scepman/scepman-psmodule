@@ -50,6 +50,7 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
 
 function New-CertMasterAppService {
   [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([String])]
   param (
     [Parameter(Mandatory=$true)]    [string]$TenantId,
     [Parameter(Mandatory=$true)]    [string]$SCEPmanResourceGroup,
