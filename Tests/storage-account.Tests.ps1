@@ -52,29 +52,51 @@ Describe 'Storage Account' {
     Assert-MockCalled az -Exactly 1 -Scope It
   }
 
-  It 'Sets Storage Account settings in SCEPman while skipping Certificate Master' {
-    # Arrange
-    [System.Collections.IList]$servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
+  Context "When SCEPman and CertMaster have a configured Storage Account" {
+    BeforeAll {
+      [System.Collections.IList]$servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
+  
+      . $PSScriptRoot/../SCEPman/Private/app-service.ps1
+  
+      Mock ReadAppSetting { return "https://stgxyztest.table.core.windows.net/" } -ParameterFilter { $SettingName -eq 'AppConfig:CertificateStorage:TableStorageEndpoint' }
+      Mock ReadAppSetting { throw "Unexpected parameters for ReadAppSetting: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
+      Mock SetAppSettings { } -ParameterFilter { $Settings.name -eq "AppConfig:CertificateStorage:TableStorageEndpoint" -and $Settings.value -eq "https://stgxyztest.table.core.windows.net/" -and $AppServiceName -eq 'app-scepman' }
+      Mock SetAppSettings { throw "Unexpected parameters for SetAppSettings: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
+  
+      Mock Invoke-Az { } -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
+    }
 
-    . $PSScriptRoot/../SCEPman/Private/app-service.ps1
+    It 'Sets Storage Account settings in SCEPman while skipping Certificate Master' {
+      # Arrange
+      #  Done in BeforeAll already
 
-    Mock ReadAppSetting { return "https://stgxyztest.table.core.windows.net/" } -ParameterFilter { $SettingName -eq 'AppConfig:CertificateStorage:TableStorageEndpoint' }
-    Mock ReadAppSetting { throw "Unexpected parameters for ReadAppSetting: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
-    Mock SetAppSettings { } -ParameterFilter { $Settings.name -eq "AppConfig:CertificateStorage:TableStorageEndpoint" -and $Settings.value -eq "https://stgxyztest.table.core.windows.net/" -and $AppServiceName -eq 'app-scepman' }
-    Mock SetAppSettings { throw "Unexpected parameters for SetAppSettings: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
+      # Act
+      $VerbosePreference = 'Continue'
+      $InformationPreference = 'Continue'
+  
+      Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -SCEPmanResourceGroup 'rg-xyz-test' -SCEPmanAppServiceName 'app-scepman' -servicePrincipals $servicePrincipals -CertMasterAppServiceName $null -DeploymentSlots @($null)
+  
+      # Assert
+      Assert-MockCalled ReadAppSetting -Exactly 1 -Scope It
+      Assert-MockCalled SetAppSettings -Exactly 1 -Scope It
+  
+      Assert-MockCalled Invoke-Az -Exactly 2 -Scope It -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
+    }
 
-    Mock Invoke-Az { } -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
+    It 'Sets Storage Account settings in SCEPman and Certificate Master' {
+      # Arrange
+      Mock ReadAppSetting { return "https://stgxyztest.table.core.windows.net/" } -ParameterFilter { $SettingName -eq 'AppConfig:AzureStorage:TableStorageEndpoint' }
+      Mock SetAppSettings { } -ParameterFilter { $Settings.name -eq "AppConfig:AzureStorage:TableStorageEndpoint" -and $Settings.value -eq "https://stgxyztest.table.core.windows.net/" -and $AppServiceName -eq 'app-certmaster' }
 
-    # Act
-    $VerbosePreference = 'Continue'
-    $InformationPreference = 'Continue'
+      # Act
+      Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -SCEPmanResourceGroup 'rg-xyz-test' -SCEPmanAppServiceName 'app-scepman' -servicePrincipals $servicePrincipals -CertMasterAppServiceName 'app-certmaster' -DeploymentSlots @($null)
 
-    Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -SCEPmanResourceGroup 'rg-xyz-test' -SCEPmanAppServiceName 'app-scepman' -servicePrincipals $servicePrincipals -CertMasterAppServiceName $null -DeploymentSlots @($null)
+      # Assert
+      Assert-MockCalled ReadAppSetting -Exactly 2 -Scope It
+      Assert-MockCalled SetAppSettings -Exactly 2 -Scope It
+  
+      Assert-MockCalled Invoke-Az -Exactly 2 -Scope It -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
 
-    # Assert
-    Assert-MockCalled ReadAppSetting -Exactly 1 -Scope It
-    Assert-MockCalled SetAppSettings -Exactly 1 -Scope It
-
-    Assert-MockCalled Invoke-Az -Exactly 2 -Scope It -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
+    }  
   }
 }
