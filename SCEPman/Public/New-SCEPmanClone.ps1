@@ -17,6 +17,9 @@
  .Parameter TargetAppServiceName
   The name of the new cloned SCEPman App Service.
 
+ .PARAMETER TargetVnetName
+  The name of the VNET to be created for the cloned SCEPman instance. It will only be created if the source SCEPman is connected to a VNET.
+
  .PARAMETER TargetAppServicePlan
   The name of the App Service Plan for the cloned SCEPman instance. The App Service Plan must exist already in the TargetResourceGroup
 
@@ -40,6 +43,7 @@ function New-SCEPmanClone
       $SourceSubscriptionId,
       [Parameter(Mandatory=$true)]$TargetAppServiceName,
       [Parameter(Mandatory=$true)]$TargetAppServicePlan,
+      $TargetVnetName,
       $TargetResourceGroup,
       $TargetSubscriptionId,
       [switch]$SearchAllSubscriptions,
@@ -68,13 +72,13 @@ function New-SCEPmanClone
     Write-Information "Checking VNET integration of SCEPman"
     $scepManVnetId = GetAppServiceVnetId -AppServiceName $SourceAppServiceName -ResourceGroup $SourceResourceGroup
     if ($null -ne $scepManVnetId) {
-        Write-Warning "SCEPman App Service is connected to VNET $ScepManVnetId. Cloning VNET settings is not yet supported. Please configure the VNET integration manually."
+        Write-Information "SCEPman App Service is connected to a VNET."
     }
 
     Write-Information "Reading base App Service settings from source"
     $SCEPmanSourceSettings = ReadAppSettings -AppServiceName $SourceAppServiceName -resourceGroup $SourceResourceGroup
 
-    Write-Information "Reading storage account informaton from source"
+    Write-Information "Reading storage account information from source"
     $existingTableStorageEndpointSetting = GetSCEPmanStorageAccountConfig -SCEPmanResourceGroup $SourceResourceGroup -SCEPmanAppServiceName $SourceAppServiceName
     $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
     if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
@@ -90,6 +94,7 @@ function New-SCEPmanClone
 
     Write-Information "Getting target subscription details"
     $targetSubscription = GetSubscriptionDetails -AppServicePlanName $TargetAppServicePlan -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $TargetSubscriptionId
+    Write-Information "Target Subscription is set to $($targetSubscription.name)"
 
     Write-Information "Searching for target App Service Plan"
     if ([String]::IsNullOrWhiteSpace($TargetResourceGroup)) {
@@ -125,8 +130,23 @@ function New-SCEPmanClone
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
 
         if ($null -ne $scepManVnetId) {
-            Write-Information "Adding VNET integration to Clone"
-            SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $scepManVnetId
+            if ($null -eq $TargetVnetName) {
+                $indexOfFirstDash = $TargetAppServiceName.IndexOf("-")
+                if ($indexOfFirstDash -eq -1) { # name without dashes
+                    $TargetVnetName = "vnet-" + $TargetAppServiceName
+                } else {
+                    $TargetVnetName = "vnet-" + $TargetAppServiceName.Substring($indexOfFirstDash + 1)
+                }
+                if ($TargetVnetName.Length -gt 64) {
+                    $TargetVnetName = $TargetVnetName.Substring(0, 64)
+                }
+            }
+            Write-Information "Creating VNET $TargetVnetName for Clone"
+            $subnet = New-Vnet -ResourceGroupName $TargetResourceGroup -VnetName $TargetVnetName -SubnetName "sub-scepman" -Location $trgtAsp.Location -StorageAccountLocation $ScStorageAccount.Location
+            SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $subnet.id
+            Write-Information "Allowing access to Key Vault and Storage Account from the clone's new VNET"
+            Grant-VnetAccessToKeyVault -KeyVaultName $keyvault.name -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
+            Grant-VnetAccessToStorageAccount -ScStorageAccount $ScStorageAccount -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
         }
 
         $DelayForSecurityPrincipals = 3000
@@ -134,10 +154,10 @@ function New-SCEPmanClone
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
         $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
-
         Write-Information "Copying app settings from source App Service to target"
         SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
+
+        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
 
         Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
     }

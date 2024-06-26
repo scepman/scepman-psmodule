@@ -26,6 +26,15 @@ function FindConfiguredKeyVaultUrl ($SCEPmanResourceGroup, $SCEPmanAppServiceNam
   return $configuredKeyVaultURL
 }
 
+function Grant-VnetAccessToKeyVault ($KeyVaultName, $SubnetId, $SubscriptionId) {
+  $kvJson = Invoke-Az @("keyvault", "network-rule", "add", "--name", $KeyVaultName, "--subnet", $SubnetId, "--subscription", $SubscriptionId)
+  $keyVault = Convert-LinesToObject -lines $kvJson
+  if ($keyVault.properties.networkAcls.defaultAction -ieq "Deny" -and $keyVault.properties.publicNetworkAccess -ine "Enabled") {
+      Write-Information "Key Vault $($keyVault.name) is configured to deny all traffic from public networks. Allowing traffic from configured VNETs"
+      $null = Invoke-Az @("keyvault", "update", "--name", $keyVault.name, "--public-network-access", "Enabled", "--subscription", $SubscriptionId)
+  }
+}
+
 function New-IntermediateCaCsr {
   [CmdletBinding(SupportsShouldProcess=$true)]
   param(
@@ -45,7 +54,7 @@ function New-IntermediateCaCsr {
 
       # The direct graph call instead works
     $creationResponseLines = ExecuteAzCommandRobustly -azCommand @("rest", "--method", "post", "--uri", "$($vaultUrl)certificates/$certificateName/create?api-version=7.0",
-    "--headers", "'Content-Type=application/json'", "--resource", $vaultDomain, "--body", $caPolicyJson) -callAzNatively
+    "--headers", "Content-Type=application/json", "--resource", $vaultDomain, "--body", $caPolicyJson) -callAzNatively
     $creationResponse = Convert-LinesToObject -lines $creationResponseLines
 
     Write-Information "Created a CSR with Request ID $($creationResponse.request_id)"
@@ -117,7 +126,7 @@ function Get-EccDefaultPolicy {
 function Get-RsaDefaultPolicy {
   $policy = Get-DefaultPolicyWithoutKey
   $policy.policy.key_props.kty = "RSA-HSM"
-  $policy.policy.key_props.key_size = 2048
+  $policy.policy.key_props.key_size = 4096
 
   return $policy
 }

@@ -38,13 +38,13 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   }
   try
   {
-      $runtimes = ExecuteAzCommandRobustly -azCommand "az webapp list-runtimes --os windows" | Convert-LinesToObject
+      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
       [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
       return $WindowsDotnetRuntimes[0]
   }
   catch
   {
-      return "dotnet:6"
+      return "dotnet:8"
   }
 }
 
@@ -109,18 +109,18 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
   # Find out which OS the App Service Plan uses
-  $aspInfo = ExecuteAzCommandRobustly -azCommand "az appservice plan show --id $AppServicePlanId" | Convert-LinesToObject
+  $aspInfo = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId)
   if ($null -eq $aspInfo) {
     throw "App Service Plan $AppServicePlanId not found"
   }
   $isLinuxAsp = $aspInfo.kind -eq "linux"
   $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp create --resource-group $SCEPmanResourceGroup --plan $AppServicePlanId --name $SCEPmanAppServiceName --assign-identity [system] --runtime $runtime"
+  $null = Invoke-Az @("webapp", "create", "--resource-group", $SCEPmanResourceGroup, "--plan", $AppServicePlanId, "--name", $SCEPmanAppServiceName, "--assign-identity", "[system]", "--runtime", $runtime)
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
 
   Write-Verbose 'Configuring SCEPman General web app settings'
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp config set --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --use-32bit-worker-process false --ftps-state 'Disabled' --always-on true"
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp update --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --client-affinity-enabled false"
+  $null = Invoke-Az @("webapp", "config", "set", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
+  $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -175,7 +175,7 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
 
   if([string]::IsNullOrEmpty($existingHostnameConfiguration)) {
     $SCEPmanSlotHostName = GetPrimaryAppServiceHostName -SCEPmanResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
-    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName})
+    SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings @(@{name="AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"; value=$SCEPmanSlotHostName}) -AsSlotSettings $true -Slot $DeploymentSlotName
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
 
@@ -209,7 +209,7 @@ function MarkDeploymentSlotAsConfigured($SCEPmanResourceGroup, $SCEPmanAppServic
     @{name="AppConfig:AuthConfig:ManagedIdentityPermissionLevel"; value=$PermissionLevel}
   )
 
-  SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName
+  SetAppSettings -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -Settings $MarkAsConfiguredSettings -Slot $DeploymentSlotName -AsSlotSettings $true
 }
 
 $RegExGuid = "[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?"
@@ -313,7 +313,7 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
   }
 }
 
-function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null) {
+function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null, $AsSlotSettings = $false) {
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.ToString().Replace('"','\"')
@@ -333,7 +333,12 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
       $settingAssignment = "`"$settingName`"=`"$settingValueEscaped`""
     }
 
-    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup, '--settings', $settingAssignment)
+    $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup)
+    if ($AsSlotSettings) {
+      $command += @('--slot-settings', $settingAssignment)
+    } else {
+      $command += @('--settings', $settingAssignment)
+    }
     if ($null -ne $Slot) {
       $command += @('--slot', $Slot)
     }
