@@ -206,15 +206,16 @@ function Complete-SCEPmanInstallation
     $permissionLevelScepman = [int]::MaxValue    # the same level for all deployment slots and user-assigned managed identities, this makes it easier to manage the level. This will be overwritten at least once.
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
-    if ($PSCmdlet.ShouldProcess($serviceprincipalOfScDeploymentSlots, "Adding permissions for web apps to graph and co.")) {
-        ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-            Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
-            $permissionLevelReached = SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
-            if ($permissionLevelReached -lt $permissionLevelScepman) {
-                $permissionLevelScepman = $permissionLevelReached
-            }
-            Write-Verbose "Reaching permission level $permissionLevelReached for this deployment slot"
+    if (-not $PSCmdlet.ShouldProcess($serviceprincipalOfScDeploymentSlots, "Adding permissions for web apps to graph and co.")) {
+        $SkipAppRoleAssignments = $true
+    }
+    ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
+        Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
+        $permissionLevelReached = SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
+        if ($permissionLevelReached -lt $permissionLevelScepman) {
+            $permissionLevelScepman = $permissionLevelReached
         }
+        Write-Verbose "Reached permission level $permissionLevelReached for this deployment slot"
     }
     Write-Information "SCEPman's permission level is $permissionLevelScepman"
 
