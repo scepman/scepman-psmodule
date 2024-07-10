@@ -54,9 +54,7 @@ Describe 'Storage Account' {
 
   Context "When SCEPman and CertMaster have a configured Storage Account" {
     BeforeAll {
-      [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'servicePrincipals', Justification = 'It is actually used in the It blocks.')]
-      param()
-      [System.Collections.IList]$servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
+      [System.Collections.IList]$script:servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
 
       . $PSScriptRoot/../SCEPman/Private/app-service.ps1
 
