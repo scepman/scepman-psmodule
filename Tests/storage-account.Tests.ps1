@@ -55,7 +55,7 @@ Describe 'Storage Account' {
   Context "When SCEPman and CertMaster have a configured Storage Account" {
     BeforeAll {
       [System.Collections.IList]$servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
-  
+
       . $PSScriptRoot/../SCEPman/Private/app-service.ps1
 
       Mock ReadAppSetting { return "https://stgxyztest.table.core.windows.net/" } -ParameterFilter { $SettingName -eq 'AppConfig:CertificateStorage:TableStorageEndpoint' }
@@ -79,7 +79,7 @@ Describe 'Storage Account' {
       # Assert
       Assert-MockCalled ReadAppSetting -Exactly 1 -Scope It
       Assert-MockCalled SetAppSettings -Exactly 1 -Scope It
-  
+
       Assert-MockCalled Invoke-Az -Exactly 2 -Scope It -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
     }
 
