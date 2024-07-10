@@ -106,8 +106,7 @@ function New-SCEPmanClone
         throw "App Service Plan $TargetAppServicePlan could not be found in Resource Group $TargetResourceGroup"
     }
 
-    if ($PSCmdlet.ShouldProcess($TargetAppServiceName, ("Creating SCEPman clone in Resource Group {0}" -f $TargetResourceGroup)))
-    {
+    if ($PSCmdlet.ShouldProcess($TargetAppServiceName, ("Creating SCEPman clone in Resource Group {0}" -f $TargetResourceGroup))) {
         Write-Information "Create cloned SCEPman App Service"
         CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
 

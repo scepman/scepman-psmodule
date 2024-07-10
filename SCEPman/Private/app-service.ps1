@@ -48,7 +48,19 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   }
 }
 
-function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanAppServiceName, $CertMasterResourceGroup, $CertMasterAppServiceName, $DeploymentSlotName, $UpdateChannel = "prod") {
+function New-CertMasterAppService {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([String])]
+  param (
+    [Parameter(Mandatory=$true)]    [string]$TenantId,
+    [Parameter(Mandatory=$true)]    [string]$SCEPmanResourceGroup,
+    [Parameter(Mandatory=$true)]    [string]$SCEPmanAppServiceName,
+    [Parameter(Mandatory=$true)]    [string]$CertMasterResourceGroup,
+    [Parameter(Mandatory=$false)][AllowEmptyString()]    [string]$CertMasterAppServiceName,
+    [Parameter(Mandatory=$false)]    [string]$DeploymentSlotName,
+    [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod"
+  )
+
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
@@ -81,27 +93,32 @@ function CreateCertMasterAppService ($TenantId, $SCEPmanResourceGroup, $SCEPmanA
     $isLinuxAppService = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
 
     $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
-    $null = az webapp create --resource-group $CertMasterResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
-    Write-Information "CertMaster web app $CertMasterAppServiceName created"
+    if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, ("Creating Certificate Master App Service with .NET Runtime {0}" -f $runtime))) {
+      $null = az webapp create --resource-group $CertMasterResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
+      Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
-    # Do all the configuration that the ARM template does normally
-    $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
-    if ($null -ne $DeploymentSlotName) {
-        $selectedSlot = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
-        $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
-    }
-    $CertmasterAppSettingsTable = @{
-      WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
-      "AppConfig:AuthConfig:TenantId" = $TenantId;
-      "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
-    }
-    $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
-    $CertMasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettingsTable -convertForLinux $isCertMasterLinux
+      # Do all the configuration that the ARM template does normally
+      $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
+      if ($null -ne $DeploymentSlotName) {
+          $selectedSlot = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
+          $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
+      }
+      $CertmasterAppSettingsTable = @{
+        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
+        "AppConfig:AuthConfig:TenantId" = $TenantId;
+        "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
+      }
+      $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+      $CertMasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettingsTable -convertForLinux $isCertMasterLinux
 
-    Write-Verbose 'Configuring CertMaster web app settings'
-    $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
-    $null = az webapp update --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --https-only $true
-    $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettingsJson
+      Write-Verbose 'Configuring CertMaster web app settings'
+      $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
+      $null = az webapp update --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --https-only $true
+      $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettingsJson
+    }
+    else {
+      return "Skipped"
+    }
   }
 
   return $CertMasterAppServiceName
@@ -191,7 +208,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
   if ($null -eq $deploymentSlots) {
     return @()
   } else {
-    return $deploymentSlots
+    return [array]$deploymentSlots
   }
 }
 
@@ -296,7 +313,14 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
   $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings '$CertmasterAppSettingsJson'"
 }
 
-function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArtifacts) {
+function Update-ToConfiguredChannel {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  param (
+    [Parameter(Mandatory=$true)]    [string]$AppServiceName,
+    [Parameter(Mandatory=$true)]    [string]$ResourceGroup,
+    [Parameter(Mandatory=$true)]    [hashtable]$ChannelArtifacts
+  )
+
   $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
@@ -307,8 +331,10 @@ function SwitchToConfiguredChannel($AppServiceName, $ResourceGroup, $ChannelArti
       Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
-      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl") -callAzNatively
-      $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
+      if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
+        $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl") -callAzNatively
+        $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
+      }
     }
   }
 }
