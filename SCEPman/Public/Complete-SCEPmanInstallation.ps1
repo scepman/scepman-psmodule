@@ -109,7 +109,7 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Information "Getting SCEPman deployment slots"
-    $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
+    [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
     Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
 
     if ($null -ne $DeploymentSlotName) {

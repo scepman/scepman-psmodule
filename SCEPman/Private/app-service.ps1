@@ -208,7 +208,7 @@ function GetDeploymentSlots($appServiceName, $resourceGroup) {
   if ($null -eq $deploymentSlots) {
     return @()
   } else {
-    return $deploymentSlots
+    return [array]$deploymentSlots
   }
 }
 
