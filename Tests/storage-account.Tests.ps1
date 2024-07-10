@@ -57,12 +57,12 @@ Describe 'Storage Account' {
       [System.Collections.IList]$servicePrincipals = @('12345678-aad6-4711-82a9-0123456789ab', '98765432-aad6-4711-82a9-9876543210ab')
   
       . $PSScriptRoot/../SCEPman/Private/app-service.ps1
-  
+
       Mock ReadAppSetting { return "https://stgxyztest.table.core.windows.net/" } -ParameterFilter { $SettingName -eq 'AppConfig:CertificateStorage:TableStorageEndpoint' }
       Mock ReadAppSetting { throw "Unexpected parameters for ReadAppSetting: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
       Mock SetAppSettings { } -ParameterFilter { $Settings.name -eq "AppConfig:CertificateStorage:TableStorageEndpoint" -and $Settings.value -eq "https://stgxyztest.table.core.windows.net/" -and $AppServiceName -eq 'app-scepman' }
       Mock SetAppSettings { throw "Unexpected parameters for SetAppSettings: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)" }
-  
+
       Mock Invoke-Az { } -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
     }
 
@@ -73,9 +73,9 @@ Describe 'Storage Account' {
       # Act
       $VerbosePreference = 'Continue'
       $InformationPreference = 'Continue'
-  
+
       Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -SCEPmanResourceGroup 'rg-xyz-test' -SCEPmanAppServiceName 'app-scepman' -servicePrincipals $servicePrincipals -CertMasterAppServiceName $null -DeploymentSlots @($null)
-  
+
       # Assert
       Assert-MockCalled ReadAppSetting -Exactly 1 -Scope It
       Assert-MockCalled SetAppSettings -Exactly 1 -Scope It
@@ -94,9 +94,9 @@ Describe 'Storage Account' {
       # Assert
       Assert-MockCalled ReadAppSetting -Exactly 2 -Scope It
       Assert-MockCalled SetAppSettings -Exactly 2 -Scope It
-  
+
       Assert-MockCalled Invoke-Az -Exactly 2 -Scope It -ParameterFilter { ($azCommand[0] -eq 'role' -and $azCommand[1] -eq 'assignment' -and $azCommand[2] -eq 'create') }
 
-    }  
+    }
   }
 }
