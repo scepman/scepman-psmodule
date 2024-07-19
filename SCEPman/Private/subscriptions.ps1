@@ -1,6 +1,6 @@
 function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
     Write-Information "Finding correct subscription for App Service $AppServiceName among the $($subscriptions.count) selected subscriptions"
-    $subscriptionsJson = Invoke-Az -Command @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and name =~ '$AppServiceName' | project name, subscriptionId")
+    $subscriptionsJson = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and name =~ '$AppServiceName' | project name, subscriptionId")
     $scWebAppsAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $subscriptionsJson
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
         Write-Verbose "App Service $AppServiceName is in subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
