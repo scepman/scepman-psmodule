@@ -130,7 +130,7 @@ jobs:
           cd SCEPman
           Import-Module ./SCEPman.psd1
           $RandomAppRegNumber = Get-Random
-          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose -Debug 6>&1
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
           $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
