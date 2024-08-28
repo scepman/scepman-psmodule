@@ -1,0 +1,18 @@
+
+[
+    {
+        "cloudName": "AzureCloud",
+        "homeTenantId": "subscription-id",
+        "id": "nonmatching-id",
+        "isDefault": true,
+        "name": "Visual Studio Enterprise Subscription – MPN",
+        "state": "Enabled",
+        "tenantDefaultDomain": "domain.com",
+        "tenantDisplayName": "display",
+        "tenantId": "tenant-id",
+        "user": {
+            "name": "email@domain.com",
+            "type": "user"
+        }
+    }
+]

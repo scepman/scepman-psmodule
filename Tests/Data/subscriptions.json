@@ -1,0 +1,11 @@
+{
+    "count": 1,
+    "data": [
+        {
+            "name": "app-service-name",
+            "subscriptionId": "subscription-id"
+        }
+    ],
+    "skip_token": null,
+    "total_records": 1
+}

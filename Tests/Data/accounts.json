@@ -1,0 +1,47 @@
+[
+    {
+        "cloudName": "AzureCloud",
+        "homeTenantId": "subscription-id",
+        "id": "subscription-id",
+        "isDefault": true,
+        "name": "Visual Studio Enterprise Subscription – MPN",
+        "state": "Enabled",
+        "tenantDefaultDomain": "domain.com",
+        "tenantDisplayName": "display",
+        "tenantId": "tenant-id",
+        "user": {
+            "name": "email@domain.com",
+            "type": "user"
+        }
+    },
+    {
+        "cloudName": "BongosCloud",
+        "homeTenantId": "subscription-id",
+        "id": "subscription-id",
+        "isDefault": true,
+        "name": "Visual Studio Enterprise Subscription – MPN",
+        "state": "Enabled",
+        "tenantDefaultDomain": "domain.com",
+        "tenantDisplayName": "display",
+        "tenantId": "tenant-id",
+        "user": {
+            "name": "email@domain.com",
+            "type": "user"
+        }
+    },
+    {
+        "cloudName": "ContosoCloud",
+        "homeTenantId": "other-subscription-id",
+        "id": "other-subscription-id",
+        "isDefault": true,
+        "name": "Visual Studio Enterprise Subscription – MPN",
+        "state": "Enabled",
+        "tenantDefaultDomain": "domain.com",
+        "tenantDisplayName": "display",
+        "tenantId": "other-tenant-id",
+        "user": {
+            "name": "email@domain.com",
+            "type": "user"
+        }
+    }
+]
