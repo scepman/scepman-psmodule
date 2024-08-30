@@ -196,12 +196,14 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
         while ($azErrorCode -gt 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
             $PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
+            $LASTEXITCODE = 0   # Required for unit tests when mocking az
             if ($callAzNatively) {
+                Write-Debug "Calling az natively: az $azCommand"
                 $lastAzOutput = az $azCommand 2>&1
             } else {
                 $lastAzOutput = Invoke-Expression "$azCommand 2>&1" # the output is often empty in case of error :-(. az just writes to the console then
             }
-            $azErrorCode = $LastExitCode
+            $azErrorCode = $LASTEXITCODE
             $ErrorActionPreference = $PreviousErrorActionPreference
             Write-Debug "az command $azCommand returned with error code $azErrorCode"
             try {

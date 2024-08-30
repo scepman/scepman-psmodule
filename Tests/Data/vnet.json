@@ -1,0 +1,31 @@
+{
+  "newVNet": {
+    "addressSpace": {
+      "addressPrefixes": [
+        "10.0.0.0/16"
+      ]
+    },
+    "enableDdosProtection": false,
+    "id": "/subscriptions/12345678-aad6-4e66-82b9-ff838b489299/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test-name",
+    "location": "westus",
+    "name": "vnet-test-name",
+    "provisioningState": "Succeeded",
+    "resourceGroup": "rg-test",
+    "resourceGuid": "77a34e8e-7a38-4f76-abcd-41c8528fe481",
+    "subnets": [
+      {
+        "addressPrefix": "10.0.0.0/24",
+        "delegations": [],
+        "id": "/subscriptions/12345678-aad6-4e66-82b9-ff838b489299/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test-name/subnets/subnet-test-name",
+        "name": "subnet-test-name",
+        "privateEndpointNetworkPolicies": "Disabled",
+        "privateLinkServiceNetworkPolicies": "Enabled",
+        "provisioningState": "Succeeded",
+        "resourceGroup": "rg-test",
+        "type": "Microsoft.Network/virtualNetworks/subnets"
+      }
+    ],
+    "type": "Microsoft.Network/virtualNetworks",
+    "virtualNetworkPeerings": []
+  }
+}
