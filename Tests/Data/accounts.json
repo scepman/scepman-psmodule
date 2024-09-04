@@ -16,8 +16,8 @@
     },
     {
         "cloudName": "BongosCloud",
-        "homeTenantId": "subscription-id",
-        "id": "subscription-id",
+        "homeTenantId": "second-subscription-id",
+        "id": "second-subscription-id",
         "isDefault": true,
         "name": "Visual Studio Enterprise Subscription – MPN",
         "state": "Enabled",
@@ -31,8 +31,8 @@
     },
     {
         "cloudName": "ContosoCloud",
-        "homeTenantId": "other-subscription-id",
-        "id": "other-subscription-id",
+        "homeTenantId": "third-subscription-id",
+        "id": "third-subscription-id",
         "isDefault": true,
         "name": "Visual Studio Enterprise Subscription – MPN",
         "state": "Enabled",
