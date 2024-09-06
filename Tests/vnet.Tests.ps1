@@ -1,6 +1,8 @@
 BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/vnet.ps1
+
+    . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'VNet' {
@@ -9,15 +11,15 @@ Describe 'VNet' {
             Mock az {
               $LASTEXITCODE = 0
               return Get-Content -Path "./Tests/Data/vnet.json"
-            } -ParameterFilter { $args[0][0] -eq 'network' -and $args[0][1] -eq "vnet" -and $args[0][2] -eq "create"}
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'network vnet create' }
 
             Mock az {
                 $LASTEXITCODE = 0
                 return Get-Content -Path "./Tests/Data/subnet.json"
-            } -ParameterFilter { $args[0][0] -eq 'network' -and $args[0][1] -eq "vnet" -and $args[0][2] -eq "subnet" -and $args[0][3] -eq "update"}
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'network vnet subnet update' }
 
             Mock az {
-              throw "Unexpected parameter for az: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
+              throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
             }
 
             Function AreTwoRegionsInTheSameGeo {
