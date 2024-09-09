@@ -48,7 +48,7 @@
 #>
 function Complete-SCEPmanInstallation
 {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         $SCEPmanAppServiceName,
         $CertMasterAppServiceName,
@@ -109,7 +109,7 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Information "Getting SCEPman deployment slots"
-    $deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
+    [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
     Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
 
     if ($null -ne $DeploymentSlotName) {
@@ -124,7 +124,11 @@ function Complete-SCEPmanInstallation
 
     if (-not $SkipCertificateMaster.IsPresent) {
         Write-Information "Getting Certificate Master web app"
-        $CertMasterAppServiceName = CreateCertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+        $CertMasterAppServiceName = New-CertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+
+        if ("Skipped" -eq $CertMasterAppServiceName) {
+            $SkipCertificateMaster = $true
+        }
     }
 
     Write-Verbose "Collecting Service Principals of SCEPman, its deployment slots, and Certificate Master"
@@ -152,7 +156,7 @@ function Complete-SCEPmanInstallation
     }
 
     # Service principal of System-assigned identity of CertMaster
-    if (-not $SkipCertificateMaster.IsPresent) {
+    if (-not $SkipCertificateMaster) {
         $serviceprincipalcm = GetServicePrincipal -appServiceNameParam $CertMasterAppServiceName -resourceGroupParam $CertMasterResourceGroup
 
         if ($null -eq $serviceprincipalcm.principalId) {
@@ -181,64 +185,75 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Verbose "Checking update channel of SCEPman"
-    SwitchToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
-    if (-not $SkipCertificateMaster.IsPresent) {
+    Update-ToConfiguredChannel -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+    if (-not $SkipCertificateMaster) {
         Write-Verbose "Checking update channel of Certificate Master"
-        SwitchToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+        Update-ToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
     }
 
     Write-Information "Connecting Web Apps to Storage Account"
-    SetTableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+    Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
     $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
     foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
-        AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal
+        if ($PSCmdlet.ShouldProcess($keyVault.name, "Adding permissions for SCEPman on the Key Vault")) {
+            AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal
+        }
     }
 
     ### Set managed identity permissions for SCEPman
     $permissionLevelScepman = [int]::MaxValue    # the same level for all deployment slots and user-assigned managed identities, this makes it easier to manage the level. This will be overwritten at least once.
     Write-Information "Setting up permissions for SCEPman and its deployment slots"
     $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
+    if (-not $PSCmdlet.ShouldProcess($serviceprincipalOfScDeploymentSlots, "Adding permissions for web apps to graph and co.")) {
+        $SkipAppRoleAssignments = $true
+    }
     ForEach($tempServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         Write-Verbose "Setting SCEPman permissions to Service Principal with id $tempServicePrincipal"
         $permissionLevelReached = SetManagedIdentityPermissions -principalId $tempServicePrincipal -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
         if ($permissionLevelReached -lt $permissionLevelScepman) {
             $permissionLevelScepman = $permissionLevelReached
         }
-        Write-Verbose "Reaching permission level $permissionLevelReached for this deployment slot"
+        Write-Verbose "Reached permission level $permissionLevelReached for this deployment slot"
     }
     Write-Information "SCEPman's permission level is $permissionLevelScepman"
 
     $permissionLevelCertMaster = -1
 
     ### Set Managed Identity permissions for CertMaster
-    if (-not $SkipCertificateMaster.IsPresent) {
-        Write-Information "Setting up permissions for Certificate Master"
-        $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
-        $permissionLevelCertMaster = SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
-        Write-Information "Certificate Master's permission level is $permissionLevelCertMaster"
+    if (-not $SkipCertificateMaster) {
+        if ($PSCmdlet.ShouldProcess($serviceprincipalcm.principalId, "Set permissions for Certificate Master")) {
+            Write-Information "Setting up permissions for Certificate Master"
+            $resourcePermissionsForCertMaster = GetCertMasterResourcePermissions
+            $permissionLevelCertMaster = SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
+            Write-Information "Certificate Master's permission level is $permissionLevelCertMaster"
 
-        $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
+            $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
 
-        $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-        $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
-        $CertMasterBaseURL = $CertMasterBaseURLs[0]
-        Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
+            $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+            $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
+            $CertMasterBaseURL = $CertMasterBaseURLs[0]
+            Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-        $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+        }
     }
 
     Write-Information "Configuring settings for the SCEPman web app and its deployment slots (if any)"
-    ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $null -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
-    foreach ($currentDeploymentSlot in $deploymentSlotsSc) {
-        ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $currentDeploymentSlot -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
+    if ($PSCmdlet.ShouldProcess($SCEPmanAppServiceName, "Configure SCEPman App Service settings")) {
+        ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $null -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
+        foreach ($currentDeploymentSlot in $deploymentSlotsSc) {
+            ConfigureScepManAppService -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $currentDeploymentSlot -CertMasterBaseURL $CertMasterBaseURL -SCEPmanAppId $appregsc.appId -PermissionLevel $permissionLevelScepman
+        }
     }
 
-    if ($SkipCertificateMaster.IsPresent) {
+    if ($SkipCertificateMaster) {
         Write-Information "Skipping configuration of Certificate Master App Service"
     } else {
-        ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -PermissionLevel $permissionLevelCertMaster
+        if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, "Configure SCEPman Certificate Master App Service settings")) {
+            ConfigureCertMasterAppService -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppId $appregsc.appId -CertMasterAppId $appregcm.appId -PermissionLevel $permissionLevelCertMaster
+        }
     }
 
     Write-Information "SCEPman configuration completed"

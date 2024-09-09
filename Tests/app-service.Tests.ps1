@@ -2,6 +2,8 @@ BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/constants.ps1
     . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/app-service.ps1
+
+    . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'App Service' {
@@ -45,5 +47,25 @@ Describe 'App Service' {
         $runtime = SelectBestDotNetRuntime
 
         $runtime | Should -Be "dotnet:8"
+    }
+
+    It "Finds the Deployment Slots" {
+        Mock az {
+            Write-Error '/opt/az/lib/python3.11/site-packages/paramiko/pkey.py:100: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from this module in 48.0.0.'
+            Write-Error '  "cipher": algorithms.TripleDES,'
+            Write-Error '/opt/az/lib/python3.11/site-packages/paramiko/transport.py:259: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from this module in 48.0.0.'
+            Write-Error '  "cipher": algorithms.TripleDES,'
+
+            return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
+
+        Mock az {
+            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+        }
+
+        $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
+
+        $slots.Count | Should -Be 1
+        $slots[0].Name | Should -Be "ds1"
     }
 }

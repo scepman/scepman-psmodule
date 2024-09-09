@@ -1,6 +1,7 @@
-function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
+function Get-SubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
     Write-Information "Finding correct subscription for App Service $AppServiceName among the $($subscriptions.count) selected subscriptions"
-    $scWebAppsAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name =~ '$AppServiceName' | project name, subscriptionId")
+    $subscriptionsJson = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and name =~ '$AppServiceName' | project name, subscriptionId")
+    $scWebAppsAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $subscriptionsJson
     if($scWebAppsAcrossAllAccessibleSubscriptions.count -eq 1) {
         Write-Verbose "App Service $AppServiceName is in subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
         $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
@@ -19,7 +20,7 @@ function GetSubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
     throw $errorMessage
 }
 
-function GetSubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
+function Get-SubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
     Write-Information "Finding correct subscription for App Service Plan $AppServicePlanName among the $($subscriptions.count) selected subscriptions"
     $scPlansAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, subscriptionId")
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
@@ -67,9 +68,9 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
             $potentialSubscription = $subscriptions | Where-Object { $_.id -eq $selection }
         } elseif(0 -eq $selection) {
             if ($null -ne $AppServiceName) {
-                $potentialSubscription = GetSubscriptionDetailsUsingAppName -AppServiceName $AppServiceName -subscriptions $subscriptions
+                $potentialSubscription = Get-SubscriptionDetailsUsingAppName -AppServiceName $AppServiceName -subscriptions $subscriptions
             } elseif ($null -ne $AppServicePlanName) {
-                $potentialSubscription = GetSubscriptionDetailsUsingPlanName -AppServicePlanName $AppServicePlanName -subscriptions $subscriptions
+                $potentialSubscription = Get-SubscriptionDetailsUsingPlanName -AppServicePlanName $AppServicePlanName -subscriptions $subscriptions
             } else {
                 throw "Cannot find the subscription, because neither an App Service name nor an App Service Plan name is given"
             }
