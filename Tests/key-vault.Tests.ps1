@@ -70,7 +70,7 @@ Describe 'Key Vault' {
             throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
         }
 
-        $keyvault = @{ SubscriptionId = "83804974-c230-4240-b384-0c4d3b7ef201"; name = "test-kv-name" }
+        $keyvault = @{ SubscriptionId = "83804974-c230-4240-b384-0c4d3b7ef201"; name = "test-kv-name"; properties_enableRbacAuthorization = $null }
 
         # Act
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId "ea63b5f9-3fb8-4494-a83b-9cb7d3e48793"
