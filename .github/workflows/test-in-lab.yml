@@ -73,7 +73,7 @@ jobs:
           Write-Output "Installing az from  URL $installUrl"
 
           # Install az
-          $ProgressPreference = 'SilentlyContinue'
+          $ProgressPreference = 'Continue'
           Invoke-WebRequest -Uri $installUrl -OutFile .\AzureCLI.msi
           Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
           rm .\AzureCLI.msi
