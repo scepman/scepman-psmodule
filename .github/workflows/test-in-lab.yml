@@ -87,7 +87,8 @@ jobs:
 
           if [ 'edge' == '${{ matrix.azver }}' ];
           then
-            curl -Ls -o azure-cli_jammy_all.deb https://aka.ms/InstallAzureCliJammyEdge && dpkg -i azure-cli_jammy_all.deb
+            curl -Ls -o azure-cli_jammy_all.deb https://aka.ms/InstallAzureCliJammyEdge
+            dpkg -i azure-cli_jammy_all.deb
           else
             curl -sL https://aka.ms/InstallAzureCLIDeb | bash
           fi
