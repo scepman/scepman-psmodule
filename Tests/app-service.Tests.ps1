@@ -2,6 +2,8 @@ BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/constants.ps1
     . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/app-service.ps1
+
+    . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'App Service' {
@@ -45,5 +47,19 @@ Describe 'App Service' {
         $runtime = SelectBestDotNetRuntime
 
         $runtime | Should -Be "dotnet:8"
+    }
+
+    It "Finds the Deployment Slots" {
+        Mock az {
+            return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.with-warnings.json"
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
+
+        Mock az {
+            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+        }
+
+        $slots = GetDeploymentSlots -ResourceGroupName "test-rg" -AppName "test-app"
+
+        $slots | Should -Be @("staging", "production")
     }
 }
