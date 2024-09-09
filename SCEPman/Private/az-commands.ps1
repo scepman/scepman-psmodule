@@ -54,16 +54,24 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     $Sleep_Factor = 0.8 * $Sleep_Factor + 0.2 * $Snail_Maximum_Sleep_Factor # approximate longer sleep times
                     Write-Verbose "Retrying operations now $SNAILMODE_MAX_RETRY_COUNT times, and waiting for (n * $Sleep_Factor) seconds on n-th retry"
                 } elseif ($outputElement.ToString().Contains("Blowfish") -or $outputElement.ToString().Contains('cryptography on a 32-bit Python')) {
-                    Write-Debug "Ignoring expected warning about Blowfish: $outputElement"
                     # Ignore, this is an issue of az 2.45.0 and az 2.45.0-preview
+                    Write-Debug "Ignoring expected warning about Blowfish: $outputElement"
+                } elseif ($outputElement.ToString().Contains("CryptographyDeprecationWarning")) {
+                    # Ignore, this is an issue of az 2.64.0-preview
+                    Write-Debug "Ignoring expected warning about algorithm deprecation: $outputElement"
+                    $expectAlgorithmToBeIgnored = $true
+                } elseif ($expectAlgorithmToBeIgnored -and ($outputElement.ToString().Trim(' ').StartsWith('"class": algorithms') -or $outputElement.ToString().Trim(' ').StartsWith('"cipher": algorithms'))) {
+                    # Ignore, this is the next line of the previous issue
+                    Write-Debug "Ignoring algorithm line for crypto warning: $outputElement"
+                    $expectAlgorithmToBeIgnored = $false
                 } elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
-                        Write-Debug "Ignoring expected warning about Graph API migration: $outputElement"
                         # Ignore, we know that
+                        Write-Debug "Ignoring expected warning about Graph API migration: $outputElement"
                     } elseif ($outputElement.ToString().StartsWith("WARNING: App settings have been redacted.")) {
-                        Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                         # Ignore, this is a new behavior of az 2.53.1 and affects the output of az webapp settings set, which we do not use anyway.
+                        Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                     } elseif ($noSecretLeakageWarning -and $outputElement.ToString().StartsWith("WARNING: [Warning] This output may compromise security by showing")) {
                         Write-Debug "Ignoring expected warning about secret leakage: $outputElement"
                     } else
