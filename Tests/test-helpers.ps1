@@ -19,3 +19,16 @@ function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, 
 
     return $true
 }
+
+function MockAzVersion {
+    Mock az {
+        return '{
+  "azure-cli": "2.60.0",
+  "azure-cli-core": "2.60.0",
+  "azure-cli-telemetry": "1.1.0",
+  "extensions": {
+    "resource-graph": "2.1.0"
+  }
+}'
+    } -ParameterFilter { $args[0] -eq 'version' }
+}
