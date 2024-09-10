@@ -74,4 +74,36 @@ Describe 'Key Vault' {
         # Assert
         Should -Invoke az -Exactly 3
     }
+
+    It 'adds RBAC permissions' {
+        # Arrange
+        $keyVaultId = "/subscriptions/83804974-c230-4240-b384-0c4d3b7ef201/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv-name"
+
+        Mock az {
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "Key Vault Crypto Officer") {
+                return '[]'
+            }
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "Key Vault Certificates Officer") {
+                return '[]'
+            }
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "Key Vault Secrets User") {
+                return '[]'
+            }
+
+            throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+
+          } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'role assignment create' -azCommandSuffix $keyVaultId }
+        
+        Mock az {
+            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+        }
+
+        $keyvault = @{ SubscriptionId = "83804974-c230-4240-b384-0c4d3b7ef201"; name = "test-kv-name"; properties_enableRbacAuthorization = $true; id = $keyVaultId }
+
+        # Act
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId "ea63b5f9-3fb8-4494-a83b-9cb7d3e48793"
+
+        # Assert
+        Should -Invoke az -Exactly 3
+    }
 }
