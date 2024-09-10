@@ -114,8 +114,7 @@ Describe 'GetSubscriptionDetails' {
 
     It 'Can successfully get matching subscription details' {
         $result = GetSubscriptionDetails -SubscriptionId "subscription-id"
-        $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts.json"
-        $subscriptions = Convert-LinesToObject $subscriptionsJson
+        $subscriptions = Convert-LinesToObject $(Get-Content -Path "./Tests/Data/accounts.json")
         
         $expected = $subscriptions[0]
         # TODO: Work out why pester doesn't think these two objects are equal when they clearly are (without ["id"])

@@ -101,7 +101,8 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
-  if ($null -eq $ScepManSubmitCSRPermission) {
+
+  if (!$ScepManSubmitCSRPermission) {
     throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
   }
 
