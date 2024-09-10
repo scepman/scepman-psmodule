@@ -51,7 +51,7 @@ Describe 'Key Vault' {
             if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--key-permissions" -azCommandSuffix 'get create unwrapKey sign') {
                 return '[]'
             }
-            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--secret-permissions" -azCommandSuffix 'get list set delete') {
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--secret-permissions" -azCommandSuffix 'get list') {
                 return '[]'
             }
             if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--certificate-permissions" -azCommandSuffix 'get list create managecontacts') {
