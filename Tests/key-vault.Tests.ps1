@@ -48,16 +48,12 @@ Describe 'Key Vault' {
     It 'adds permissions' {
         # Arrange
         Mock az {
-            $LASTEXITCODE = 0
-
             if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--key-permissions" -azCommandSuffix 'get create unwrapKey sign') {
                 return '[]'
             }
-
             if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--secret-permissions" -azCommandSuffix 'get list set delete') {
                 return '[]'
             }
-
             if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--certificate-permissions" -azCommandSuffix 'get list create managecontacts') {
                 return '[]'
             }
