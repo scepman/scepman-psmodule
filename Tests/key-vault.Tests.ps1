@@ -1,6 +1,8 @@
 BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/key-vault.ps1
+
+    . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'Key Vault' {
@@ -41,5 +43,39 @@ Describe 'Key Vault' {
 
             Should -Invoke ExecuteAzCommandRobustly -Exactly 1 -ParameterFilter { $azCommand.Where( { $_.StartsWith('https') }) -like "*/create*" }
         }
+    }
+
+    It 'adds permissions' {
+        # Arrange
+        Mock az {
+            $LASTEXITCODE = 0
+
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--key-permissions" -azCommandSuffix 'get create unwrapKey sign') {
+                return '[]'
+            }
+
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--secret-permissions" -azCommandSuffix 'get list set delete') {
+                return '[]'
+            }
+
+            if (CheckAzParameters -argsFromCommand $args -azCommandMidfix "--certificate-permissions" -azCommandSuffix 'get list create managecontacts') {
+                return '[]'
+            }
+
+            throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+
+          } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'keyvault set-policy' }
+        
+        Mock az {
+            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
+        }
+
+        $keyvault = @{ SubscriptionId = "83804974-c230-4240-b384-0c4d3b7ef201"; name = "test-kv-name"; properties_enableRbacAuthorization = $null }
+
+        # Act
+        AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId "ea63b5f9-3fb8-4494-a83b-9cb7d3e48793"
+
+        # Assert
+        Should -Invoke az -Exactly 3
     }
 }

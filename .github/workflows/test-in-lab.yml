@@ -73,7 +73,7 @@ jobs:
           Write-Output "Installing az from  URL $installUrl"
 
           # Install az
-          $ProgressPreference = 'SilentlyContinue'
+          $ProgressPreference = 'Continue'
           Invoke-WebRequest -Uri $installUrl -OutFile .\AzureCLI.msi
           Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
           rm .\AzureCLI.msi
@@ -87,7 +87,8 @@ jobs:
 
           if [ 'edge' == '${{ matrix.azver }}' ];
           then
-            curl -Ls -o azure-cli_jammy_all.deb https://aka.ms/InstallAzureCliJammyEdge && dpkg -i azure-cli_jammy_all.deb
+            curl -Ls -o azure-cli_jammy_all.deb https://aka.ms/InstallAzureCliJammyEdge
+            dpkg -i azure-cli_jammy_all.deb
           else
             curl -sL https://aka.ms/InstallAzureCLIDeb | bash
           fi
@@ -130,7 +131,7 @@ jobs:
           cd SCEPman
           Import-Module ./SCEPman.psd1
           $RandomAppRegNumber = Get-Random
-          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose -Debug 6>&1
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
           $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"

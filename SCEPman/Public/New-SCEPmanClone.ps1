@@ -106,8 +106,7 @@ function New-SCEPmanClone
         throw "App Service Plan $TargetAppServicePlan could not be found in Resource Group $TargetResourceGroup"
     }
 
-    if ($PSCmdlet.ShouldProcess($TargetAppServiceName, ("Creating SCEPman clone in Resource Group {0}" -f $TargetResourceGroup)))
-    {
+    if ($PSCmdlet.ShouldProcess($TargetAppServiceName, ("Creating SCEPman clone in Resource Group {0}" -f $TargetResourceGroup))) {
         Write-Information "Create cloned SCEPman App Service"
         CreateSCEPmanAppService -SCEPmanResourceGroup $TargetResourceGroup -SCEPmanAppServiceName $TargetAppServiceName -AppServicePlanId $trgtAsp.Id
 
@@ -128,6 +127,7 @@ function New-SCEPmanClone
 
         Write-Information "Adding permissions for Graph and Intune"
         $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
+    }
 
         if ($null -ne $scepManVnetId) {
             if ($null -eq $TargetVnetName) {
@@ -143,22 +143,29 @@ function New-SCEPmanClone
             }
             Write-Information "Creating VNET $TargetVnetName for Clone"
             $subnet = New-Vnet -ResourceGroupName $TargetResourceGroup -VnetName $TargetVnetName -SubnetName "sub-scepman" -Location $trgtAsp.Location -StorageAccountLocation $ScStorageAccount.Location
-            SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $subnet.id
+
+            if ($PSCmdlet.ShouldProcess($TargetAppServiceName, "Connecting SCEPman clone to VNET $TargetVnetName")) {
+                SetAppServiceVnetId -AppServiceName $TargetAppServiceName -ResourceGroup $TargetResourceGroup -VnetId $subnet.id
+            }
+
             Write-Information "Allowing access to Key Vault and Storage Account from the clone's new VNET"
-            Grant-VnetAccessToKeyVault -KeyVaultName $keyvault.name -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
-            Grant-VnetAccessToStorageAccount -ScStorageAccount $ScStorageAccount -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
+            if ($PSCmdlet.ShouldProcess($TargetVnetName, "Allowing access to Key Vault and Storage Account from the clone's new VNET")) {
+                Grant-VnetAccessToKeyVault -KeyVaultName $keyvault.name -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
+                Grant-VnetAccessToStorageAccount -ScStorageAccount $ScStorageAccount -SubnetId $subnet.id -SubscriptionId $SourceSubscription.Id
+            }
         }
 
-        $DelayForSecurityPrincipals = 3000
-        Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
-        Start-Sleep -Milliseconds $DelayForSecurityPrincipals
-        $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
+        if ($PSCmdlet.ShouldProcess($TargetAppServiceName, "Configuring SCEPman clone")) {
+            $DelayForSecurityPrincipals = 3000
+            Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
+            Start-Sleep -Milliseconds $DelayForSecurityPrincipals
+            $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
-        Write-Information "Copying app settings from source App Service to target"
-        SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
+            Write-Information "Copying app settings from source App Service to target"
+            SetAppSettings -AppServiceName $TargetAppServiceName -resourceGroup $TargetResourceGroup -Settings $SCEPmanSourceSettings.settings
 
-        MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
+            MarkDeploymentSlotAsConfigured -SCEPmanAppServiceName $TargetAppServiceName -SCEPmanResourceGroup $TargetResourceGroup -PermissionLevel $permissionLevelScepman
+        }
 
         Write-Information "SCEPman cloned to App Service $TargetAppServiceName successfully"
-    }
 }
