@@ -6,23 +6,41 @@ BeforeAll {
 }
 
 Describe 'CA Generation Policies' {
+    BeforeAll {
+        function AssertPolicyOfCaCertificate ($policy) {
+            $policy.policy.x509_props.key_usage | Should -Contain "cRLSign" -Because "This is a required for a CA certificate"
+            $policy.policy.x509_props.key_usage | Should -Contain "keyCertSign" -Because "This is a required for a CA certificate"
+
+            $policy.policy.x509_props.key_usage | Should -Contain "digitalSignature" -Because "This is required for a SCEP certificate"
+
+            $policy.policy.x509_props.validity_months | Should -BeGreaterOrEqual 60 -Because "CAs should be valid for some time"
+
+            $policy.policy.x509_props.basic_constraints.ca | Should -Be $true -Because "This is a CA certificate"
+
+            $policy.policy.key_props.exportable | Should -Be $false -Because "For security reasons"
+            $policy.policy.key_props.reuse_key | Should -Be $false -Because "It is usually the first certificate"
+        }
+    }
+
     It 'generates a reasonable RSA Default Policy' {
         $policy = Get-RsaDefaultPolicy
+
         $policy.policy.key_props.kty | Should -Be "RSA-HSM"
         $policy.policy.key_props.key_size | Should -BeGreaterOrEqual 2048
 
-        $policy.policy.x509_props.key_usage | Should -Contain "cRLSign" -Because "This is a required for a CA certificate"
-        $policy.policy.x509_props.key_usage | Should -Contain "keyCertSign" -Because "This is a required for a CA certificate"
+        AssertPolicyOfCaCertificate $policy
 
-        $policy.policy.x509_props.key_usage | Should -Contain "digitalSignature" -Because "This is required for a SCEP certificate"
         $policy.policy.x509_props.key_usage | Should -Contain "keyEncipherment" -Because "This is required for a SCEP certificate"
+    }
 
-        $policy.policy.x509_props.validity_months | Should -BeGreaterOrEqual 60 -Because "CAs should be valid for some time"
+    It 'generates a reasonable ECC Default Policy' {
+        $policy = Get-EccDefaultPolicy
 
-        $policy.policy.x509_props.basic_constraints.ca | Should -Be $true -Because "This is a CA certificate"
+        $policy.policy.key_props.kty | Should -Be "EC-HSM"
+        $policy.policy.key_props.crv | Should -Be "P-256K"
+        $policy.policy.key_props.key_size | Should -Be 256
 
-        $policy.policy.key_props.exportable | Should -Be $false -Because "For security reasons"
-        $policy.policy.key_props.reuse_key | Should -Be $false -Because "It is usually the first certificate"
+        AssertPolicyOfCaCertificate $policy
     }
 
     Context "When a Policy has been Configured" {
