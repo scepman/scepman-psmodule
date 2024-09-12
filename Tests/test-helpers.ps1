@@ -20,6 +20,28 @@ function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, 
     return $true
 }
 
+function MockAzInitals {
+    function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) { }  # Mocked
+
+    MockAzVersion
+    Mock AzLogin {
+        return $null
+    }
+    Mock GetSubscriptionDetails {
+        return @{
+            "name" = "Test Subscription"
+            "tenantId" = "123"
+            "id" = "12345678-1234-1234-aaaabbbbcccc"
+        }
+    } -ParameterFilter { $null -eq $AppServicePlanName }
+}
+
+function CheckAzInitials {
+    Should -Invoke az -ParameterFilter { $args[0] -eq 'version' } -Exactly 1
+    Should -Invoke AzLogin -Exactly 1
+    Should -Invoke GetSubscriptionDetails -Exactly 1 -ParameterFilter { $null -eq $AppServicePlanName }
+}
+
 function MockAzVersion {
     Mock az {
         return '{

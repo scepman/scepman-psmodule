@@ -71,9 +71,6 @@ Describe 'Storage Account' {
       #  Done in BeforeAll already
 
       # Act
-      $VerbosePreference = 'Continue'
-      $InformationPreference = 'Continue'
-
       Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -SCEPmanResourceGroup 'rg-xyz-test' -SCEPmanAppServiceName 'app-scepman' -servicePrincipals $servicePrincipals -CertMasterAppServiceName $null -DeploymentSlots @($null)
 
       # Assert

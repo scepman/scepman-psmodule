@@ -20,7 +20,7 @@ Describe 'Intermediate CA' {
         $policy.policy.x509_props.subject | Should -Match "O=Test Organization"
     }
 
-    Describe 'New-IntermediateCA' {
+    Context 'New-IntermediateCA' {
         It "lets you set and get the policy" {
             $policy = Get-IntermediateCaPolicy
     
@@ -34,22 +34,12 @@ Describe 'Intermediate CA' {
     
         It 'creates a CSR' {
             # Arrange
-            function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) { }  # Mocked
             function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $null) { } # Mocked
 
             $testKeyVaultUrl = "https://test.vault.azure.net"
             $certificateName = "test-certificate"
 
-            MockAzVersion
-            Mock AzLogin {
-                return $null
-            }
-            Mock GetSubscriptionDetails {
-                return @{
-                    "name" = "Test Subscription"
-                    "tenantId" = "123"
-                }
-            }
+            MockAzInitals
             Mock ReadAppSetting {
                 return $testKeyVaultUrl
             } -ParameterFilter { $SettingName -eq "AppConfig:KeyVaultConfig:KeyVaultURL" }
@@ -69,8 +59,7 @@ Describe 'Intermediate CA' {
             # Assert
             $csr | Should -Match "-----BEGIN CERTIFICATE REQUEST-----"
 
-            Should -Invoke AzLogin -Exactly 1
-            Should -Invoke GetSubscriptionDetails -Exactly 1
+            CheckAzInitials
             Should -Invoke ReadAppSetting -Exactly 2
             Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "rest --method post" }
         }
