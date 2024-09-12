@@ -51,7 +51,11 @@ function New-SCEPmanClone
       )
 
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
-    Write-Verbose "Invoked $($MyInvocation.MyCommand) from SCEPman Module version $version"
+    Write-Verbose "Invoked $($MyInvocation.MyCommand)"
+    Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
+
+    $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
+    Write-Information "Detected az version: $cliVersion"
 
     Write-Information "Installing az resource graph extension"
     az extension add --name resource-graph --only-show-errors
