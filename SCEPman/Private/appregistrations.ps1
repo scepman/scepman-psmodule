@@ -151,10 +151,10 @@ function Add-AzAsTrustedClientApplication ($AppId) {
       $existingAzAuthorization = [System.Collections.ArrayList]@()
     }
     $null = $existingAzAuthorization.Add(@{ 'appId' = $AzAppId; 'permissionIds' = @($AccessApplicationPermissionId) })
-    $previousPreAuthorizationsInner = ConvertTo-Json -InputObject $existingAzAuthorization -Compress
-    $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
+    $preAuthorizationsInner = ConvertTo-Json -InputObject $existingAzAuthorization -Compress
+    $preAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($preAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
-    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $preAuthorizationsBody, '--headers', 'Content-Type=application/json')
 
     return $true
   } else {
