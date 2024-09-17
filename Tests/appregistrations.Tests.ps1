@@ -10,21 +10,15 @@ BeforeAll {
 Describe 'RegisterAzureADApp' {
     BeforeAll {
         Mock az {
-            return Get-Content -Path "./Tests/Data/applist.json"
-        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
-        Mock az {
             return $(Get-Content -Path "./Tests/Data/version.json")
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "version" }
-        Mock az {
-            return $(Get-Content -Path "./Tests/Data/applist.json")
-        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
-        Mock az {
-            throw "Unexpected command: $args"
-        }
-        
     }
 
-    It 'Can successfully fetch an app registration if one already exists' {
+    It 'can successfully fetch an app registration if one already exists' {
+        Mock az {
+            return Get-Content -Path "./Tests/Data/applist.json"
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+
         $result = RegisterAzureADApp -name "display-name"
         $appregsJson = (Get-Content -Path "./Tests/Data/applist.json")
         $appregs = Convert-LinesToObject $appregsJson
@@ -35,8 +29,39 @@ Describe 'RegisterAzureADApp' {
         Mock az {
             return $()
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+        Mock az {
+            return $(Get-Content -Path "./Tests/Data/applist.json")
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
+
         RegisterAzureADApp 
         Should -Invoke -CommandName az -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
+    }
+
+    It 'throws an error if CreateIfNotExists is false and app registration does not exist' {
+        Mock az {
+            return $()
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+        Mock az {
+            return $(Get-Content -Path "./Tests/Data/applist.json")
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
+
+        { RegisterAzureADApp -name "existing-app" -createIfNotExists $false } | Should -Throw
+    }
+
+
+    It 'throws an error if app registration creation fails' {
+        Mock az {
+            throw "Failed to create app registration"
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
+
+        { RegisterAzureADApp -name "new-app" } | Should -Throw
+    }
+
+    It 'throws an error if app registration retrieval fails' {
+        Mock az {
+            throw "Failed to retrieve app registration"
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+        { RegisterAzureADApp -name "existing-app" } | Should -Throw
     }
 }
 
@@ -115,7 +140,7 @@ Describe 'Create Cert Master App Registrations' {
     }
 
     It 'calls RegisterAzureADApp' {
-        CreateCertMasterAppRegistration -AzureADAppNameForCertMaster 'appname' -CertMasterBaseURL 'https://scepman-cm.com'
+        CreateCertMasterAppRegistration -AzureADAppNameForCertMaster 'appname' -CertMasterBaseURLs 'https://scepman-cm.com'
         Should -Invoke RegisterAzureADApp
     }
 }
