@@ -51,8 +51,8 @@ function Register-SCEPmanApiClient
     throw "SCEPman has no role $Role in its $($appregsc.appRoles.Count) app roles. Please make sure this role to use an existing role like CSR.Request.Db."
   }
 
-  $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);'permissionLevel'=0})
-  $null = SetManagedIdentityPermissions -principalId $ServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
+  $resourcePermissionsForApiClient = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);'permissionLevel'=0})
+  $null = SetManagedIdentityPermissions -principalId $ServicePrincipalId -resourcePermissions $resourcePermissionsForApiClient -GraphBaseUri $GraphBaseUri
 
   Write-Information "CSR submission permission assigned to service principal with id $ServicePrincipalId"
 }
