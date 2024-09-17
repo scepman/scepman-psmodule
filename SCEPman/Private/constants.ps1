@@ -16,7 +16,7 @@ New-Variable -Name "IntuneSCEPChallengePermission" -Value "39d724e8-6a34-4930-9a
 # To-be JSON defining App Role that CertMaster uses to authenticate against SCEPman
 New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@{
   'allowedMemberTypes' = @( 'Application' )
-  'description' = "Request certificates via the raw CSR API"
+  'description' = "Request certificates via the raw CSR API. Only used internally for SCEPman."
   'displayName' = 'CSR Requesters'
   'isEnabled' = $true
   'value' = 'CSR.Request'
@@ -30,10 +30,17 @@ New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@
 },
 @{
   'allowedMemberTypes' = @( 'Application' )
-  'description' = "Request certificates via the raw CSR API with the caller being responsible for storing the certificates"
+  'description' = "Request certificates via the raw CSR API with the caller being responsible for storing the certificates. Only used internally for SCEPman."
   'displayName' = 'Direct CSR Requesters'
   'isEnabled' = $true
   'value' = 'CSR.Request.Direct'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request certificates via EST or the raw CSR API for your own devices or your own user account."
+  'displayName' = 'CSR Self Service'
+  'isEnabled' = $true
+  'value' = 'CSR.SelfService'
 })
 
 # To-be JSON defining App Roles that User can have when authenticating against CertMaster

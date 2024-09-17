@@ -63,7 +63,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
       ExecuteAzCommandRobustly "az ad app update --id $($azureAdAppReg.appId) --app-roles '$appRolesJson'"
 
         # Reload app registration with new roles
-      $azureAdAppReg = Convert-LinesToObject -lines $(az ad app show --id $azureAdAppReg.id)
+      $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
     }
 
     if ($null -ne $replyUrls) {

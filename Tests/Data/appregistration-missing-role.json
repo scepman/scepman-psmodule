@@ -18,12 +18,6 @@
       ],
       "preAuthorizedApplications": [
         {
-          "appId": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
-          "delegatedPermissionIds": [
-            "0538d46d-5589-4486-93ed-22b87561bfce"
-          ]
-        },
-        {
           "appId": "7e247597-8d08-4306-b613-a61663d84cb3",
           "delegatedPermissionIds": [
             "0538d46d-5589-4486-93ed-22b87561bfce"
@@ -40,17 +34,6 @@
     },
     "appId": "12345678-aad6-4711-82a9-0123456789ab",
     "appRoles": [
-      {
-        "allowedMemberTypes": [
-          "User"
-        ],
-        "description": "Request certificates via EST or the raw CSR API for your own devices or your own user account.",
-        "displayName": "CSR Self Service",
-        "id": "1974f0ae-7842-4dd4-8714-35d3d17b55fe",
-        "isEnabled": true,
-        "origin": "Application",
-        "value": "CSR.SelfService"
-      },
       {
         "allowedMemberTypes": [
           "Application"

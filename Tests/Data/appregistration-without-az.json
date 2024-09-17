@@ -36,6 +36,17 @@
     "appRoles": [
       {
         "allowedMemberTypes": [
+          "User"
+        ],
+        "description": "Request certificates via EST or the raw CSR API for your own devices or your own user account.",
+        "displayName": "CSR Self Service",
+        "id": "1974f0ae-7842-4dd4-8714-35d3d17b55fe",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.SelfService"
+      },
+      {
+        "allowedMemberTypes": [
           "Application"
         ],
         "description": "Request certificates via the raw CSR API with the caller being responsible for storing the certificates",
@@ -47,7 +58,6 @@
       },
       {
         "allowedMemberTypes": [
-          "User",
           "Application"
         ],
         "description": "Request certificates via the raw CSR API that automatically stores issued certificates",
@@ -59,7 +69,6 @@
       },
       {
         "allowedMemberTypes": [
-          "User",
           "Application"
         ],
         "description": "Request certificates via the raw CSR API",
