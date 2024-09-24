@@ -19,3 +19,42 @@ function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, 
 
     return $true
 }
+
+function MockAzInitals ([bool]$findSubscription = $true) {
+    function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId, $AppServiceName, $AppServicePlanName) { }  # Mocked
+
+    MockAzVersion
+    Mock AzLogin {
+        return $null
+    }
+    if ($findSubscription) {
+        Mock GetSubscriptionDetails {
+            return @{
+                "name" = "Test Subscription"
+                "tenantId" = "123"
+                "id" = "12345678-1234-1234-aaaabbbbcccc"
+            }
+        } -ParameterFilter { $null -eq $AppServicePlanName }
+    }
+}
+
+function CheckAzInitials ([bool]$findSubscription = $true) {
+    Should -Invoke az -ParameterFilter { $args[0] -eq 'version' } -Exactly 1
+    Should -Invoke AzLogin -Exactly 1
+    if ($findSubscription) {
+        Should -Invoke GetSubscriptionDetails -Exactly 1 -ParameterFilter { $null -eq $AppServicePlanName }
+    }
+}
+
+function MockAzVersion {
+    Mock az {
+        return '{
+  "azure-cli": "2.60.0",
+  "azure-cli-core": "2.60.0",
+  "azure-cli-telemetry": "1.1.0",
+  "extensions": {
+    "resource-graph": "2.1.0"
+  }
+}'
+    } -ParameterFilter { $args[0] -eq 'version' }
+}
