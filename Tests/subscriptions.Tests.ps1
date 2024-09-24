@@ -3,7 +3,6 @@ BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/subscriptions.ps1
 }
 
-
 Describe 'Geos' {
     BeforeAll {
         Mock Invoke-Az {
@@ -32,12 +31,12 @@ Describe 'Geos' {
 
 }
 
-Describe 'GetSubscriptionDetailsUsingAppName' {
+Describe 'Get-SubscriptionDetailsUsingAppName' {
     BeforeAll {
         Mock Invoke-Az {
-            param($Command)
-
-            if ($Command[0] -eq "graph" -and $Command[1] -eq "query")
+            param($azCommand)
+            
+            if ($azCommand[0] -eq "graph" -and $azCommand[1] -eq "query")
             {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
             } 
@@ -49,8 +48,7 @@ Describe 'GetSubscriptionDetailsUsingAppName' {
     It 'Can successfully get matching subscription details' {
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
-        $result = GetSubscriptionDetailsUsingAppName -AppServiceName "app-service-name" -subscriptions $subscriptions
-
+        $result = Get-SubscriptionDetailsUsingAppName -AppServiceName "app-service-name" -subscriptions $subscriptions
         $expected = $subscriptions[0]
         $result | Should -Be $expected
     }
@@ -59,7 +57,7 @@ Describe 'GetSubscriptionDetailsUsingAppName' {
     It 'Will throw an error if no matching subscription exists in accounts' {
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts-no-match.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
-        { GetSubscriptionDetailsUsingAppName -AppServiceName "app-service-name" -subscriptions $subscriptions } | Should -Throw
+        { Get-SubscriptionDetailsUsingAppName -AppServiceName "app-service-name" -subscriptions $subscriptions 2>$null } | Should -Throw
     }
 
     It 'Will throw an error if graph query has no output' {
@@ -86,29 +84,29 @@ Describe 'GetSubscriptionDetailsUsingAppName' {
 Describe 'GetSubscriptionDetails' {
     BeforeAll {
         Mock az {
-            param($Command)
+            param($azCommand)
 
-            if ($Command -eq "account")
+            if ($azCommand -eq "account")
             {
                 return Get-Content -Path "./Tests/Data/accounts.json"
             } 
-            elseif ($Command -eq "graph")
+            elseif ($azCommand -eq "graph")
             {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
             }
 
-            throw "Unexpected command: $Command"
+            throw "Unexpected command: $azCommand"
         }
 
         Mock Invoke-Az {
-            param($Command)
+            param($azCommand)
 
-            if ($Command[0] -eq "graph" -and $Command[1] -eq "query")
+            if ($azCommand[0] -eq "graph" -and $azCommand[1] -eq "query")
             {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
             }
 
-            throw "Unexpected command: $Command"
+            throw "Unexpected command: $azCommand"
         }
     }
 
@@ -158,7 +156,7 @@ Describe 'GetSubscriptionDetails' {
     }
 
     It 'Will throw an error if no matching subscription exists in accounts' {
-        { GetSubscriptionDetails -SubscriptionId "incorrect-subscription-id" } | Should -Throw
+        { GetSubscriptionDetails -SubscriptionId "incorrect-subscription-id" 3>$null } | Should -Throw
     }
 
     It 'Will throw an error if no id, app service name or app service plan name (and multiple subscriptions)' {

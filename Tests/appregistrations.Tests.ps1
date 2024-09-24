@@ -2,6 +2,7 @@ BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
     . $PSScriptRoot/../SCEPman/Private/appregistrations.ps1
     . $PSScriptRoot/../SCEPman/Private/permissions.ps1
+    . $PSScriptRoot/../SCEPman/Private/constants.ps1
     . $PSScriptRoot/../Tests/test-helpers.ps1
 }
 
