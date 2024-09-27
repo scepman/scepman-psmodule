@@ -32,7 +32,7 @@ Describe 'RegisterAzureADApp' {
             return $(Get-Content -Path "./Tests/Data/applist.json")
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
 
-        RegisterAzureADApp 
+        RegisterAzureADApp
         Should -Invoke -CommandName az -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
     }
 
@@ -77,7 +77,7 @@ Describe 'Create SCEPman App Registrations' {
             throw "Unexpected Command: $args"
         }
 
-        Mock RegisterAzureADApp { 
+        Mock RegisterAzureADApp {
             return $(Convert-LinesToObject $(Get-Content -Path "./Tests/Data/applist.json"))[0]
         }
 
@@ -101,7 +101,7 @@ Describe 'Create SCEPman App Registrations' {
     }
 
     It 'should throw an error if no CSR.Request role exists' {
-        Mock RegisterAzureADApp { 
+        Mock RegisterAzureADApp {
             return $(Convert-LinesToObject $(Get-Content -Path "./Tests/Data/applist-norole.json"))[0]
         }
         {CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman 'appname' -CertMasterServicePrincipalId 'id' -GraphBaseUri 'uri'} | Should -Throw
@@ -129,7 +129,7 @@ Describe 'Create Cert Master App Registrations' {
             throw "Unexpected Command: $args"
         }
 
-        Mock RegisterAzureADApp { 
+        Mock RegisterAzureADApp {
             return $(Convert-LinesToObject $(Get-Content -Path "./Tests/Data/applist.json"))[0]
         }
 

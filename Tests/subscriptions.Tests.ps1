@@ -8,7 +8,7 @@ Describe 'Geos' {
         Mock Invoke-Az {
             param($azCommand)
 
-            if ($azCommand[0] -eq 'account' -and $azCommand[1] -eq 'list-locations') 
+            if ($azCommand[0] -eq 'account' -and $azCommand[1] -eq 'list-locations')
             {
                 return Get-Content -Path "./Tests/Data/locations.json"
             }
@@ -144,13 +144,13 @@ Describe 'GetSubscriptionDetails' {
             if ($Command -eq "account")
             {
                 return Get-Content -Path "./Tests/Data/accounts-no-match.json"
-            } 
+            }
         }
         $result = GetSubscriptionDetails -SearchAllSubscriptions 1
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts-no-match.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
-        
-        $expected = $subscriptions[0] 
+
+        $expected = $subscriptions[0]
         $result["id"] | Should -Be $expected["id"]
 
     }
@@ -162,7 +162,7 @@ Describe 'GetSubscriptionDetails' {
     It 'Will throw an error if no id, app service name or app service plan name (and multiple subscriptions)' {
         { GetSubscriptionDetails -SearchAllSubscriptions 1 } | Should -Throw
     }
-    
+
     # TODO: how to simulate user input inline??
     # Write-Output 1 | GetSubscriptionDetails
-} 
+}
