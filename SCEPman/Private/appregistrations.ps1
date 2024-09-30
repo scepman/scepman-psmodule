@@ -40,7 +40,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
 #      $graphEndpointForAppLogo = "https://graph.microsoft.com/v1.0/applications/$($azureAdAppReg.id)/logo"
 #      az rest --method put --url $graphEndpointForAppLogo --body '@testlogo.png' --headers Content-Type=image/png
     } else {
-      throw "App registration $name does not exist yet. Please run Commplete-SCEPmanInstallation first."
+      throw "App registration $name does not exist yet. Please run Complete-SCEPmanInstallation first."
     }
   } else {
     Write-Information "Existing app registration $name found (App ID $($azureAdAppReg.appId))"
@@ -101,7 +101,8 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
-  if ($null -eq $ScepManSubmitCSRPermission) {
+
+  if ($ScepManSubmitCSRPermission.count -eq 0) {
     throw "SCEPman has no role CSR.Request in its $($appregsc.appRoles.Count) app roles. Certificate Master needs to be assigned this role."
   }
 

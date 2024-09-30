@@ -11,4 +11,9 @@ Describe 'Constants' {
         $MSGraphIdentityRiskyUserReadPermission | Should -Match "^\{?[a-fA-F\d]{8}-([a-fA-F\d]{4}-){3}[a-fA-F\d]{12}\}?$"
         $IntuneSCEPChallengePermission | Should -Match "^\{?[a-fA-F\d]{8}-([a-fA-F\d]{4}-){3}[a-fA-F\d]{12}\}?$"
     }
+
+    It 'Manifests should be an array of objects' {
+        $ScepmanManifest.GetType().Name | Should -BeExactly "Object[]"
+        $CertmasterManifest.GetType().Name | Should -BeExactly "Object[]"
+    }
 }
