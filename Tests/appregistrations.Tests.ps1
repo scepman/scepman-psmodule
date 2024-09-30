@@ -40,27 +40,27 @@ Describe 'RegisterAzureADApp' {
         Mock az {
             return $()
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
-        Mock az {
-            return $(Get-Content -Path "./Tests/Data/applist.json")
-        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
 
-        { RegisterAzureADApp -name "existing-app" -createIfNotExists $false } | Should -Throw
+        { RegisterAzureADApp -name "new-app" -createIfNotExists $false } | Should -Throw
     }
 
 
     It 'throws an error if app registration creation fails' {
         Mock az {
-            throw "Failed to create app registration"
+            Write-Error "Failed to create app registration"
+            return $()
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app create" }
 
-        { RegisterAzureADApp -name "new-app" } | Should -Throw
+        { RegisterAzureADApp -name "new-app" > $null 2>&1 } | Should -Throw
     }
 
     It 'throws an error if app registration retrieval fails' {
         Mock az {
-            throw "Failed to retrieve app registration"
+            Write-Error "Failed to retrieve app registration"
+            return $()
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
-        { RegisterAzureADApp -name "existing-app" } | Should -Throw
+
+        { RegisterAzureADApp -name "existing-app" > $null 2>&1 } | Should -Throw
     }
 }
 

@@ -35,11 +35,11 @@ Describe 'Get-SubscriptionDetailsUsingAppName' {
     BeforeAll {
         Mock Invoke-Az {
             param($azCommand)
-            
+
             if ($azCommand[0] -eq "graph" -and $azCommand[1] -eq "query")
             {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
-            } 
+            }
 
             throw "Unexpected command: $Command"
         }
@@ -53,7 +53,7 @@ Describe 'Get-SubscriptionDetailsUsingAppName' {
         $result | Should -Be $expected
     }
 
-    
+
     It 'Will throw an error if no matching subscription exists in accounts' {
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts-no-match.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
@@ -67,7 +67,7 @@ Describe 'Get-SubscriptionDetailsUsingAppName' {
             if ($Command[0] -eq "graph" -and $Command[1] -eq "query")
             {
                 return $null
-            } 
+            }
 
             throw "Unexpected command: $Command"
         }
@@ -89,7 +89,7 @@ Describe 'GetSubscriptionDetails' {
             if ($azCommand -eq "account")
             {
                 return Get-Content -Path "./Tests/Data/accounts.json"
-            } 
+            }
             elseif ($azCommand -eq "graph")
             {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
@@ -113,27 +113,27 @@ Describe 'GetSubscriptionDetails' {
     It 'Can successfully get matching subscription details' {
         $result = GetSubscriptionDetails -SubscriptionId "subscription-id"
         $subscriptions = Convert-LinesToObject $(Get-Content -Path "./Tests/Data/accounts.json")
-        
+
         $expected = $subscriptions[0]
         # TODO: Work out why pester doesn't think these two objects are equal when they clearly are (without ["id"])
         $result["id"] | Should -Be $expected["id"]
     }
 
     It 'Lets you select a subscription with the app service name flag' {
-        $result = GetSubscriptionDetails -SearchAllSubscriptions 1 -AppServiceName app-service-name
+        $result = GetSubscriptionDetails -SearchAllSubscriptions $true -AppServiceName app-service-name
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
-        
+
         $expected = $subscriptions[0]
         $result["id"] | Should -Be $expected["id"]
     }
 
     It 'Lets you select a subscription with the app service plan name flag' {
-        $result = GetSubscriptionDetails -SearchAllSubscriptions 1 -AppServicePlanName app-service-plan-name
+        $result = GetSubscriptionDetails -SearchAllSubscriptions $true -AppServicePlanName app-service-plan-name
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
-        
-        $expected = $subscriptions[0] 
+
+        $expected = $subscriptions[0]
         $result["id"] | Should -Be $expected["id"]
     }
 
@@ -146,7 +146,7 @@ Describe 'GetSubscriptionDetails' {
                 return Get-Content -Path "./Tests/Data/accounts-no-match.json"
             }
         }
-        $result = GetSubscriptionDetails -SearchAllSubscriptions 1
+        $result = GetSubscriptionDetails -SearchAllSubscriptions $true
         $subscriptionsJson = Get-Content -Path "./Tests/Data/accounts-no-match.json"
         $subscriptions = Convert-LinesToObject $subscriptionsJson
 
@@ -160,7 +160,7 @@ Describe 'GetSubscriptionDetails' {
     }
 
     It 'Will throw an error if no id, app service name or app service plan name (and multiple subscriptions)' {
-        { GetSubscriptionDetails -SearchAllSubscriptions 1 } | Should -Throw
+        { GetSubscriptionDetails -SearchAllSubscriptions $true } | Should -Throw
     }
 
     # TODO: how to simulate user input inline??
