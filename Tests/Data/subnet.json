@@ -1,0 +1,40 @@
+{
+    "addressPrefix": "10.0.0.0/24",
+    "delegations": [
+      {
+        "actions": [
+          "Microsoft.Network/virtualNetworks/subnets/action"
+        ],
+        "id": "/subscriptions/12345678-aad6-4e66-82b9-ff838b489299/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test-name/subnets/subnet-test-name/delegations/0",
+        "name": "0",
+        "provisioningState": "Succeeded",
+        "resourceGroup": "rg-test",
+        "serviceName": "Microsoft.Web/serverFarms",
+        "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+      }
+    ],
+    "id": "/subscriptions/12345678-aad6-4e66-82b9-ff838b489299/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test-name/subnets/subnet-test-name",
+    "name": "subnet-test-name",
+    "privateEndpointNetworkPolicies": "Disabled",
+    "privateLinkServiceNetworkPolicies": "Enabled",
+    "provisioningState": "Succeeded",
+    "resourceGroup": "rg-test",
+    "serviceEndpoints": [
+      {
+        "locations": [
+          "*"
+        ],
+        "provisioningState": "Succeeded",
+        "service": "Microsoft.KeyVault"
+      },
+      {
+        "locations": [
+          "westus",
+          "eastus"
+        ],
+        "provisioningState": "Succeeded",
+        "service": "Microsoft.Storage"
+      }
+    ],
+    "type": "Microsoft.Network/virtualNetworks/subnets"
+  }

@@ -195,7 +195,7 @@ function Sync-IntuneCertificate
       if ($AzAuthorizationWasAdded) { # Only revert if we added the authorization
         Write-Information "Reverting az access to Certificate Master"
 
-        Remove-AsAsTrustedClientApplication -AppId $CertMasterAppId
+        Remove-AzAsTrustedClientApplication -AppId $CertMasterAppId
       }
     }
 }

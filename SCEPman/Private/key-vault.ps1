@@ -1,13 +1,28 @@
 function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --key-permissions get create unwrapKey sign"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --secret-permissions get list set delete"
-  $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --certificate-permissions get list create managecontacts"
+  if ($true -eq $KeyVault.properties_enableRbacAuthorization) {
+    Write-Information "Setting RBAC permissions to Key Vault $($KeyVault.Name) for principal id $tempServicePrincipal"
+
+    Write-Debug "Key Vault Scope: $($KeyVault.id)"
+
+      # Key Vault Crypto Officer allows using the private key (and more unnecessary permissions). Key Vault Crypto User doesn't suffice, as it doesn't allow creating a key.
+    $null = Invoke-Az @("role", "assignment", "create", "--role", "Key Vault Crypto Officer", "--assignee-object-id", $PrincipalId, "--assignee-principal-type", "ServicePrincipal", "--scope", $KeyVault.id)
+      # The minimum role to create a certificate; get and list are also included in the Key Vault Crypto Officer role
+    $null = Invoke-Az @("role", "assignment", "create", "--role", "Key Vault Certificates Officer", "--assignee-object-id", $PrincipalId, "--assignee-principal-type", "ServicePrincipal", "--scope", $KeyVault.id)
+      # Allows reading secrets, which may be used for configuration values
+    $null = Invoke-Az @("role", "assignment", "create", "--role", "Key Vault Secrets User", "--assignee-object-id", $PrincipalId, "--assignee-principal-type", "ServicePrincipal", "--scope", $KeyVault.id)
+  } else {
+    Write-Information "Setting policy permissions for Key Vault"
+    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --key-permissions get create unwrapKey sign"
+    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --secret-permissions get list"
+    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --certificate-permissions get list create managecontacts"
+  }
 }
 
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
   [uri]$configuredKeyVaultURL = FindConfiguredKeyVaultUrl -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
 
-  $keyVault = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name, subscriptionId")
+  # TODO: Use Invoke-az
+  $keyVault = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name,subscriptionId,properties.enableRbacAuthorization,id")
 
   if($keyVault.count -eq 1) {
     return $keyVault.data

@@ -1,0 +1,144 @@
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#applications/$entity",
+    "addIns": [],
+    "api": {
+      "acceptMappedClaims": null,
+      "knownClientApplications": [],
+      "oauth2PermissionScopes": [
+        {
+          "adminConsentDescription": "Allow the application to access SCEPman-api on behalf of the signed-in user.",
+          "adminConsentDisplayName": "Access SCEPman-api",
+          "id": "0538d46d-5589-4486-93ed-22b87561bfce",
+          "isEnabled": true,
+          "type": "User",
+          "userConsentDescription": "Allow the application to access SCEPman-api on your behalf.",
+          "userConsentDisplayName": "Access SCEPman-api",
+          "value": "user_impersonation"
+        }
+      ],
+      "preAuthorizedApplications": [
+        {
+          "appId": "7e247597-8d08-4306-b613-a61663d84cb3",
+          "delegatedPermissionIds": [
+            "0538d46d-5589-4486-93ed-22b87561bfce"
+          ]
+        },
+        {
+          "appId": "04f0c124-f2bc-4f59-8241-bf6df9866bbd",
+          "delegatedPermissionIds": [
+            "0538d46d-5589-4486-93ed-22b87561bfce"
+          ]
+        }
+      ],
+      "requestedAccessTokenVersion": null
+    },
+    "appId": "12345678-aad6-4711-82a9-0123456789ab",
+    "appRoles": [
+      {
+        "allowedMemberTypes": [
+          "User"
+        ],
+        "description": "Request certificates via EST or the raw CSR API for your own devices or your own user account.",
+        "displayName": "CSR Self Service",
+        "id": "1974f0ae-7842-4dd4-8714-35d3d17b55fe",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.SelfService"
+      },
+      {
+        "allowedMemberTypes": [
+          "Application"
+        ],
+        "description": "Request certificates via the raw CSR API with the caller being responsible for storing the certificates",
+        "displayName": "Direct CSR Requesters",
+        "id": "1234a86-47e5-4d10-8690-a38cae8648bb",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.Request.Direct"
+      },
+      {
+        "allowedMemberTypes": [
+          "Application"
+        ],
+        "description": "Request certificates via the raw CSR API that automatically stores issued certificates",
+        "displayName": "CSR DB Requesters",
+        "id": "12349441-6969-4fca-8635-a273c577d61e",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.Request.Db"
+      },
+      {
+        "allowedMemberTypes": [
+          "Application"
+        ],
+        "description": "Request certificates via the raw CSR API",
+        "displayName": "CSR Requesters",
+        "id": "12345ea7-25cd-4a78-90d2-4abc34dc8d60",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.Request"
+      }
+    ],
+    "applicationTemplateId": null,
+    "certification": null,
+    "createdDateTime": "2021-12-16T11:36:41Z",
+    "defaultRedirectUri": null,
+    "deletedDateTime": null,
+    "description": null,
+    "disabledByMicrosoftStatus": null,
+    "displayName": "SCEPman-api",
+    "groupMembershipClaims": null,
+    "id": "d14ee50a-dc6d-4f7e-b054-98e9acf31f0a",
+    "identifierUris": [
+      "api://12345678-aad6-4711-82a9-0123456789ab"
+    ],
+    "info": {
+      "logoUrl": "https://aadcdn.msftauthimages.net/random-string/appbranding/random-string/1033/bannerlogo?ts=123456789123456789",
+      "marketingUrl": null,
+      "privacyStatementUrl": null,
+      "supportUrl": null,
+      "termsOfServiceUrl": null
+    },
+    "isDeviceOnlyAuthSupported": null,
+    "isFallbackPublicClient": null,
+    "keyCredentials": [],
+    "nativeAuthenticationApisEnabled": null,
+    "notes": null,
+    "optionalClaims": null,
+    "parentalControlSettings": {
+      "countriesBlockedForMinors": [],
+      "legalAgeGroupRule": "Allow"
+    },
+    "passwordCredentials": [],
+    "publicClient": {
+      "redirectUris": []
+    },
+    "publisherDomain": "contoso.onmicrosoft.com",
+    "requestSignatureVerification": null,
+    "requiredResourceAccess": [],
+    "samlMetadataUrl": null,
+    "serviceManagementReference": null,
+    "servicePrincipalLockConfiguration": null,
+    "signInAudience": "AzureADMyOrg",
+    "spa": {
+      "redirectUris": []
+    },
+    "tags": [],
+    "tokenEncryptionKeyId": null,
+    "uniqueName": null,
+    "verifiedPublisher": {
+      "addedDateTime": null,
+      "displayName": null,
+      "verifiedPublisherId": null
+    },
+    "web": {
+      "homePageUrl": null,
+      "implicitGrantSettings": {
+        "enableAccessTokenIssuance": false,
+        "enableIdTokenIssuance": true
+      },
+      "logoutUrl": null,
+      "redirectUriSettings": [],
+      "redirectUris": []
+    }
+}
