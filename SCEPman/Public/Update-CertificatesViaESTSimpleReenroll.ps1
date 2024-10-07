@@ -194,24 +194,15 @@ Function Update-CertificatesViaESTSimpleReenroll {
         [string]$ValidityThresholdDays
     )
 
-    $GetCertsCmd = "GetSCEPmanCerts -AppServiceUrl $AppServiceUrl"
     if ($User) {
-        $GetCertsCmd += " -User"
     } elseif ($Machine) {
-        $GetCertsCmd += " -Machine"
     } else {
         Write-Error "You must specify either -User or -Machine."
         return
     }
-    if ($FilterString) {
-        $GetCertsCmd += " -FilterString $FilterString"
-    }
-    if ($ValidityThresholdDays) {
-        $GetCertsCmd += " -ValidityThresholdDays $ValidityThresholdDays"
-    }
     
     # Get all candidate certs
-    $certs = Invoke-Expression $GetCertsCmd
+    $certs = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User $User -Machine $Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
     # Renew all certs
     $certs | ForEach-Object { 
         if ($User) {
