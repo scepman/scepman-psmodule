@@ -21,7 +21,7 @@
   Will only renew certificates that are within this number of days of expiry (default value is 30).
 
  .Example
-  RenewSCEPmanCerts -AppServiceUrl "https://scepman-appservice.net/" -User -ValidityThresholdDays 100 -FilterString "certificate"
+  Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://scepman-appservice.net/" -User -ValidityThresholdDays 100 -FilterString "certificate"
 #>
 
 using namespace System.Security.Cryptography.X509Certificates
@@ -179,7 +179,7 @@ Function GetSCEPmanCerts {
     return $certs
 }
 
-Function RenewSCEPmanCerts {
+Function Update-CertificatesViaESTSimpleReenroll {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true)]
