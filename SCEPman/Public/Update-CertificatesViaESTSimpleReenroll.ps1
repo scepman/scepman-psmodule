@@ -204,7 +204,7 @@ Function Update-CertificatesViaESTSimpleReenroll {
     # Get all candidate certs
     $certs = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User $User -Machine $Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
     # Renew all certs
-    $certs | ForEach-Object { 
+    $certs | ForEach-Object {
         if ($User) {
             RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User -Certificate $_
         } elseif ($Machine) {
