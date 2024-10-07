@@ -56,11 +56,11 @@ Function RenewCertificateMTLS {
     $Inf = 
     '[Version]
     Signature="$Windows NT$"
-    
+
     [NewRequest]
     ;Change to your,country code, company name and common name
     Subject = "C=US, O=Example Co, CN=something.example.com"
-    
+
     KeySpec = 1
     KeyLength = 2048
     Exportable = TRUE
@@ -91,7 +91,7 @@ Function RenewCertificateMTLS {
     $handler = New-Object HttpClientHandler
     $handler.ClientCertificates.Add($Certificate)
     $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
-    
+
     $client = New-Object HttpClient($handler)
     $client.HttpClientHandler
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
@@ -133,7 +133,7 @@ Function GetSCEPmanCerts {
         Write-Error "You must specify either -user or -machine."
         return
     }
-    
+
     $rootCaUrl = "$AppServiceUrl/certsrv/mscep/mscep.dll/pkiclient.exe?operation=GetCACert"
     $rootPath = New-TemporaryFile
     Invoke-WebRequest -Uri $rootCaUrl -OutFile $rootPath
@@ -200,7 +200,7 @@ Function Update-CertificatesViaESTSimpleReenroll {
         Write-Error "You must specify either -User or -Machine."
         return
     }
-    
+
     # Get all candidate certs
     $certs = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User $User -Machine $Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
     # Renew all certs
