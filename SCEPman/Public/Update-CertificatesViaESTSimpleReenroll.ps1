@@ -199,9 +199,7 @@ Function Update-CertificatesViaESTSimpleReenroll {
         return
     }
 
-    if ($User) {
-    } elseif ($Machine) {
-    } else {
+    if ($User -and $Machine -or (-not $User -and -not $Machine)) {
         Write-Error "You must specify either -User or -Machine."
         return
     }
