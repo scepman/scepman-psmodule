@@ -194,6 +194,11 @@ Function Update-CertificatesViaESTSimpleReenroll {
         [string]$ValidityThresholdDays
     )
 
+    if(-not $IsWindows) {
+        Write-Error "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
+        return
+    }
+
     if ($User) {
     } elseif ($Machine) {
     } else {
