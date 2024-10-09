@@ -49,68 +49,78 @@ Function RenewCertificateMTLS {
     $TempCSR = New-TemporaryFile
     $TempP7B = New-TemporaryFile
     $TempINF = New-TemporaryFile
-    $url = "$AppServiceUrl/.well-known/est/simplereenroll"
+    try {
+        $url = "$AppServiceUrl/.well-known/est/simplereenroll"
 
-    # In file configuration
-    $Inf = 
-    '[Version]
-    Signature="$Windows NT$"
+        Write-Warning "Using experimental renewal CMDlet - the private key has properties you may not like"
 
-    [NewRequest]
-    ;Change to your,country code, company name and common name
-    Subject = "C=US, O=Example Co, CN=something.example.com"
+        # In file configuration
+        $Inf = 
+        '[Version]
+        Signature="$Windows NT$"
 
-    KeySpec = 1
-    KeyLength = 2048
-    Exportable = TRUE
-    SMIME = False
-    PrivateKeyArchive = FALSE
-    UserProtected = FALSE
-    UseExistingKeySet = FALSE
-    ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
-    ProviderType = 12
-    RequestType = PKCS10
-    KeyUsage = 0xa0'
-    if ($Machine) {
-        $Inf += "`nMachineKeySet = True" #Command still works without, but cert doesn't appear in store.
+        [NewRequest]
+        ;Change to your,country code, company name and common name
+        Subject = "C=US, O=Example Co, CN=something.example.com"
+
+        KeySpec = 1
+        KeyLength = 2048
+        Exportable = TRUE
+        SMIME = False
+        PrivateKeyArchive = FALSE
+        UserProtected = FALSE
+        UseExistingKeySet = FALSE
+        ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+        ProviderType = 12
+        RequestType = PKCS10
+        KeyUsage = 0xa0'
+        if ($Machine) {
+            $Inf += "`nMachineKeySet = True" # Command still works without, but cert doesn't appear in store.
+        }
+
+        $Inf | Out-File -FilePath $TempINF
+
+        # Create new key and CSR
+        Remove-Item $TempCSR # Remove CSR file we just have the file name and don't have to overwrite a file
+        CertReq -new $TempINF $TempCSR
+
+        # Create renewed version of certificate.
+        # Invoke-WebRequest would be easiest option - but doesn't work due to nature of cmd
+        # Invoke-WebRequest -Certificate certificate-test.pfx -Body $Body -ContentType "application/pkcs10" -Credential "5hEgpuJQI5afsY158Ot5A87u" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -OutFile outfile.txt
+        # So use HTTPClient instead
+        Write-Information "Cert Has Private Key: $($Certificate.HasPrivateKey)"
+
+        $handler = New-Object HttpClientHandler
+        $handler.ClientCertificates.Add($Certificate)
+        $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
+
+        $client = New-Object HttpClient($handler)
+        $client.HttpClientHandler
+        $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
+        $body = Get-Content $TempCSR
+        $requestmessage.Content = [System.Net.Http.StringContent]::new(
+            $body,  
+            [System.Text.Encoding]::UTF8,"application/pkcs10"
+        )
+        $requestmessage.Content.Headers.ContentType = "application/pkcs10"
+        $requestmessage.Method = 'POST'
+        $requestmessage.RequestUri = $url
+        $httpResponseMessage = $client.Send($requestmessage)
+        $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
+
+        Write-Output "-----BEGIN PKCS7-----" > "$TempP7B"
+        Write-Output $responseContent >> "$TempP7B"
+        Write-Output "-----END PKCS7-----" >> "$TempP7B"
+        # Put new certificate into certificate store 
+        # (doesn't need to use certreq -submit because that's what the est endpoint is basically doing (submitting to CA))
+        CertReq -accept $TempP7B
     }
-
-    $Inf | Out-File -FilePath $TempINF
-
-    # Create new key and CSR
-    Remove-Item $TempCSR # Remove CSR file we just have the file name and don't have to overwrite a file
-    CertReq -new $TempINF $TempCSR
-
-    # Create renewed version of certificate.
-    # Invoke-WebRequest would be easiest option - but doesn't work due to nature of cmd
-    # Invoke-WebRequest -Certificate certificate-test.pfx -Body $Body -ContentType "application/pkcs10" -Credential "5hEgpuJQI5afsY158Ot5A87u" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -OutFile outfile.txt
-    # So use HTTPClient instead
-    Write-Information "Cert Has Private Key: $($Certificate.HasPrivateKey)"
-
-    $handler = New-Object HttpClientHandler
-    $handler.ClientCertificates.Add($Certificate)
-    $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
-
-    $client = New-Object HttpClient($handler)
-    $client.HttpClientHandler
-    $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
-    $body = Get-Content $TempCSR
-    $requestmessage.Content = [System.Net.Http.StringContent]::new(
-        $body,  
-        [System.Text.Encoding]::UTF8,"application/pkcs10"
-    )
-    $requestmessage.Content.Headers.ContentType = "application/pkcs10"
-    $requestmessage.Method = 'POST'
-    $requestmessage.RequestUri = $url
-    $httpResponseMessage = $client.Send($requestmessage)
-    $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
-
-    Write-Output "-----BEGIN PKCS7-----" > "$TempP7B"
-    Write-Output $responseContent >> "$TempP7B"
-    Write-Output "-----END PKCS7-----" >> "$TempP7B"
-    # Put new certificate into certificate store 
-    # (doesn't need to use certreq -submit because that's what the est endpoint is basically doing (submitting to CA))
-    CertReq -accept $TempP7B
+    finally {
+        # Clean those temporary files again if they exist
+        Remove-Item $TempCSR -ErrorAction SilentlyContinue
+        Remove-Item $TempP7B -ErrorAction SilentlyContinue
+        Remove-Item $TempINF -ErrorAction SilentlyContinue
+    }
 }
 
 Function GetSCEPmanCerts {
