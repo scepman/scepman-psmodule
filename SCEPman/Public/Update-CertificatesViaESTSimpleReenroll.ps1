@@ -29,6 +29,13 @@ using namespace System.Security.Authentication
 using namespace System.Net.Http
 using namespace System.Net.Security
 
+# This existance of this function is important for tests, so it can be mocked
+Function CreateHttpClient($HttpClientHandler) {
+    $client = New-Object HttpClient($HttpClientHandler)
+    $client.HttpClientHandler = $HttpClientHandler
+    return $client
+}
+
 Function RenewCertificateMTLS {
     [CmdletBinding()]
     param (
@@ -91,11 +98,9 @@ Function RenewCertificateMTLS {
         Write-Information "Cert Has Private Key: $($Certificate.HasPrivateKey)"
 
         $handler = New-Object HttpClientHandler
-        $handler.ClientCertificates.Add($Certificate)
+        $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
         $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
 
-        $client = New-Object HttpClient($handler)
-        $client.HttpClientHandler
         $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
         $body = Get-Content $TempCSR
         $requestmessage.Content = [System.Net.Http.StringContent]::new(
@@ -105,6 +110,8 @@ Function RenewCertificateMTLS {
         $requestmessage.Content.Headers.ContentType = "application/pkcs10"
         $requestmessage.Method = 'POST'
         $requestmessage.RequestUri = $url
+
+        $client = CreateHttpClient -HttpClientHandler $handler
         $httpResponseMessage = $client.Send($requestmessage)
         $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
 
