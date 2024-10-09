@@ -16,8 +16,8 @@ Describe 'Update-CertificatesViaESTSimpleReenroll' -Skip:(-not $IsWindows) {
         It 'Renews each certificate that is found' {
             Mock GetSCEPmanCerts {
                 return @(
-                    New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512
-                    New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512
+                    New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
+                    New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
                 )
             }
 
