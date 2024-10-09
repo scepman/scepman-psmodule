@@ -13,12 +13,16 @@ Describe 'Update-CertificatesViaESTSimpleReenroll' -Skip:(-not $IsWindows) {
 
     Context 'With temporary certificate creation' {
 
+        BeforeAll {
+            $script:testcerts = @(
+                New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
+                New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
+            )
+        }
+
         It 'Renews each certificate that is found' {
             Mock GetSCEPmanCerts {
-                return @(
-                    New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
-                    New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My
-                )
+                return $script:testcerts
             }
 
             Mock RenewCertificateMTLS {
@@ -34,11 +38,11 @@ Describe 'Update-CertificatesViaESTSimpleReenroll' -Skip:(-not $IsWindows) {
 
             Should -Invoke -CommandName RenewCertificateMTLS -Exactly 2
         }
-    }
 
-    AfterEach {
+        AfterAll {
             # Clean up test certificates
-        $pesterTestCerts = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("OU=PesterTest") }
-        $pesterTestCerts | Remove-Item -Force
+            $pesterTestCerts = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("OU=PesterTest") }
+            $pesterTestCerts | Remove-Item -Force
+        }
     }
 }
