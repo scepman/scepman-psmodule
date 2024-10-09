@@ -103,4 +103,76 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             $pesterTestCerts | Remove-Item -Force
         }
     }
+
+    Context 'RenewCertificateMTLS' {
+        BeforeAll {
+            $script:testroot = New-SelfSignedCertificate -Subject "CN=TestRoot,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(10)
+        }
+
+        It 'Should renew a certificate' -Skip {
+            $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=TestRoot") -and $_.Subject.Contains("OU=PesterTest") }
+
+            Mock Invoke-WebRequest {    # Mock the EST server, this is the code for a little CA
+                param($Uri, $Method, $Headers, $Body)
+
+                $Body | Should -Match "-----BEGIN CERTIFICATE REQUEST-----"
+                $Uri | Should -Be "https://test.com/.well-known/est/simplereenroll"
+                $Method | Should -Be "POST"
+                $Headers | Should -ContainKey "Content-Type"
+                $Headers["Content-Type"] | Should -Be "application/pkcs10"
+
+                $IncomingRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::LoadSigningRequestPem(
+                    $Body,
+                    [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+                    [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
+                    [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+                    )
+                $issuedCert = $IncomingRequest.Create(
+                    $script:testroot,   # CA certificate
+                    [System.DateTime]::UtcNow, # Not Before
+                    [System.DateTime]::UtcNow.AddYears(1), # Not After
+                    [byte[]]@(0x40,2,3,4)  # Serial number
+                )
+                $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+
+                return @{
+                    StatusCode = 200
+                    Content = $binCert
+                }
+            }
+
+            Mock CreateHttpClient {
+                $HttpClientHandler | Should -Not -BeNull
+                $HttpClientHandler.ClientCertificates | Should -HaveCount 1
+
+                $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
+                    Send = { 
+                        $request. | Should -Be "POST https://test.com/.well-known/est/simplereenroll HTTP/1.1`r`nContent-Type: application/pkcs10`r`n`r`n-----BEGIN CERTIFICATE REQUEST-----"
+
+
+                        $response = New-Object System.Net.Http.HttpResponseMessage 200
+
+
+                        return $response
+                    }
+                }
+            }
+
+            RenewCertificateMTLS -Certificate $cert -AppServiceUrl "https://test.com" -User
+
+            Should -Invoke -CommandName Invoke-WebRequest -Exactly 1
+
+            # Verify that the function has added a certificate to the user store
+            $newCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Issuer.Contains("CN=TestRoot") -and $_.Issuer.Contains("OU=PesterTest") -and -not $_.Subject.Contains("CN=TestRoot")}
+            $newCert | Should -Not -BeNullOrEmpty
+
+            # Cleanup
+            $newCert | Remove-Item -Force
+        }
+
+        AfterAll {
+            $rootCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=TestRoot") -and $_.Subject.Contains("OU=PesterTest") }
+            $rootCert | Remove-Item -Force
+        }
+    }
 }
