@@ -161,10 +161,6 @@ Function GetSCEPmanCerts {
         Write-Information "Found $($certs.Count) user certificates"
     }
 
-    if ($certs.Length -eq 0) {
-        throw "No certificates found that are issued by the downloaded certificate."
-    }
-
     if ($FilterString) {
         $certs = $certs | Where-Object { $_.Subject -Match $FilterString } 
     }

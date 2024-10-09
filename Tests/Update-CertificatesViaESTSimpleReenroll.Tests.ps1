@@ -16,11 +16,11 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
     Context 'With temporary certificate creation' {
 
-        BeforeAll {
+        BeforeEach {
                 # Create Test certificates with a very low key length so it is fast to create
             $script:testcerts = @(
-                New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(40)
-                New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(41)
+                New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
+                New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(21)
             )
         }
 
@@ -66,27 +66,38 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
             }
 
+            It 'Should find certificates only when issued by the correct root' {
+                $pesterTestCert1 = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_ -eq $script:testcerts[0] }
+                $pesterTestCert1 | Remove-Item -Force
+
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45
+
+                
+
+                $foundCerts | Should -HaveCount 0
+            }
+
             It 'Should not find a certificate if its still valid for long enough' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 30
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 15
 
                 $foundCerts | Should -HaveCount 0
             }
 
             It 'Should find certificates matching a text filter' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -FilterString "Cert1"
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert1"
 
                 $foundCerts | Should -HaveCount 1
                 $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
             }
 
             It 'Should filter out certificates that do not match a text filter' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -FilterString "Cert2"
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert2"
 
                 $foundCerts | Should -HaveCount 0
             }
         }
 
-        AfterAll {
+        AfterEach {
             # Clean up test certificates
             $pesterTestCerts = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("OU=PesterTest") }
             $pesterTestCerts | Remove-Item -Force
