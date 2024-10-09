@@ -132,7 +132,7 @@ Function GetSCEPmanCerts {
         throw "You must specify either -user or -machine."
     }
 
-    $rootCaUrl = "$AppServiceUrl/certsrv/mscep/mscep.dll/pkiclient.exe?operation=GetCACert"
+    $rootCaUrl = "$AppServiceUrl/.well-known/est/cacerts"   # this returns a Base64-encoded PKCS#7 file
     $dlRootCertResponse = Invoke-WebRequest -Uri $rootCaUrl
     if ($dlRootCertResponse.StatusCode -eq 200) {
         Write-Information "Root certificate was downloaded"
@@ -142,20 +142,27 @@ Function GetSCEPmanCerts {
     }
 
     # Load the downloaded certificate
-    $rootCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($dlRootCertResponse.Content)
+    [string]$b64P7 = [System.Text.Encoding]::ASCII.GetString($dlRootCertResponse.Content)
+    [byte[]]$binP7 = [System.Convert]::FromBase64String($b64P7)
+    $certCollection = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
+    $certCollection.Import($binP7)
+    if ($certCollection.Length -ne 1) {
+        throw "We downloaded $($certCollection.Length) from $rootCaUrl. Currently, we support only a single Root CA without intermediate CAs."
+    } else {
+        $rootCert = $certCollection[0]
+    }
 
     # Find all certificates in the 'My' stores that are issued by the downloaded certificate
     if ($Machine) {
-        $certs = Get-ChildItem -Path "Cert:\LocalMachine\My" | Where-Object { $_.Issuer -eq $rootCert.Issuer }
+        $certs = Get-ChildItem -Path "Cert:\LocalMachine\My" | Where-Object { $_.Issuer -eq $rootCert.Subject }
         Write-Information "Found $($certs.Count) machine certificates"
     } elseif ($User) {
-        $certs = Get-ChildItem -Path "Cert:\CurrentUser\My" | Where-Object { $_.Issuer -eq $rootCert.Issuer }
+        $certs = Get-ChildItem -Path "Cert:\CurrentUser\My" | Where-Object { $_.Issuer -eq $rootCert.Subject }
         Write-Information "Found $($certs.Count) user certificates"
     }
 
-    if (!$certs) {
-        Write-Error "No certificates found that are issued by the downloaded certificate."
-        return $null
+    if ($certs.Length -eq 0) {
+        throw "No certificates found that are issued by the downloaded certificate."
     }
 
     if ($FilterString) {
