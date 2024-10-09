@@ -36,15 +36,14 @@ Function RenewCertificateMTLS {
         [System.Security.Cryptography.X509Certificates.X509Certificate]$Certificate,
         [Parameter(Mandatory=$true)]
         [string]$AppServiceUrl,
-        [Parameter(Mandatory=$true, ParameterSetName="User")]
+        [Parameter(Mandatory=$false)]
         [switch]$User,
-        [Parameter(Mandatory=$true, ParameterSetName="Machine")]
+        [Parameter(Mandatory=$false)]
         [switch]$Machine
     )
 
-    if (!$User -and !$Machine) {
-        Write-Error "You must specify either -user or -machine."
-        return
+    if (!$User -and !$Machine -or $User -and $Machine) {
+        throw "You must specify either -user or -machine."
     }
 
     $TempCSR = New-TemporaryFile
@@ -119,9 +118,9 @@ Function GetSCEPmanCerts {
     param (
         [Parameter(Mandatory=$true)]
         [string]$AppServiceUrl,
-        [Parameter(Mandatory=$true, ParameterSetName="User")]
+        [Parameter(Mandatory=$false)]
         [switch]$User,
-        [Parameter(Mandatory=$true, ParameterSetName="Machine")]
+        [Parameter(Mandatory=$false)]
         [switch]$Machine,
         [Parameter(Mandatory=$false)]
         [string]$FilterString,
@@ -129,9 +128,8 @@ Function GetSCEPmanCerts {
         [string]$ValidityThresholdDays
     )
 
-    if (!$User -and !$Machine) {
-        Write-Error "You must specify either -user or -machine."
-        return
+    if (!$User -and !$Machine -or $User -and $Machine) {
+        throw "You must specify either -user or -machine."
     }
 
     $rootCaUrl = "$AppServiceUrl/certsrv/mscep/mscep.dll/pkiclient.exe?operation=GetCACert"
@@ -203,13 +201,9 @@ Function Update-CertificatesViaESTSimpleReenroll {
     }
 
     # Get all candidate certs
-    $certs = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User $User -Machine $Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
+    $certs = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
     # Renew all certs
     $certs | ForEach-Object {
-        if ($User) {
-            RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User -Certificate $_
-        } elseif ($Machine) {
-            RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -Machine -Certificate $_
-        }
+        RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -Certificate $_
     }
 }

@@ -10,48 +10,35 @@ Describe 'Update-CertificatesViaESTSimpleReenroll' -Skip:(-not $IsWindows) {
     It 'Fails if neither -user nor -machine are specified' {
         { Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" } | Should -Throw 'You must specify either -User or -Machine.'
     }
-    
-    It 'Finds a good DotNet Runtime' -Skip {
 
-        Mock Invoke-WebRequest {
-            param($Uri, $OutFile)
+    Context 'With temporary certificate creation' {
 
-            if ($Uri -ne 'https://test.com/root-ca.crt')
-            {
-                throw "Unexpected Uri: $Uri"
+        It 'Renews each certificate that is found' {
+            Mock GetSCEPmanCerts {
+                return @(
+                    New-SelfSignedCertificate -Subject "CN=Cert1,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512
+                    New-SelfSignedCertificate -Subject "CN=Cert2,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512
+                )
             }
 
-            return $true
-        }
+            Mock RenewCertificateMTLS {
+                param($Certificate, $AppServiceUrl, [switch]$User, [switch]$Machine)
 
-        Mock Get-ChildItem {
-            param($Path)
-
-            if ($Path -ne "Cert:\LocalMachine\My")
-            {
-                throw "Unexpected Path: $Path"
+                $Certificate.Subject | Should -Match "OU=PesterTest"
+                $User | Should -Be $true
+                $Machine | Should -Be $false
+                $AppServiceUrl | Should -Be "https://test.com"
             }
 
-            return @(
-                [PSCustomObject]@{Issuer = "CN=Test Root CA"}
-            )
+            Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" -User
+
+            Should -Invoke -CommandName RenewCertificateMTLS -Exactly 2
         }
+    }
 
-        Mock New-TimeSpan {
-            param($Days)
-
-            if ($Days -ne 30)
-            {
-                throw "Unexpected Days: $Days"
-            }
-
-            return [TimeSpan]::FromDays(30)
-        }
-
-        $certs = Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" -Machine
-
-        $certs | Should -Be @(
-            [PSCustomObject]@{Subject = "CN=Test Subject"; Issuer = "CN=Test Root CA"; Thumbprint = "Test Thumbprint"}
-        )
+    AfterEach {
+            # Clean up test certificates
+        $pesterTestCerts = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("OU=PesterTest") }
+        $pesterTestCerts | Remove-Item -Force
     }
 }
