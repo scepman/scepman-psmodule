@@ -180,13 +180,13 @@ Function GetSCEPmanCerts {
 }
 
 Function Update-CertificatesViaESTSimpleReenroll {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName="User")]
     param (
         [Parameter(Mandatory=$true)]
         [string]$AppServiceUrl,
-        [Parameter(Mandatory=$true, ParameterSetName="User")]
+        [Parameter(Mandatory=$false)]
         [switch]$User,
-        [Parameter(Mandatory=$true, ParameterSetName="Machine")]
+        [Parameter(Mandatory=$false)]
         [switch]$Machine,
         [Parameter(Mandatory=$false)]
         [string]$FilterString,
@@ -195,13 +195,11 @@ Function Update-CertificatesViaESTSimpleReenroll {
     )
 
     if(-not $IsWindows) {
-        Write-Error "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
-        return
+        throw "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
     }
 
     if ($User -and $Machine -or (-not $User -and -not $Machine)) {
-        Write-Error "You must specify either -User or -Machine."
-        return
+        throw "You must specify either -User or -Machine."
     }
 
     # Get all candidate certs
