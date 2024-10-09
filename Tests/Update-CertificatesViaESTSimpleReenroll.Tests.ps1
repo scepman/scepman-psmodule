@@ -44,7 +44,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
         }
 
         Context 'GetSCEPmanCerts' {
-            It 'Should find all certificates issued by the root' {
+            BeforeAll {
                 Mock Invoke-WebRequest {
                     $certCollection = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
                     $certCollection.Add($script:testcerts[0])
@@ -57,11 +57,19 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                         Content = $b64Cert1Bytes
                     }
                 }
+            }
 
+            It 'Should find all certificates issued by the root' {
                 $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45
 
                 $foundCerts | Should -HaveCount 1
-#                $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
+                $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
+            }
+
+            It 'Should not find a certificate if its still valid for long enough' {
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 30
+
+                $foundCerts | Should -HaveCount 0
             }
         }
 
