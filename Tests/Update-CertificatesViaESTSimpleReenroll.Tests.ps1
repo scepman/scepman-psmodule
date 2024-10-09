@@ -71,6 +71,19 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
                 $foundCerts | Should -HaveCount 0
             }
+
+            It 'Should find certificates matching a text filter' {
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -FilterString "Cert1"
+
+                $foundCerts | Should -HaveCount 1
+                $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
+            }
+
+            It 'Should filter out certificates that do not match a text filter' {
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -FilterString "Cert2"
+
+                $foundCerts | Should -HaveCount 0
+            }
         }
 
         AfterAll {
