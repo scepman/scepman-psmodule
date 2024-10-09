@@ -133,17 +133,16 @@ Function GetSCEPmanCerts {
     }
 
     $rootCaUrl = "$AppServiceUrl/certsrv/mscep/mscep.dll/pkiclient.exe?operation=GetCACert"
-    $rootPath = New-TemporaryFile
-    Invoke-WebRequest -Uri $rootCaUrl -OutFile $rootPath
-    if ($?) {
-        Write-Information "Root certificate downloaded to $rootPath"
+    $dlRootCertResponse = Invoke-WebRequest -Uri $rootCaUrl
+    if ($dlRootCertResponse.StatusCode -eq 200) {
+        Write-Information "Root certificate was downloaded"
     } else {
         Write-Error "Failed to download root certificate from $rootCaUrl"
         return $null
     }
 
     # Load the downloaded certificate
-    $rootCert = New-Object X509Certificate2($rootPath)
+    $rootCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($dlRootCertResponse.Content)
 
     # Find all certificates in the 'My' stores that are issued by the downloaded certificate
     if ($Machine) {
