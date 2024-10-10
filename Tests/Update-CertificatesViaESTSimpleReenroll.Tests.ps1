@@ -109,18 +109,18 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             $basicConstraintsCaExtension = New-Object System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension $true, $true, 0, $true
             $rootCaGenerationParameters = @{
                 Subject = "CN=TestRoot,OU=PesterTest"
-                KeyAlgorithm = 'RSA'
-                KeyLength = 1024
+                KeyAlgorithm = 'ECDSA_nistP256'
                 CertStoreLocation = 'Cert:\CurrentUser\My'
                 NotAfter = (Get-Date).AddYears(10)
                 Extension = @($basicConstraintsCaExtension)
                 KeyUsage = @('CertSign', 'CRLSign', 'DigitalSignature')
             }
             $script:testroot = New-SelfSignedCertificate @rootCaGenerationParameters
+            New-SelfSignedCertificate -Subject "CN=UserCertificate,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
         }
 
         It 'Should renew a certificate' {
-            $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=TestRoot") -and $_.Subject.Contains("OU=PesterTest") }
+            $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=UserCertificate") -and $_.Subject.Contains("OU=PesterTest") }
 
             Mock CreateHttpClient {
                 $HttpClientHandler | Should -Not -BeNull

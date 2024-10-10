@@ -40,7 +40,7 @@ Function RenewCertificateMTLS {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate]$Certificate,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [Parameter(Mandatory=$true)]
         [string]$AppServiceUrl,
         [Parameter(Mandatory=$false)]
@@ -53,81 +53,60 @@ Function RenewCertificateMTLS {
         throw "You must specify either -user or -machine."
     }
 
-    $TempCSR = New-TemporaryFile
-    $TempP7B = New-TemporaryFile
-    $TempINF = New-TemporaryFile
-    try {
-        $url = "$AppServiceUrl/.well-known/est/simplereenroll"
+    $url = "$AppServiceUrl/.well-known/est/simplereenroll"
 
-        Write-Warning "Using experimental renewal CMDlet - the private key has properties you may not like"
+    $privateKey = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve+NamedCurves]::nistP256)
+    $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    $sCertRequest = $oCertRequest.CreateSigningRequestPem()
 
-        # In file configuration
-        $Inf = 
-        '[Version]
-        Signature="$Windows NT$"
+    # Create renewed version of certificate.
+    # Invoke-WebRequest would be easiest option - but doesn't work due to nature of cmd
+    # Invoke-WebRequest -Certificate certificate-test.pfx -Body $Body -ContentType "application/pkcs10" -Credential "5hEgpuJQI5afsY158Ot5A87u" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -OutFile outfile.txt
+    # So use HTTPClient instead
+    Write-Information "Cert Has Private Key: $($Certificate.HasPrivateKey)"
 
-        [NewRequest]
-        ;Change to your,country code, company name and common name
-        Subject = "C=US, O=Example Co, CN=something.example.com"
+    $handler = New-Object HttpClientHandler
+    $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
+    $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
 
-        KeySpec = 1
-        KeyLength = 2048
-        Exportable = TRUE
-        SMIME = False
-        PrivateKeyArchive = FALSE
-        UserProtected = FALSE
-        UseExistingKeySet = FALSE
-        ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
-        ProviderType = 12
-        RequestType = PKCS10
-        KeyUsage = 0xa0'
-        if ($Machine) {
-            $Inf += "`nMachineKeySet = True" # Command still works without, but cert doesn't appear in store.
-        }
+    $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
+    $requestmessage.Content = [System.Net.Http.StringContent]::new(
+        $sCertRequest,  
+        [System.Text.Encoding]::UTF8,"application/pkcs10"
+    )
+    $requestmessage.Content.Headers.ContentType = "application/pkcs10"
+    $requestmessage.Method = 'POST'
+    $requestmessage.RequestUri = $url
 
-        $Inf | Out-File -FilePath $TempINF
+    $client = CreateHttpClient -HttpClientHandler $handler
+    $httpResponseMessage = $client.Send($requestmessage)
+    $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
+    $binaryCertificateP7 = [System.Convert]::FromBase64String($responseContent)
 
-        # Create new key and CSR
-        Remove-Item $TempCSR # Remove CSR file we just have the file name and don't have to overwrite a file
-        CertReq -new $TempINF $TempCSR
-
-        # Create renewed version of certificate.
-        # Invoke-WebRequest would be easiest option - but doesn't work due to nature of cmd
-        # Invoke-WebRequest -Certificate certificate-test.pfx -Body $Body -ContentType "application/pkcs10" -Credential "5hEgpuJQI5afsY158Ot5A87u" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -OutFile outfile.txt
-        # So use HTTPClient instead
-        Write-Information "Cert Has Private Key: $($Certificate.HasPrivateKey)"
-
-        $handler = New-Object HttpClientHandler
-        $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
-        $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
-
-        $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
-        $body = Get-Content $TempCSR
-        $requestmessage.Content = [System.Net.Http.StringContent]::new(
-            $body,  
-            [System.Text.Encoding]::UTF8,"application/pkcs10"
-        )
-        $requestmessage.Content.Headers.ContentType = "application/pkcs10"
-        $requestmessage.Method = 'POST'
-        $requestmessage.RequestUri = $url
-
-        $client = CreateHttpClient -HttpClientHandler $handler
-        $httpResponseMessage = $client.Send($requestmessage)
-        $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
-
-        Write-Output "-----BEGIN PKCS7-----" > "$TempP7B"
-        Write-Output $responseContent >> "$TempP7B"
-        Write-Output "-----END PKCS7-----" >> "$TempP7B"
-        # Put new certificate into certificate store 
-        # (doesn't need to use certreq -submit because that's what the est endpoint is basically doing (submitting to CA))
-        CertReq -accept $TempP7B
+    [X509Certificate2Collection]$collectionForNewCertificate = [X509Certificate2Collection]::new()
+    if ($Machine) {
+        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::MachineKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
+    } else {
+        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
     }
-    finally {
-        # Clean those temporary files again if they exist
-        Remove-Item $TempCSR -ErrorAction SilentlyContinue
-        Remove-Item $TempP7B -ErrorAction SilentlyContinue
-        Remove-Item $TempINF -ErrorAction SilentlyContinue
+
+    if ($collectionForNewCertificate.Count -ne 1) {
+        throw "We received $($collectionForNewCertificate.Count) certificates from $url. Currently, we support only a single certificate."
     }
+
+    $newCertificate = $collectionForNewCertificate[0]
+
+    # Merge new certificate with private key
+    $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+
+    if ($Machine) {
+        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
+    } else {
+        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser)
+    }
+    $store.Open([OpenFlags]::ReadWrite)
+    $store.Add($newCertificateWithPrivateKey)
+    $store.Close()
 }
 
 Function GetSCEPmanCerts {
