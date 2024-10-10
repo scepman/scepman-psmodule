@@ -36,6 +36,19 @@ Function CreateHttpClient($HttpClientHandler) {
     return $client
 }
 
+Function IsCertificateCaOfACertificateInTheCollection {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$PossibleCaCertificate,
+        [Parameter(Mandatory=$true)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]$Certificates
+    )
+
+    $issuedCertificates = $certificates | Where-Object { $_.Issuer -eq $RootCertificate.Subject }
+    return $issuedCertificates.Count -gt 0
+}
+
 Function RenewCertificateMTLS {
     [CmdletBinding()]
     param (
@@ -90,11 +103,15 @@ Function RenewCertificateMTLS {
         $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
     }
 
-    if ($collectionForNewCertificate.Count -ne 1) {
-        throw "We received $($collectionForNewCertificate.Count) certificates from $url. Currently, we support only a single certificate."
+    if ($collectionForNewCertificate.Count -eq 0) {
+        throw "No certificates were imported from $url"
     }
 
-    $newCertificate = $collectionForNewCertificate[0]
+    $leafCertificate = $collectionForNewCertificate | Where-Object { -not (IsCertificateCaOfACertificateInTheCollection -PossibleCaCertificate $_ -Certificates $collectionForNewCertificate) }
+    if ($leafCertificate.Count -ne 1) {
+        throw "We received $($collectionForNewCertificate.Count) certificates from $url. Among them, we identified $($leafCertificate.Count) leaf certificates. We support only a single leaf certificate."
+    }
+    $newCertificate = $leafCertificate
 
     # Merge new certificate with private key
     $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
