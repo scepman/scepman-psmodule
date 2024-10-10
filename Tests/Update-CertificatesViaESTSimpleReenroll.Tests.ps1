@@ -106,40 +106,21 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
     Context 'RenewCertificateMTLS' {
         BeforeAll {
-            $script:testroot = New-SelfSignedCertificate -Subject "CN=TestRoot,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(10)
+            $basicConstraintsCaExtension = New-Object System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension $true, $true, 0, $true
+            $rootCaGenerationParameters = @{
+                Subject = "CN=TestRoot,OU=PesterTest"
+                KeyAlgorithm = 'RSA'
+                KeyLength = 1024
+                CertStoreLocation = 'Cert:\CurrentUser\My'
+                NotAfter = (Get-Date).AddYears(10)
+                Extension = @($basicConstraintsCaExtension)
+                KeyUsage = @('CertSign', 'CRLSign', 'DigitalSignature')
+            }
+            $script:testroot = New-SelfSignedCertificate @rootCaGenerationParameters
         }
 
-        It 'Should renew a certificate' -Skip {
+        It 'Should renew a certificate' {
             $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=TestRoot") -and $_.Subject.Contains("OU=PesterTest") }
-
-            Mock Invoke-WebRequest {    # Mock the EST server, this is the code for a little CA
-                param($Uri, $Method, $Headers, $Body)
-
-                $Body | Should -Match "-----BEGIN CERTIFICATE REQUEST-----"
-                $Uri | Should -Be "https://test.com/.well-known/est/simplereenroll"
-                $Method | Should -Be "POST"
-                $Headers | Should -ContainKey "Content-Type"
-                $Headers["Content-Type"] | Should -Be "application/pkcs10"
-
-                $IncomingRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::LoadSigningRequestPem(
-                    $Body,
-                    [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-                    [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
-                    [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
-                    )
-                $issuedCert = $IncomingRequest.Create(
-                    $script:testroot,   # CA certificate
-                    [System.DateTime]::UtcNow, # Not Before
-                    [System.DateTime]::UtcNow.AddYears(1), # Not After
-                    [byte[]]@(0x40,2,3,4)  # Serial number
-                )
-                $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-
-                return @{
-                    StatusCode = 200
-                    Content = $binCert
-                }
-            }
 
             Mock CreateHttpClient {
                 $HttpClientHandler | Should -Not -BeNull
@@ -147,20 +128,47 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
                 $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
                     Send = { 
-                        $request. | Should -Be "POST https://test.com/.well-known/est/simplereenroll HTTP/1.1`r`nContent-Type: application/pkcs10`r`n`r`n-----BEGIN CERTIFICATE REQUEST-----"
+                        param([System.Net.Http.HttpRequestMessage]$request)
 
+                        $request | Should -Not -BeNull
+                        $request.Method | Should -Be "POST"
+                        $request.RequestUri | Should -Be "https://test.com/.well-known/est/simplereenroll"
+                        $request.Content | Should -Not -BeNull
+                        $request.Content.Headers.ContentType | Should -Be "application/pkcs10"
+                        $requestBody = $request.Content.ReadAsStringAsync().Result
+
+                        $requestBody | Should -Match "-----BEGIN (NEW )?CERTIFICATE REQUEST-----"
+                        $requestBody = $requestBody.Replace('NEW CERTIFICATE REQUEST', 'CERTIFICATE REQUEST')   # Replace the old-style header with the RFC-7468-compliant one
+
+                            # Mock the EST server, this is the code for a little CA
+                        $IncomingRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::LoadSigningRequestPem(
+                            $requestBody,
+                            [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+                            [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
+                            [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+                        )
+                        $issuedCert = $IncomingRequest.Create(
+                            $script:testroot,   # CA certificate
+                            [System.DateTime]::UtcNow, # Not Before
+                            [System.DateTime]::UtcNow.AddYears(1), # Not After
+                            [byte[]]@(0x40,2,3,4)  # Serial number
+                        )
+                        $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+                        $b64Cert = [Convert]::ToBase64String($binCert)
 
                         $response = New-Object System.Net.Http.HttpResponseMessage 200
-
+                        $response.Content = New-Object System.Net.Http.StringContent $b64Cert
 
                         return $response
                     }
                 }
+
+                return $clientMock
             }
 
             RenewCertificateMTLS -Certificate $cert -AppServiceUrl "https://test.com" -User
 
-            Should -Invoke -CommandName Invoke-WebRequest -Exactly 1
+            Should -Invoke -CommandName CreateHttpClient -Exactly 1
 
             # Verify that the function has added a certificate to the user store
             $newCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Issuer.Contains("CN=TestRoot") -and $_.Issuer.Contains("OU=PesterTest") -and -not $_.Subject.Contains("CN=TestRoot")}
