@@ -3,7 +3,14 @@ function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, 
         $argsFromCommand = $argsFromCommand[0]
     }
 
-    $theCommand = $argsFromCommand -join ' '
+    $quotedCommandArguments = $argsFromCommand | ForEach-Object { 
+        if ($_.Contains(' ')) {
+            return "`"$($_)`""
+        } else {
+            return $_
+        }
+    }
+    $theCommand = $quotedCommandArguments -join ' '
 
     if ($azCommandPrefix -ne $null -and -not $theCommand.StartsWith($azCommandPrefix)) {
         return $false

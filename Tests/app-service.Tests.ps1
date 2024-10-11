@@ -7,6 +7,12 @@ BeforeAll {
 }
 
 Describe 'App Service' {
+    BeforeAll {
+        Mock az {
+            throw "Unexpected parameter for az: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
+        }
+    }
+
     It 'Finds a good DotNet Runtime' {
 
         Mock Invoke-Az {
@@ -59,13 +65,36 @@ Describe 'App Service' {
             return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
 
-        Mock az {
-            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
-        }
-
         $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
 
         $slots.Count | Should -Be 1
         $slots[0].Name | Should -Be "ds1"
+    }
+
+    Context 'New-CertMasterAppService' {
+        It 'Works when CertMaster is already installed' {
+            #Arrange
+            Mock GetCertMasterAppServiceName {
+                return "as-scepman-cm"
+            }
+
+            Mock az {
+                return "{
+                            'data' : {
+                                'name' : 'as-scepman',
+                                'properties' : {
+                                    'serverFarmId' : 'subscriptionid/asp-scepman',
+                                    'defaultHostName' : 'as-scepman'
+                                }
+                            }
+                        }"
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query -q "Resources' -azCommandMidfix "'as-scepman'"}
+
+            # Act
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
+
+            # Assert
+            $certMaster | Should -Be "as-scepman-cm"
+        }
     }
 }
