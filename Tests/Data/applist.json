@@ -1,0 +1,100 @@
+[
+  {
+    "addIns": [],
+    "api": {
+      "acceptMappedClaims": null,
+      "knownClientApplications": [],
+      "oauth2PermissionScopes": [
+        {
+          "adminConsentDescription": "asdfdsfdsf",
+          "adminConsentDisplayName": "adsfdsf",
+          "id": "asddfs",
+          "isEnabled": true,
+          "type": "Admin",
+          "userConsentDescription": null,
+          "userConsentDisplayName": null,
+          "value": "defaults"
+        }
+      ],
+      "preAuthorizedApplications": null,
+      "requestedAccessTokenVersion": null
+    },
+    "appId": "application-id",
+    "appRoles": [
+      {
+        "allowedMemberTypes": [
+          "User",
+          "Application"
+        ],
+        "description": "Regular role",
+        "displayName": "Regular role",
+        "id": "role-id",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "CSR.Request"
+      }
+    ],
+    "applicationTemplateId": null,
+    "certification": null,
+    "createdDateTime": "2023-08-27T13:33:29Z",
+    "defaultRedirectUri": null,
+    "deletedDateTime": null,
+    "description": null,
+    "disabledByMicrosoftStatus": null,
+    "displayName": "display-name",
+    "groupMembershipClaims": null,
+    "id": "appreg-id",
+    "identifierUris": [
+      "api://uri"
+    ],
+    "info": {
+      "logoUrl": null,
+      "marketingUrl": null,
+      "privacyStatementUrl": null,
+      "supportUrl": null,
+      "termsOfServiceUrl": null
+    },
+    "isDeviceOnlyAuthSupported": null,
+    "isFallbackPublicClient": null,
+    "keyCredentials": [],
+    "nativeAuthenticationApisEnabled": null,
+    "notes": null,
+    "optionalClaims": null,
+    "parentalControlSettings": {
+      "countriesBlockedForMinors": [],
+      "legalAgeGroupRule": "Allow"
+    },
+    "passwordCredentials": [],
+    "publicClient": {
+      "redirectUris": []
+    },
+    "publisherDomain": "domain.com",
+    "requestSignatureVerification": null,
+    "requiredResourceAccess": [],
+    "samlMetadataUrl": null,
+    "serviceManagementReference": null,
+    "servicePrincipalLockConfiguration": null,
+    "signInAudience": "AzureADMyOrg",
+    "spa": {
+      "redirectUris": []
+    },
+    "tags": [],
+    "tokenEncryptionKeyId": null,
+    "uniqueName": null,
+    "verifiedPublisher": {
+      "addedDateTime": null,
+      "displayName": null,
+      "verifiedPublisherId": null
+    },
+    "web": {
+      "homePageUrl": null,
+      "implicitGrantSettings": {
+        "enableAccessTokenIssuance": false,
+        "enableIdTokenIssuance": false
+      },
+      "logoutUrl": null,
+      "redirectUriSettings": [],
+      "redirectUris": []
+    }
+  }
+]
