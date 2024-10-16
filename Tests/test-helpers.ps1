@@ -1,9 +1,20 @@
-function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, [string] $azCommandMidfix = $null, [string] $azCommandSuffix = $null) {
+function NormalizeNativeParameters($argsFromCommand) {
     if ($argsFromCommand[0].Count -gt 1) {  # Sometimes the args are passed as an array as the first element of the args array. Sometimes they are the first array directly
         $argsFromCommand = $argsFromCommand[0]
     }
 
-    $theCommand = $argsFromCommand -join ' '
+    $quotedCommandArguments = $argsFromCommand | ForEach-Object { 
+        if ($_.Contains(' ')) {
+            return "`"$($_)`""
+        } else {
+            return $_
+        }
+    }
+    return $quotedCommandArguments -join ' '
+}
+
+function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, [string] $azCommandMidfix = $null, [string] $azCommandSuffix = $null) {
+    $theCommand = NormalizeNativeParameters -argsFromCommand $argsFromCommand
 
     if ($azCommandPrefix -ne $null -and -not $theCommand.StartsWith($azCommandPrefix)) {
         return $false
@@ -18,6 +29,13 @@ function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, 
     }
 
     return $true
+}
+
+function EnsureNoAdditionalAzCalls {
+    Mock az {
+        $theCommand = NormalizeNativeParameters -argsFromCommand $args
+        throw "Unexpected parameter for az: $theCommand (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
+    }
 }
 
 function MockAzInitals ([bool]$findSubscription = $true) {
