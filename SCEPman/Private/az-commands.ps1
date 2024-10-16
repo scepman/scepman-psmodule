@@ -218,7 +218,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
                 $lastAzOutput = CheckAzOutput -azOutput $lastAzOutput -fThrowOnError $true -noSecretLeakageWarning $noSecretLeakageWarning
                     # If we were requested to check that the permission is there and there was no error, do the check now.
                     # However, if the permission has been there previously already, we can skip the check
-                if($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
+                if ($null -ne $appRoleId -and $azErrorCode -eq 0 -and $PERMISSION_ALREADY_ASSIGNED -ne $lastAzOutput) {
                     $appRoleAssignments = Convert-LinesToObject -lines $(az rest --method get --url "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments")
                     $grantedPermission = $appRoleAssignments.value | Where-Object { $_.appRoleId -eq $appRoleId }
                     if ($null -eq $grantedPermission) {
