@@ -112,8 +112,8 @@ function New-CertMasterAppService {
       $CertMasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettingsTable -convertForLinux $isCertMasterLinux
 
       Write-Verbose 'Configuring CertMaster web app settings'
-      $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process false --ftps-state 'Disabled' --always-on true
-      $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettingsJson
+      $null = Invoke-Az -azCommand @( "webapp", "config", "appsettings", "set", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--settings", $CertMasterAppSettingsJson)
+      $null = Invoke-Az -azCommand @( "webapp", "config", "set", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
     }
     else {
       return "Skipped"
