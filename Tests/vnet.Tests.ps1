@@ -41,7 +41,7 @@ Describe 'VNet' {
             # Assert
             $result | Should -Not -BeNullOrEmpty
             $result | Should -BeOfType [PSCustomObject]
-            
+
         }
     }
 

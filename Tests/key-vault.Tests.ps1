@@ -81,7 +81,7 @@ Describe 'Key Vault' {
             throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
 
           } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'keyvault set-policy' }
-        
+
         Mock az {
             throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
         }
@@ -113,7 +113,7 @@ Describe 'Key Vault' {
             throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
 
           } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'role assignment create' -azCommandSuffix $keyVaultId }
-        
+
         Mock az {
             throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
         }
