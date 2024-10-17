@@ -49,8 +49,6 @@ Describe 'CA Generation Policies' {
             $policy.policy.x509_props.subject += ",O=Test Organization"
 
             Mock ExecuteAzCommandRobustly {
-                param($azCommand, [switch]$callAzNatively)
-
                 return '{ "val": "x", "request_id": "123", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}'
             }
         }
