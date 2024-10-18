@@ -148,7 +148,6 @@ Function RenewCertificateMTLS {
 
     $store.Add($issuedCertificateAndPrivate)
     $store.Close()
-
 }
 
 Function GetSCEPmanCerts {
