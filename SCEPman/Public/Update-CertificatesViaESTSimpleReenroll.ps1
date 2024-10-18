@@ -30,9 +30,8 @@ using namespace System.Net.Http
 using namespace System.Net.Security
 
 # This existance of this function is important for tests, so it can be mocked
-Function CreateHttpClient($HttpClientHandler) {
-    $client = New-Object HttpClient($HttpClientHandler)
-    $client.HttpClientHandler = $HttpClientHandler
+Function CreateHttpClient($HttpMessageHandler) {
+    $client = New-Object HttpClient($HttpMessageHandler)
     return $client
 }
 
@@ -68,8 +67,19 @@ Function RenewCertificateMTLS {
 
     $url = "$AppServiceUrl/.well-known/est/simplereenroll"
 
-    $privateKey = [System.Security.Cryptography.ECDsa]::Create([System.Security.Cryptography.ECCurve+NamedCurves]::nistP256)
-    $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    # Use the same key algorithm as the original certificate
+    if ($Certificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
+        $curve = $Certificate.PublicKey.Key.ExportParameters($true).Curve
+        $privateKey = [System.Security.Cryptography.ECDsa]::Create($curve)
+        $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    } elseif ($Certificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
+        $privateKey = [System.Security.Cryptography.RSA]::Create($Certificate.PublicKey.Key.KeySize)
+        $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    } else {
+        throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
+    }
+    Write-Information "Private key created of type $($privateKey.SignatureAlgorithm) with $($privateKey.KeySize) bits"
+
     $sCertRequest = $oCertRequest.CreateSigningRequestPem()
 
     # Create renewed version of certificate.
@@ -91,8 +101,11 @@ Function RenewCertificateMTLS {
     $requestmessage.Method = 'POST'
     $requestmessage.RequestUri = $url
 
-    $client = CreateHttpClient -HttpClientHandler $handler
+    $client = CreateHttpClient -HttpMessageHandler $handler
     $httpResponseMessage = $client.Send($requestmessage)
+    if ($httpResponseMessage.StatusCode -ne [System.Net.HttpStatusCode]::OK) {
+        throw "Failed to renew certificate. Status code: $($httpResponseMessage.StatusCode)"
+    }
     $responseContent =  $httpResponseMessage.Content.ReadAsStringAsync().Result
     $binaryCertificateP7 = [System.Convert]::FromBase64String($responseContent)
 
@@ -114,16 +127,27 @@ Function RenewCertificateMTLS {
     $newCertificate = $leafCertificate
 
     # Merge new certificate with private key
-    $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+    if ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
+        $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+    } elseif ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
+        $newCertificateWithPrivateKey = [RSACertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+    } else {
+        throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
+    }
+    Write-Verbose "New certificate $($newCertificateWithPrivateKey.HasPrivateKey?"with":"without") private key: $($newCertificateWithPrivateKey.Subject)"
 
     if ($Machine) {
         $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
     } else {
         $store = [X509Store]::new("My", [StoreLocation]::CurrentUser)
     }
+
+    Read-Host "Press Enter to add the new certificate to the store"
+
     $store.Open([OpenFlags]::ReadWrite)
     $store.Add($newCertificateWithPrivateKey)
     $store.Close()
+
 }
 
 Function GetSCEPmanCerts {
@@ -167,24 +191,33 @@ Function GetSCEPmanCerts {
 
     # Find all certificates in the 'My' stores that are issued by the downloaded certificate
     if ($Machine) {
-        $certs = Get-ChildItem -Path "Cert:\LocalMachine\My" | Where-Object { $_.Issuer -eq $rootCert.Subject }
+        $certs = Get-ChildItem -Path "Cert:\LocalMachine\My"
         Write-Information "Found $($certs.Count) machine certificates"
     } elseif ($User) {
-        $certs = Get-ChildItem -Path "Cert:\CurrentUser\My" | Where-Object { $_.Issuer -eq $rootCert.Subject }
+        $certs = Get-ChildItem -Path "Cert:\CurrentUser\My"
         Write-Information "Found $($certs.Count) user certificates"
     }
+
+    $certs = $certs | Where-Object { $_.Issuer -eq $rootCert.Subject }
+    Write-Information "Found $($certs.Count) certificates issued by the root certificate $($rootCert.Subject)"
+
+    $certs = $certs | Where-Object { $_.HasPrivateKey }  # We can only renew certificates with private keys
+    Write-Information "Found $($certs.Count) certificates with private keys"
 
     if ($FilterString) {
         $certs = $certs | Where-Object { $_.Subject -Match $FilterString } 
     }
+    Write-Information "Found $($certs.Count) certificates with filter string '$FilterString'"
+
     if (!($ValidityThresholdDays)) {
         $ValidityThresholdDays = 30  # Default is 30 days
     }
     $ValidityThreshold = New-TimeSpan -Days $ValidityThresholdDays
     $certs = $certs | Where-Object { $ValidityThreshold -ge $_.NotAfter.Subtract([DateTime]::UtcNow) }
+    Write-Information "Found $($certs.Count) certificates that are within $ValidityThresholdDays days of expiry"
 
     $certs | ForEach-Object {
-        Write-Information "Found certificate issued by your SCEPman root:"
+        Write-Information "These certificates are applicable for renewal:"
         Write-Information "    Subject: $($_.Subject)"
         Write-Information "    Issuer: $($_.Issuer)"
         Write-Information "    Thumbprint: $($_.Thumbprint)"
