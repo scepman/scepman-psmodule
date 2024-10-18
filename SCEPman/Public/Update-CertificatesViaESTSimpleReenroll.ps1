@@ -111,9 +111,9 @@ Function RenewCertificateMTLS {
 
     [X509Certificate2Collection]$collectionForNewCertificate = [X509Certificate2Collection]::new()
     if ($Machine) {
-        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::MachineKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
+        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::MachineKeySet)
     } else {
-        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
+        $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::UserKeySet)
     }
 
     if ($collectionForNewCertificate.Count -eq 0) {
@@ -128,24 +128,25 @@ Function RenewCertificateMTLS {
 
     # Merge new certificate with private key
     if ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
-        $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+        $newCertificateWithEphemeralPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
     } elseif ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
-        $newCertificateWithPrivateKey = [RSACertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+        $newCertificateWithEphemeralPrivateKey = [RSACertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
     } else {
         throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
     }
-    Write-Verbose "New certificate $($newCertificateWithPrivateKey.HasPrivateKey?"with":"without") private key: $($newCertificateWithPrivateKey.Subject)"
+    Write-Verbose "New certificate $($newCertificateWithEphemeralPrivateKey.HasPrivateKey?"with":"without") private key: $($newCertificateWithEphemeralPrivateKey.Subject)"
+    $binNewCertPfx = $newCertificateWithEphemeralPrivateKey.Export([X509ContentType]::Pkcs12, "password")
+    $issuedCertificateAndPrivate = [X509Certificate2]::new($binNewCertPfx, "password", [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
+
+    # Add the new certificate to the store
 
     if ($Machine) {
-        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
+        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     } else {
-        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser)
+        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     }
 
-    Read-Host "Press Enter to add the new certificate to the store"
-
-    $store.Open([OpenFlags]::ReadWrite)
-    $store.Add($newCertificateWithPrivateKey)
+    $store.Add($issuedCertificateAndPrivate)
     $store.Close()
 
 }
