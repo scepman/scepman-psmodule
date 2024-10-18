@@ -142,7 +142,7 @@ public static class CertificateExtensionsCommon
 }
 '@
 
-function AddCngKey([X509Certificate2]$x509Certificate, [CngKey]$cngKey) {
+function AddCngKey([System.Security.Cryptography.X509Certificates.X509Certificate2]$x509Certificate, [System.Security.Cryptography.CngKey]$cngKey) {
     if ($IsWindows) {
         Add-Type -TypeDefinition $cSharpCodeToMergeCertificateAndPrivateKey -Language CSharp
         [CertificateExtensionsCommon]::AddCngKey($x509Certificate, $cngKey)

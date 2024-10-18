@@ -73,7 +73,7 @@ Function RenewCertificateMTLS {
         $privateKey = [System.Security.Cryptography.ECDsa]::Create($curve)
         $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
     } elseif ($Certificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
-        $privateKey = [System.Security.Cryptography.RSA]::Create($Certificate.PublicKey.Key.KeySize)
+        $privateKey = [System.Security.Cryptography.RSACng]::new($Certificate.PublicKey.Key.KeySize)
         $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
     } else {
         throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
@@ -120,21 +120,22 @@ Function RenewCertificateMTLS {
         throw "No certificates were imported from $url"
     }
 
-    $leafCertificate = $collectionForNewCertificate | Where-Object { -not (IsCertificateCaOfACertificateInTheCollection -PossibleCaCertificate $_ -Certificates $collectionForNewCertificate) }
-    if ($leafCertificate.Count -ne 1) {
+    $leafCertificates = $collectionForNewCertificate | Where-Object { -not (IsCertificateCaOfACertificateInTheCollection -PossibleCaCertificate $_ -Certificates $collectionForNewCertificate) }
+    if ($leafCertificates.Count -ne 1) {
         throw "We received $($collectionForNewCertificate.Count) certificates from $url. Among them, we identified $($leafCertificate.Count) leaf certificates. We support only a single leaf certificate."
     }
-    $newCertificate = $leafCertificate
+    $newCertificate = $leafCertificates
+    AddCngKey -x509Certificate $newCertificate -cngKey $privateKey.Key
 
-    # Merge new certificate with private key
-    if ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
-        $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
-    } elseif ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
-        $newCertificateWithPrivateKey = [RSACertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
-    } else {
-        throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
-    }
-    Write-Verbose "New certificate $($newCertificateWithPrivateKey.HasPrivateKey?"with":"without") private key: $($newCertificateWithPrivateKey.Subject)"
+    # # Merge new certificate with private key
+    # if ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
+    #     $newCertificateWithPrivateKey = [ECDsaCertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+    # } elseif ($newCertificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {
+    #     $newCertificateWithPrivateKey = [RSACertificateExtensions]::CopyWithPrivateKey($newCertificate, $privateKey)
+    # } else {
+    #     throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
+    # }
+    Write-Verbose "New certificate $($newCertificate.HasPrivateKey?"with":"without") private key: $($newCertificate.Subject)"
 
     if ($Machine) {
         $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
@@ -145,7 +146,7 @@ Function RenewCertificateMTLS {
     Read-Host "Press Enter to add the new certificate to the store"
 
     $store.Open([OpenFlags]::ReadWrite)
-    $store.Add($newCertificateWithPrivateKey)
+    $store.Add($newCertificate)
     $store.Close()
 
 }
