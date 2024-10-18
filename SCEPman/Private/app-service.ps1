@@ -63,7 +63,7 @@ function New-CertMasterAppService {
 
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
-    $ShallCreateCertMasterAppService = $null -eq $CertMasterAppServiceName
+    $ShallCreateCertMasterAppService = [String]::IsNullOrWhiteSpace($CertMasterAppServiceName)
   } else {
     # Check whether a cert master app service with the passed in name exists
     $CertMasterWebApps = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
@@ -72,7 +72,7 @@ function New-CertMasterAppService {
 
   $scwebapp = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'")
 
-  if($null -eq $CertMasterAppServiceName) {
+  if([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = $scwebapp.data.name
     if ($CertMasterAppServiceName.Length -gt 57) {
       $CertMasterAppServiceName = $CertMasterAppServiceName.Substring(0,57)
@@ -94,12 +94,12 @@ function New-CertMasterAppService {
 
     $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
     if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, ("Creating Certificate Master App Service with .NET Runtime {0}" -f $runtime))) {
-      $null = az webapp create --resource-group $CertMasterResourceGroup --plan $scwebapp.data.properties.serverFarmId --name $CertMasterAppServiceName --assign-identity [system] --runtime $runtime
+      $null = Invoke-Az @("webapp", "create", "--resource-group", $CertMasterResourceGroup, "--plan", $scwebapp.data.properties.serverFarmId, "--name", $CertMasterAppServiceName, "--assign-identity", "[system]", "--https-only", 'true', "--runtime", $runtime)
       Write-Information "CertMaster web app $CertMasterAppServiceName created"
 
       # Do all the configuration that the ARM template does normally
       $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
-      if ($null -ne $DeploymentSlotName) {
+      if (-not [String]::IsNullOrWhiteSpace($DeploymentSlotName)) {
           $selectedSlot = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
           $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
@@ -112,9 +112,8 @@ function New-CertMasterAppService {
       $CertMasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettingsTable -convertForLinux $isCertMasterLinux
 
       Write-Verbose 'Configuring CertMaster web app settings'
-      $null = az webapp config set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --use-32bit-worker-process $false --ftps-state 'Disabled' --always-on $true
-      $null = az webapp update --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --https-only $true
-      $null = az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings $CertMasterAppSettingsJson
+      $null = Invoke-Az -azCommand @( "webapp", "config", "appsettings", "set", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--settings", $CertMasterAppSettingsJson)
+      $null = Invoke-Az -azCommand @( "webapp", "config", "set", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
     }
     else {
       return "Skipped"

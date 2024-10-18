@@ -7,6 +7,10 @@ BeforeAll {
 }
 
 Describe 'App Service' {
+    BeforeAll {
+        EnsureNoAdditionalAzCalls
+    }
+
     It 'Finds a good DotNet Runtime' {
 
         Mock Invoke-Az {
@@ -59,13 +63,78 @@ Describe 'App Service' {
             return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
 
-        Mock az {
-            throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
-        }
-
         $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
 
         $slots.Count | Should -Be 1
         $slots[0].Name | Should -Be "ds1"
+    }
+
+    Context 'New-CertMasterAppService' {
+        BeforeAll {
+            # Mock finding the SCEPman App Service
+            Mock az {
+                return "{
+                            'data' : {
+                                'name' : 'as-scepman',
+                                'properties' : {
+                                    'serverFarmId' : 'subscriptionid/asp-scepman',
+                                    'defaultHostName' : 'as-scepman'
+                                }
+                            }
+                        }"
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query -q "Resources' -azCommandMidfix "'as-scepman'"}
+
+            # Mock check that the App Service is Windows
+            Mock az {
+                return 'app'    # this is the output for a Windows App Service; it would be 'app,linux' for a Linux App Service
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
+        }
+
+        It 'Works when CertMaster is already installed' {
+            #Arrange
+            Mock GetCertMasterAppServiceName {
+                return "as-scepman-cm"
+            }
+
+            # Act
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
+
+            # Assert
+            $certMaster | Should -Be "as-scepman-cm"
+        }
+
+        It 'Installs CertMaster when it is not there yet' {
+            #Arrange
+            Mock GetCertMasterAppServiceName {
+                return $null
+            }
+
+            Mock Read-Host {
+                return "as-scepman-cm"
+            } -ParameterFilter { ($Prompt -join '').Contains("enter the name") }
+
+                # Mock creating the CertMaster App Service
+            Mock az {
+                return "excellent!" # the script ignores the output, although actually there would be output
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
+
+            Mock az {
+                return $null
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
+
+            Mock az {
+                return $null
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
+
+            # Act
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
+
+            # Assert
+            $certMaster | Should -Be "as-scepman-cm"
+
+            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
+            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
+            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
+        }
     }
 }

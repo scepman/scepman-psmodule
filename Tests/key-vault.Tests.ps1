@@ -49,8 +49,6 @@ Describe 'CA Generation Policies' {
             $policy.policy.x509_props.subject += ",O=Test Organization"
 
             Mock ExecuteAzCommandRobustly {
-                param($azCommand, [switch]$callAzNatively)
-
                 return '{ "val": "x", "request_id": "123", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}'
             }
         }
@@ -81,7 +79,7 @@ Describe 'Key Vault' {
             throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
 
           } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'keyvault set-policy' }
-        
+
         Mock az {
             throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
         }
@@ -113,7 +111,7 @@ Describe 'Key Vault' {
             throw "Unexpected set of permissions set on Key Vault: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
 
           } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'role assignment create' -azCommandSuffix $keyVaultId }
-        
+
         Mock az {
             throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
         }
