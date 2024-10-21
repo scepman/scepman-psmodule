@@ -142,6 +142,8 @@ Function RenewCertificateMTLS {
     $store.Close()
     Write-Information "Certificate added to the store $($store.Name). It is valid until $($issuedCertificateAndPrivate.NotAfter.ToString('u'))"
     $store.Dispose()
+
+    return $issuedCertificateAndPrivate
 }
 
 Function CreateRandomSecureStringPassword {

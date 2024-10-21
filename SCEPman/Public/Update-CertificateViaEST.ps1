@@ -57,7 +57,7 @@ Function Update-CertificateViaEST {
 
     PROCESS {
         # Renew all certs
-        $Certificate | ForEach-Object {
+        return $Certificate | ForEach-Object {
             RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -Certificate $_
         }
     }
