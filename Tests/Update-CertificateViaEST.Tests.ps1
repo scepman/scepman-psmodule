@@ -1,6 +1,6 @@
 BeforeAll {
     . $PSScriptRoot/../SCEPman/Private/estclient.ps1
-    . $PSScriptRoot/../SCEPman/Public/Update-CertificatesViaESTSimpleReenroll.ps1
+    . $PSScriptRoot/../SCEPman/Public/Update-CertificateViaEST.ps1
 }
 
 Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
