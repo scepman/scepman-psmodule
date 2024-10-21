@@ -167,7 +167,8 @@ Function GetSCEPmanCerts {
         [Parameter(Mandatory=$false)]
         [string]$FilterString,
         [Parameter(Mandatory=$false)]
-        [string]$ValidityThresholdDays
+        [AllowNull()]
+        [Nullable[System.Int32]]$ValidityThresholdDays
     )
 
     if (!$User -and !$Machine -or $User -and $Machine) {

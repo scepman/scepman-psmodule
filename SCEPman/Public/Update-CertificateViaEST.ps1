@@ -37,14 +37,15 @@ Function Update-CertificateViaEST {
         [Parameter(Mandatory=$false)]
         [string]$FilterString,
         [Parameter(Mandatory=$false)]
-        [string]$ValidityThresholdDays
+        [AllowNull()]
+        [Nullable[System.Int32]]$ValidityThresholdDays
     )
 
     if(-not $IsWindows) {
         throw "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
     }
 
-    if ($null -ne $Certificate -and ($null -ne $FilterString -or $null -ne $ValidityThresholdDays)) {
+    if ($null -ne $Certificate -and -not ([string]::IsNullOrEmpty($FilterString) -and $null -eq $ValidityThresholdDays)) {
         throw "You must not specify -Certificate with -FilterString or -ValidityThresholdDays. Use -Certificate to renew a single certificate. Use -FilterString and -ValidityThresholdDays to seach for certificates to renew."
     }
     if ($null -ne $Certificate) {
