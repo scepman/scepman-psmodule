@@ -1,4 +1,5 @@
 BeforeAll {
+    . $PSScriptRoot/../SCEPman/Private/estclient.ps1
     . $PSScriptRoot/../SCEPman/Public/Update-CertificatesViaESTSimpleReenroll.ps1
 }
 
