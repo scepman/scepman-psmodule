@@ -123,8 +123,8 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=UserCertificate") -and $_.Subject.Contains("OU=PesterTest") }
 
             Mock CreateHttpClient {
-                $HttpClientHandler | Should -Not -BeNull
-                $HttpClientHandler.ClientCertificates | Should -HaveCount 1
+                $HttpMessageHandler | Should -Not -BeNull
+                $HttpMessageHandler.ClientCertificates | Should -HaveCount 1
 
                 $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
                     Send = { 
@@ -147,8 +147,11 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                             [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
                             [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
                         )
-                        $issuedCert = $IncomingRequest.Create(
-                            $script:testroot,   # CA certificate
+                        $rootPrivateKey = [System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions]::GetECDsaPrivateKey($script:testroot)
+                        $rootSignatureGenerator = [System.Security.Cryptography.X509Certificates.X509SignatureGenerator ]::CreateForECDsa($rootPrivateKey)
+                        $issuedCert = $IncomingRequest.Create(  # For some reason, we cannot use the overload taking a certificate, as they require that the algorithm for the issuer and subject cert are the same
+                            $script:testroot.Subject,  # Issuer Name
+                            $rootSignatureGenerator,   # CA certificate
                             [System.DateTime]::UtcNow, # Not Before
                             [System.DateTime]::UtcNow.AddYears(1), # Not After
                             [byte[]]@(0x40,2,3,4)  # Serial number
