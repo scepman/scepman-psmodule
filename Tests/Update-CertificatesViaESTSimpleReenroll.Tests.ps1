@@ -6,11 +6,11 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
     Context 'Update-CertificatesViaESTSimpleReenroll' {
         It 'Fails if both -user and -machine are specified' {
-            { Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" -User -Machine } | Should -Throw 'You must specify either -User or -Machine.'
+            { Update-CertificateViaEST -AppServiceUrl "https://test.com" -User -Machine } | Should -Throw 'You must specify either -User or -Machine.'
         }
 
         It 'Fails if neither -user nor -machine are specified' {
-            { Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" } | Should -Throw 'You must specify either -User or -Machine.'
+            { Update-CertificateViaEST -AppServiceUrl "https://test.com" } | Should -Throw 'You must specify either -User or -Machine.'
         }
     }
 
@@ -38,7 +38,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 $AppServiceUrl | Should -Be "https://test.com"
             }
 
-            Update-CertificatesViaESTSimpleReenroll -AppServiceUrl "https://test.com" -User
+            Update-CertificateViaEST -AppServiceUrl "https://test.com" -User
 
             Should -Invoke -CommandName RenewCertificateMTLS -Exactly 2
         }
@@ -164,6 +164,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
                         return $response
                     }
+                    Dispose = { }
                 }
 
                 return $clientMock
