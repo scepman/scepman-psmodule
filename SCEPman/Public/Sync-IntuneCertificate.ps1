@@ -5,7 +5,7 @@
 #>
 function Sync-IntuneCertificate
 {
-  [CmdletBinding()]
+  [CmdletBinding(SupportsShouldProcess=$true)]
   param(
     $CertMasterAppServiceName,
     $CertMasterResourceGroup,
@@ -63,7 +63,9 @@ function Sync-IntuneCertificate
 
     # Expose CertMaster API
     Write-Information "Making sure that Certificate Master exposes its API"
-    ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
+    if ($PSCmdlet.ShouldProcess("Certificate Master App Registration ($CertMasterAppId)", "Expose its API")) {
+      ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
+    }
 
     # Add az as Client Application to SCEPman-CertMaster
     Write-Information "Making sure that az is authorized to access Certificate Master"
@@ -147,44 +149,46 @@ function Sync-IntuneCertificate
       ) {
         Write-Verbose "Syncing certificates with filter '$currentSearchFilter'"
 
-        # Invoke-RestMethod is not possible, since we would lose access to the StatusCode. Therefore we must parse the JSON manually.
-        $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/maintenance/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
+        if ($PSCmdlet.ShouldProcess("Certificate Master on $CertMasterBaseURL", "Sync Certificates matching filter $currentSearchFilter")) {
+          # Invoke-RestMethod is not possible, since we would lose access to the StatusCode. Therefore we must parse the JSON manually.
+          $result = Invoke-WebRequest -Method Post -Uri "$CertMasterBaseURL/api/maintenance/migrate-certificates/$currentSearchFilter" -Authentication Bearer -Token $cm_token -UseBasicParsing -SkipHttpErrorCheck
 
-        switch ($result.StatusCode) {
-          201 { # Created
-            $jsonContent = $result.Content | ConvertFrom-Json
-            Write-Information "Successfully synced $($jsonContent.SuccessfulCertificates) certificates with filter '$currentSearchFilter'; $($jsonContent.SkippedCertificates) were skipped; There were $($jsonContent.FailedCertificates) certificate failures"
-            $totalSuccessCount += $jsonContent.SuccessfulCertificates
-            $totalSkippedCount += $jsonContent.SkippedCertificates
-            $totalFailedCount += $jsonContent.FailedCertificates
-            $retryAuthorization = $true
-          }
-          401 { # Unauthorized
-            if ($retryAuthorization) {
-              Write-Warning "Unauthorized to sync certificates with filter '$currentSearchFilter'. Retrying with new token..."
-              $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
-              $retryAuthorization = $false
-            } else {
-              Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
-              throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+          switch ($result.StatusCode) {
+            201 { # Created
+              $jsonContent = $result.Content | ConvertFrom-Json
+              Write-Information "Successfully synced $($jsonContent.SuccessfulCertificates) certificates with filter '$currentSearchFilter'; $($jsonContent.SkippedCertificates) were skipped; There were $($jsonContent.FailedCertificates) certificate failures"
+              $totalSuccessCount += $jsonContent.SuccessfulCertificates
+              $totalSkippedCount += $jsonContent.SkippedCertificates
+              $totalFailedCount += $jsonContent.FailedCertificates
+              $retryAuthorization = $true
             }
-          }
-          504 { # Gateway Timeout
-            $jsonContent = $result.Content | ConvertFrom-Json
-            Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($jsonContent.SuccessfulCertificates) certificates were synched and $($jsonContent.SkippedCertificates) were skipped, while $($jsonContent.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
-            $totalSuccessCount += $jsonContent.SuccessfulCertificates
-            $totalSkippedCount += $jsonContent.SkippedCertificates
-            $totalFailedCount += $jsonContent.FailedCertificates
-            $currentSearchFilter += 'x' # The special code for "retry with more narrow search filter"
-            if ($currentSearchFilter.Length -gt 8) {
-              Write-Error "The search filter is already very narrow, but still the gateway timed out. Giving up."
-              throw "The search filter is already very narrow, but still the gateway timed out. Giving up."
+            401 { # Unauthorized
+              if ($retryAuthorization) {
+                Write-Warning "Unauthorized to sync certificates with filter '$currentSearchFilter'. Retrying with new token..."
+                $cm_token = Get-AccessTokenForApp -Scope "api://$CertMasterAppId/.default"
+                $retryAuthorization = $false
+              } else {
+                Write-Error "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+                throw "Unauthorized to sync certificates with filter '$currentSearchFilter'"
+              }
             }
-            $retryAuthorization = $true
-          }
-          default {
-            Write-Error "Failed to sync certificates with filter '$currentSearchFilter' with status code $($result.StatusCode) and content [$($result.Content)]"
-            throw "Failed to sync certificates with filter '$currentSearchFilter'"
+            504 { # Gateway Timeout
+              $jsonContent = $result.Content | ConvertFrom-Json
+              Write-Information "Gateway Timeout while syncing certificates with filter '$currentSearchFilter'. Before this, $($jsonContent.SuccessfulCertificates) certificates were synched and $($jsonContent.SkippedCertificates) were skipped, while $($jsonContent.FailedCertificates) certificates failed. Retrying with more narrow search filter..."
+              $totalSuccessCount += $jsonContent.SuccessfulCertificates
+              $totalSkippedCount += $jsonContent.SkippedCertificates
+              $totalFailedCount += $jsonContent.FailedCertificates
+              $currentSearchFilter += 'x' # The special code for "retry with more narrow search filter"
+              if ($currentSearchFilter.Length -gt 8) {
+                Write-Error "The search filter is already very narrow, but still the gateway timed out. Giving up."
+                throw "The search filter is already very narrow, but still the gateway timed out. Giving up."
+              }
+              $retryAuthorization = $true
+            }
+            default {
+              Write-Error "Failed to sync certificates with filter '$currentSearchFilter' with status code $($result.StatusCode) and content [$($result.Content)]"
+              throw "Failed to sync certificates with filter '$currentSearchFilter'"
+            }
           }
         }
       }

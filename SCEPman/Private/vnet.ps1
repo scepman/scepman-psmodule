@@ -51,7 +51,7 @@ function RandomizeIpRangePrefix ([string]$inputString) {
     .EXAMPLE
     $ipRangePrefix = RandomizeIpRangePrefix -inputString "abcxyz"
     Write-Output $ipRangePrefix
-    # Output: "10.123.45." (example output, actual values will vary)
+    # Output: "10.123.45" (example output, actual values will vary)
     #>
 
    # Generate a hash from the input string
@@ -62,5 +62,5 @@ function RandomizeIpRangePrefix ([string]$inputString) {
    $thirdByte = [Math]::Min([Math]::Max($hashBytes[1], 1), 254)
 
    # Form the IP range prefix
-   return "10.$secondByte.$thirdByte."
+   return "10.$secondByte.$thirdByte"
 }
