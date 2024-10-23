@@ -37,11 +37,30 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 $User | Should -Be $true
                 $Machine | Should -Be $false
                 $AppServiceUrl | Should -Be "https://test.com"
+
+                return "New certificate $($Certificate.Subject)"
+            }
+
+            $certs = Update-CertificateViaEST -AppServiceUrl "https://test.com" -User
+
+            $certs | Should -HaveCount 2
+            Should -Invoke -CommandName RenewCertificateMTLS -Exactly 2
+        }
+
+        It 'Terminates gracefully if no certificate is found' {
+            Mock GetSCEPmanCerts {
+                return @()
+            }
+
+            Mock RenewCertificateMTLS {
+                param($Certificate, $AppServiceUrl, [switch]$User, [switch]$Machine)
+
+                throw "Should not be called"
             }
 
             Update-CertificateViaEST -AppServiceUrl "https://test.com" -User
 
-            Should -Invoke -CommandName RenewCertificateMTLS -Exactly 2
+            Should -Invoke -CommandName RenewCertificateMTLS -Exactly 0
         }
 
         Context 'GetSCEPmanCerts' {
