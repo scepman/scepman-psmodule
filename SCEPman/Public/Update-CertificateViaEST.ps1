@@ -26,7 +26,8 @@
 Function Update-CertificateViaEST {
     [CmdletBinding(DefaultParameterSetName='Search')]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory, ParameterSetName='Search')]
+        [Parameter(Mandatory=$false, ParameterSetName='Direct')]
         [string]$AppServiceUrl,
         [Parameter(Mandatory=$true, ValueFromPipeline = $true, ParameterSetName='Direct')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2[]]$Certificate,

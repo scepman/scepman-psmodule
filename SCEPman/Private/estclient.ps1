@@ -27,7 +27,7 @@ Function RenewCertificateMTLS {
     param (
         [Parameter(Mandatory=$true)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [string]$AppServiceUrl,
         [Parameter(Mandatory=$false)]
         [switch]$User,
@@ -45,6 +45,23 @@ Function RenewCertificateMTLS {
         }
     } elseif ($User -and $Machine) {
         throw "You must not specific both -user or -machine."
+    }
+
+    if ([string]::IsNullOrEmpty($AppServiceUrl)) {
+        Write-Verbose "No AppServiceUrl was specified. Trying to get the AppServiceUrl from the certificate's AIA extension."
+        $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
+        if ($null -eq $AiaExtension) {
+            throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+        }
+
+        $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
+        if ($CaUrls.Count -eq 0) {
+            throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
+        }
+        $AppServiceUrl = $CaUrls[0] # This contains some path for the CA download that we still need to cut off
+        Write-Verbose "Found AIA CA URL in certificate: $AppServiceUrl"
+        $AppServiceUrl = $AppServiceUrl.Substring(0, $AppServiceUrl.IndexOf('/', "https://".Length))
+        Write-Information "Inferred AppServiceUrl from AIA extension: $AppServiceUrl"
     }
 
     $AppServiceUrl = $AppServiceUrl.TrimEnd('/')
