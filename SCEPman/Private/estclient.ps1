@@ -91,8 +91,11 @@ Function RenewCertificateMTLS {
     Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
 
     $handler = New-Object HttpClientHandler
-    $null = $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
     $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
+    $null = $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
+    # However, it only works with certificates having the Client Authentication EKU. This is because Certificate Helper filters for this EKU: https://github.com/dotnet/runtime/blob/a0fdddab98ad95186d84d4667df4db8a4e651990/src/libraries/Common/src/System/Net/Security/CertificateHelper.cs#L12
+    # And HttpClientHandler sets this method as the Callback: https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/HttpClientHandler.cs#L271
+    # TODO: Add support for other EKUs
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
     $requestmessage.Content = [System.Net.Http.StringContent]::new(
