@@ -137,6 +137,29 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             }
             $script:testroot = New-SelfSignedCertificate @rootCaGenerationParameters
             New-SelfSignedCertificate -Subject "CN=UserCertificate,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
+
+            function IssueCertificate($csr) {
+                $csr | Should -Match "-----BEGIN (NEW )?CERTIFICATE REQUEST-----"
+                $csr = $csr.Replace('NEW CERTIFICATE REQUEST', 'CERTIFICATE REQUEST')   # Replace the old-style header with the RFC-7468-compliant one
+
+                    # Mock the EST server, this is the code for a little CA
+                $IncomingRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::LoadSigningRequestPem(
+                    $csr,
+                    [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+                    [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
+                    [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+                )
+                $rootPrivateKey = [System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions]::GetECDsaPrivateKey($script:testroot)
+                $rootSignatureGenerator = [System.Security.Cryptography.X509Certificates.X509SignatureGenerator ]::CreateForECDsa($rootPrivateKey)
+                $issuedCert = $IncomingRequest.Create(  # For some reason, we cannot use the overload taking a certificate, as they require that the algorithm for the issuer and subject cert are the same
+                    $script:testroot.Subject,  # Issuer Name
+                    $rootSignatureGenerator,   # CA certificate
+                    [System.DateTime]::UtcNow, # Not Before
+                    [System.DateTime]::UtcNow.AddYears(1), # Not After
+                    [byte[]]@(0x40,2,3,4)  # Serial number
+                )
+                return $issuedCert
+            }
         }
 
         It 'Should renew a certificate' {
@@ -157,25 +180,9 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                         $request.Content.Headers.ContentType | Should -Be "application/pkcs10"
                         $requestBody = $request.Content.ReadAsStringAsync().Result
 
-                        $requestBody | Should -Match "-----BEGIN (NEW )?CERTIFICATE REQUEST-----"
-                        $requestBody = $requestBody.Replace('NEW CERTIFICATE REQUEST', 'CERTIFICATE REQUEST')   # Replace the old-style header with the RFC-7468-compliant one
+                            # Mock the EST server
+                        $issuedCert = IssueCertificate($requestBody)
 
-                            # Mock the EST server, this is the code for a little CA
-                        $IncomingRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::LoadSigningRequestPem(
-                            $requestBody,
-                            [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-                            [System.Security.Cryptography.X509Certificates.CertificateRequestLoadOptions]::UnsafeLoadCertificateExtensions,
-                            [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
-                        )
-                        $rootPrivateKey = [System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions]::GetECDsaPrivateKey($script:testroot)
-                        $rootSignatureGenerator = [System.Security.Cryptography.X509Certificates.X509SignatureGenerator ]::CreateForECDsa($rootPrivateKey)
-                        $issuedCert = $IncomingRequest.Create(  # For some reason, we cannot use the overload taking a certificate, as they require that the algorithm for the issuer and subject cert are the same
-                            $script:testroot.Subject,  # Issuer Name
-                            $rootSignatureGenerator,   # CA certificate
-                            [System.DateTime]::UtcNow, # Not Before
-                            [System.DateTime]::UtcNow.AddYears(1), # Not After
-                            [byte[]]@(0x40,2,3,4)  # Serial number
-                        )
                         $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
                         $b64Cert = [Convert]::ToBase64String($binCert)
 
@@ -200,6 +207,23 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
             # Cleanup
             $newCert | Remove-Item -Force
+        }
+
+        It 'Should find the leaf certificate in a chain' {
+            # Arrange
+            $privateKey = [System.Security.Cryptography.RSA]::Create($Certificate.PublicKey.Key.KeySize)
+            $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+            $sCertRequest = $oCertRequest.CreateSigningRequestPem()
+    
+            $leafCertificate = IssueCertificate($sCertRequest)
+
+            $collection = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
+            $collection.Add($leafCertificate)
+            $collection.Add($script:testroot)
+
+            # Act & Assert
+            IsCertificateCaOfACertificateInTheCollection -PossibleCaCertificate $leafCertificate -Certificates $collection | Should -Be $false
+            IsCertificateCaOfACertificateInTheCollection -PossibleCaCertificate $script:testroot -Certificates $collection | Should -Be $true
         }
 
         AfterAll {

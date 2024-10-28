@@ -18,7 +18,7 @@ Function IsCertificateCaOfACertificateInTheCollection {
         [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]$Certificates
     )
 
-    $issuedCertificates = $certificates | Where-Object { $_.Issuer -eq $RootCertificate.Subject }
+    $issuedCertificates = $certificates | Where-Object { $_.Issuer -eq $PossibleCaCertificate.Subject }
     return $issuedCertificates.Count -gt 0
 }
 
