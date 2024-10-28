@@ -53,8 +53,6 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             }
 
             Mock RenewCertificateMTLS {
-                param($Certificate, $AppServiceUrl, [switch]$User, [switch]$Machine)
-
                 throw "Should not be called"
             }
 
