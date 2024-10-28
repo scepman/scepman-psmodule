@@ -92,8 +92,6 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
                 $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45
 
-                
-
                 $foundCerts | Should -HaveCount 0
             }
 
@@ -170,7 +168,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 $HttpMessageHandler.ClientCertificates | Should -HaveCount 1
 
                 $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
-                    Send = { 
+                    Send = {
                         param([System.Net.Http.HttpRequestMessage]$request)
 
                         $request | Should -Not -BeNull

@@ -132,7 +132,7 @@ Function RenewCertificateMTLS {
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
     $requestmessage.Content = [System.Net.Http.StringContent]::new(
-        $sCertRequest,  
+        $sCertRequest,
         [System.Text.Encoding]::UTF8,"application/pkcs10"
     )
     $requestmessage.Content.Headers.ContentType = "application/pkcs10"
@@ -277,7 +277,7 @@ Function GetSCEPmanCerts {
     Write-Verbose "Found $($certs.Count) certificates with private keys"
 
     if ($FilterString) {
-        $certs = $certs | Where-Object { $_.Subject -Match $FilterString } 
+        $certs = $certs | Where-Object { $_.Subject -Match $FilterString }
     }
     Write-Verbose "Found $($certs.Count) certificates with filter string '$FilterString'"
 

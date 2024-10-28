@@ -9,7 +9,7 @@
   The certificate to renew. Either this or User/Machine must be set.
 
  .Parameter User
-  Set this flag to renew a user certificate. 
+  Set this flag to renew a user certificate.
 
  .Parameter Machine 
   Set this flag to renew a machine certificate. (Either User or Machine must be set)
