@@ -11,7 +11,7 @@
  .Parameter User
   Set this flag to renew a user certificate.
 
- .Parameter Machine 
+ .Parameter Machine
   Set this flag to renew a machine certificate. (Either User or Machine must be set)
 
  .Parameter FilterString
@@ -25,6 +25,7 @@
 #>
 Function Update-CertificateViaEST {
     [CmdletBinding(DefaultParameterSetName='Search')]
+    [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2[]])]
     param (
         [Parameter(Mandatory, ParameterSetName='Search')]
         [Parameter(Mandatory=$false, ParameterSetName='Direct')]

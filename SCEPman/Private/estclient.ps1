@@ -43,6 +43,7 @@ Add-Type -TypeDefinition $csCodeSelectFirstCertificateCallback -Language CSharp
 
 Function RenewCertificateMTLS {
     [CmdletBinding()]
+    [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
     param (
         [Parameter(Mandatory=$true)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
