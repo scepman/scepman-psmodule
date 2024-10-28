@@ -112,11 +112,10 @@ Function RenewCertificateMTLS {
     # HttpClientHandler works generally for mTLS.
     # However, it only works with certificates having the Client Authentication EKU. This is because Certificate Helper filters for this EKU: https://github.com/dotnet/runtime/blob/a0fdddab98ad95186d84d4667df4db8a4e651990/src/libraries/Common/src/System/Net/Security/CertificateHelper.cs#L12
     # And HttpClientHandler sets this method as the Callback: https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/HttpClientHandler.cs#L271
-    
+
     # Hence, we need to use SocketsHttpHandler instead. It allows more control over the SSL options.
     Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
     $handler = New-Object SocketsHttpHandler
-    
 
     # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
     try {

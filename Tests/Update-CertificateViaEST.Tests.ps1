@@ -210,7 +210,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             $privateKey = [System.Security.Cryptography.RSA]::Create($Certificate.PublicKey.Key.KeySize)
             $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
             $sCertRequest = $oCertRequest.CreateSigningRequestPem()
-    
+
             $leafCertificate = IssueCertificate($sCertRequest)
 
             $collection = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
