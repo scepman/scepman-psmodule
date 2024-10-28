@@ -22,6 +22,25 @@ Function IsCertificateCaOfACertificateInTheCollection {
     return $issuedCertificates.Count -gt 0
 }
 
+# Define this callback in C#, so it doesn't require a PowerShell runspace to run. This way, it can be called back in a different thread.
+$csCodeSelectFirstCertificateCallback = @'
+public static class CertificateCallbacks
+{
+    public static System.Security.Cryptography.X509Certificates.X509Certificate SelectFirstCertificate(
+        object sender,
+        string targetHost,
+        System.Security.Cryptography.X509Certificates.X509CertificateCollection localCertificates,
+        System.Security.Cryptography.X509Certificates.X509Certificate remoteCertificate,
+        string[] acceptableIssuers)
+    {
+        return localCertificates[0];
+    }
+
+    public static System.Net.Security.LocalCertificateSelectionCallback SelectionCallback => SelectFirstCertificate;
+}
+'@
+Add-Type -TypeDefinition $csCodeSelectFirstCertificateCallback -Language CSharp
+
 Function RenewCertificateMTLS {
     [CmdletBinding()]
     param (
@@ -85,17 +104,31 @@ Function RenewCertificateMTLS {
     Write-Information "Certificate request created"
 
     # Create renewed version of certificate.
-    # Invoke-WebRequest would be easiest option - but doesn't work due to nature of cmd
-    # Invoke-WebRequest -Certificate certificate-test.pfx -Body $Body -ContentType "application/pkcs10" -Credential "5hEgpuJQI5afsY158Ot5A87u" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -OutFile outfile.txt
-    # So use HTTPClient instead
-    Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
+    # Invoke-WebRequest would be easiest option - but doesn't work due -- seemingly, the certificate is not being sent. Maybe, the server must require client certificates.
+    #$Response =  Invoke-WebRequest -Certificate $Certificate -Body $sCertRequest -ContentType "application/pkcs10" -Uri "$AppServiceUrl/.well-known/est/simplereenroll" -Method POST
+    # So use HTTPClient instead.
 
-    $handler = New-Object HttpClientHandler
-    $handler.ClientCertificateOptions = [System.Net.Http.ClientCertificateOption]::Manual
-    $null = $handler.ClientCertificates.Add($Certificate)   # This will make it mTLS
+    # HttpClientHandler works generally for mTLS.
     # However, it only works with certificates having the Client Authentication EKU. This is because Certificate Helper filters for this EKU: https://github.com/dotnet/runtime/blob/a0fdddab98ad95186d84d4667df4db8a4e651990/src/libraries/Common/src/System/Net/Security/CertificateHelper.cs#L12
     # And HttpClientHandler sets this method as the Callback: https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/HttpClientHandler.cs#L271
-    # TODO: Add support for other EKUs
+    
+    # Hence, we need to use SocketsHttpHandler instead. It allows more control over the SSL options.
+    Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
+    $handler = New-Object SocketsHttpHandler
+    
+
+    # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
+    try {
+        $SocketHandlerType = $handler.GetType()
+        $ClientCertificateOptionsProperty = $SocketHandlerType.GetProperty("ClientCertificateOptions", [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic)
+        $ClientCertificateOptionsProperty.SetValue($handler, [ClientCertificateOption]::Manual)
+    }
+    catch {
+        Write-Warning "Couldn't set ClientCertificateOptions to Manual. This should cause an issue if the certificate is not in the MY store. This is probably due to a too recent .NET version (> 8.0)."
+    }
+    $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
+    $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
+    $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
     $requestmessage.Content = [System.Net.Http.StringContent]::new(
@@ -108,7 +141,18 @@ Function RenewCertificateMTLS {
 
     $client = CreateHttpClient -HttpMessageHandler $handler
     Write-Information "Sending renewal request to $url ..."
-    $httpResponseMessage = $client.Send($requestmessage)
+    try {
+        $httpResponseMessage = $client.Send($requestmessage)
+    }
+    catch {
+        # dump details of the exception, including InnerException
+        $ex = $_.Exception
+        Write-Error "$($ex.GetType()): $($ex.Message)"
+        while ($ex.InnerException) {
+            $ex = $ex.InnerException
+            Write-Error "$($ex.GetType()): $($ex.Message)"
+        }
+    }
     if ($httpResponseMessage.StatusCode -ne [System.Net.HttpStatusCode]::OK) {
         throw "Failed to renew certificate. Status code: $($httpResponseMessage.StatusCode)"
     }
