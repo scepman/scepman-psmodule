@@ -89,7 +89,8 @@ Function RenewCertificateMTLS {
 
     # Use the same key algorithm as the original certificate
     if ($Certificate.PublicKey.Oid.Value -eq "1.2.840.10045.2.1") {
-        $curve = $Certificate.PublicKey.Key.ExportParameters($true).Curve
+        $publicKey = $cert.PublicKey.GetECDiffieHellmanPublicKey().PublicKey
+        $curve = $publicKey.ExportParameters().Curve
         $privateKey = [System.Security.Cryptography.ECDsa]::Create($curve)
         $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
     } elseif ($Certificate.PublicKey.Oid.Value -eq "1.2.840.113549.1.1.1") {

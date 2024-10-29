@@ -132,7 +132,6 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 KeyUsage = @('CertSign', 'CRLSign', 'DigitalSignature')
             }
             $script:testroot = New-SelfSignedCertificate @rootCaGenerationParameters
-            New-SelfSignedCertificate -Subject "CN=UserCertificate,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
 
             function IssueCertificate($csr) {
                 $csr | Should -Match "-----BEGIN (NEW )?CERTIFICATE REQUEST-----"
@@ -158,51 +157,76 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             }
         }
 
-        It 'Should renew a certificate' {
-            $cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=UserCertificate") -and $_.Subject.Contains("OU=PesterTest") }
+        Context 'With Mocked EST Server' {
+            BeforeAll {
+                Mock CreateHttpClient {
+                    $HttpMessageHandler | Should -Not -BeNull
+                    $HttpMessageHandler.ClientCertificates | Should -HaveCount 1
 
-            Mock CreateHttpClient {
-                $HttpMessageHandler | Should -Not -BeNull
-                $HttpMessageHandler.ClientCertificates | Should -HaveCount 1
+                    $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
+                        Send = {
+                            param([System.Net.Http.HttpRequestMessage]$request)
 
-                $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
-                    Send = {
-                        param([System.Net.Http.HttpRequestMessage]$request)
+                            $request | Should -Not -BeNull
+                            $request.Method | Should -Be "POST"
+                            $request.RequestUri | Should -Be "https://test.com/.well-known/est/simplereenroll"
+                            $request.Content | Should -Not -BeNull
+                            $request.Content.Headers.ContentType | Should -Be "application/pkcs10"
+                            $requestBody = $request.Content.ReadAsStringAsync().Result
 
-                        $request | Should -Not -BeNull
-                        $request.Method | Should -Be "POST"
-                        $request.RequestUri | Should -Be "https://test.com/.well-known/est/simplereenroll"
-                        $request.Content | Should -Not -BeNull
-                        $request.Content.Headers.ContentType | Should -Be "application/pkcs10"
-                        $requestBody = $request.Content.ReadAsStringAsync().Result
+                                # Mock the EST server
+                            $issuedCert = IssueCertificate($requestBody)
 
-                            # Mock the EST server
-                        $issuedCert = IssueCertificate($requestBody)
+                            $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+                            $b64Cert = [Convert]::ToBase64String($binCert)
 
-                        $binCert = $issuedCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-                        $b64Cert = [Convert]::ToBase64String($binCert)
+                            $response = New-Object System.Net.Http.HttpResponseMessage 200
+                            $response.Content = New-Object System.Net.Http.StringContent $b64Cert
 
-                        $response = New-Object System.Net.Http.HttpResponseMessage 200
-                        $response.Content = New-Object System.Net.Http.StringContent $b64Cert
-
-                        return $response
+                            return $response
+                        }
+                        Dispose = { }
                     }
-                    Dispose = { }
-                }
 
-                return $clientMock
+                    return $clientMock
+                }
             }
 
-            RenewCertificateMTLS -Certificate $cert -AppServiceUrl "https://test.com" -User
+            It 'Should renew an RSA certificate' {
+                $cert = New-SelfSignedCertificate -Subject "CN=UserCertificate,OU=PesterTest" -KeyAlgorithm 'RSA' -KeyLength 512 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
+                #$cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=UserCertificate") -and $_.Subject.Contains("OU=PesterTest") }
 
-            Should -Invoke -CommandName CreateHttpClient -Exactly 1
+                $newCertReturned = RenewCertificateMTLS -Certificate $cert -AppServiceUrl "https://test.com" -User
 
-            # Verify that the function has added a certificate to the user store
-            $newCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Issuer.Contains("CN=TestRoot") -and $_.Issuer.Contains("OU=PesterTest") -and -not $_.Subject.Contains("CN=TestRoot")}
-            $newCert | Should -Not -BeNullOrEmpty
+                Should -Invoke -CommandName CreateHttpClient -Exactly 1
 
-            # Cleanup
-            $newCert | Remove-Item -Force
+                # Verify that the function has added a certificate to the user store
+                $newCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Issuer.Contains("CN=TestRoot") -and $_.Issuer.Contains("OU=PesterTest") -and -not $_.Subject.Contains("CN=TestRoot")}
+                $newCert | Should -Not -BeNullOrEmpty
+                $newCert | Should -Be $newCertReturned
+
+                # Cleanup
+                $newCert | Remove-Item -Force
+                $cert | Remove-Item -Force
+            }
+
+            It 'Should renew an ECC certificate' {
+                $cert = New-SelfSignedCertificate -Subject "CN=UserCertificateECC,OU=PesterTest" -KeyAlgorithm 'ECDSA_nistP256' -KeyLength 256 -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(20)
+                #$cert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Subject.Contains("CN=UserCertificate") -and $_.Subject.Contains("OU=PesterTest") }
+
+                $newCertReturned = RenewCertificateMTLS -Certificate $cert -AppServiceUrl "https://test.com" -User
+
+                Should -Invoke -CommandName CreateHttpClient -Exactly 1
+
+                # Verify that the function has added a certificate to the user store
+                $newCert = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_.Issuer.Contains("CN=TestRoot") -and $_.Issuer.Contains("OU=PesterTest") -and -not $_.Subject.Contains("CN=TestRoot")}
+                $newCert | Should -Not -BeNullOrEmpty
+                $newCert | Should -Be $newCertReturned
+
+                # Cleanup
+                $newCert | Remove-Item -Force
+                $cert | Remove-Item -Force
+            }
         }
 
         It 'Should find the leaf certificate in a chain' {
