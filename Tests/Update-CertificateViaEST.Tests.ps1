@@ -207,8 +207,8 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
 
         It 'Should find the leaf certificate in a chain' {
             # Arrange
-            $privateKey = [System.Security.Cryptography.RSA]::Create($Certificate.PublicKey.Key.KeySize)
-            $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($Certificate.Subject, $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+            $privateKey = [System.Security.Cryptography.RSA]::Create(512)
+            $oCertRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=child', $privateKey, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
             $sCertRequest = $oCertRequest.CreateSigningRequestPem()
 
             $leafCertificate = IssueCertificate($sCertRequest)
