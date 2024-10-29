@@ -283,8 +283,8 @@ Function GetSCEPmanCerts {
 
     # Assume certificates with the same subject are the same. For each subject, we continue only with one having the longest remaining validity
     $certGroups = $certs | Group-Object -Property Subject
-    Write-Verbose "Found $($certGroups.Count) unique subjects"
     $certs = $certGroups | ForEach-Object { $_.Group | Sort-Object -Property NotAfter -Descending | Select-Object -First 1 }
+    Write-Verbose "Found $($certs.Count) unique subjects"
 
     if (!($ValidityThresholdDays)) {
         $ValidityThresholdDays = 30  # Default is 30 days
