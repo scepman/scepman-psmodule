@@ -4,7 +4,7 @@ function NormalizeNativeParameters($argsFromCommand) {
     }
 
     $quotedCommandArguments = $argsFromCommand | ForEach-Object {
-        if ($_.Contains(' ')) {
+        if ($_.ToString().Contains(' ')) {
             return "`"$($_)`""
         } else {
             return $_
