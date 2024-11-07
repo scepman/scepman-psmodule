@@ -173,8 +173,7 @@ function IsAzureCloudShell {
         ++$cloudShellProves
     }
 
-    $cloudDrive = Get-ChildItem -Path ~\clouddrive
-    if ($null -ne $cloudDrive) {
+    if (Test-Path -Path ~/clouddrive) {
         ++$cloudShellProves
     }
 
