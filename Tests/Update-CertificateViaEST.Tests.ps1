@@ -78,7 +78,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
             }
 
             It 'Should find all certificates issued by the root' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -AllowInvalid
 
                 $foundCerts | Should -HaveCount 1
                 $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
@@ -88,26 +88,32 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                 $pesterTestCert1 = Get-Item -Path Cert:\CurrentUser\My\* | Where-Object { $_ -eq $script:testcerts[0] }
                 $pesterTestCert1 | Remove-Item -Force
 
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 45 -AllowInvalid
 
                 $foundCerts | Should -HaveCount 0
             }
 
             It 'Should not find a certificate if its still valid for long enough' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 15
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -ValidityThresholdDays 15 -AllowInvalid
 
                 $foundCerts | Should -HaveCount 0
             }
 
             It 'Should find certificates matching a text filter' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert1"
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert1" -AllowInvalid
 
                 $foundCerts | Should -HaveCount 1
                 $foundCerts[0].Subject | Should -Be $script:testcerts[0].Subject
             }
 
             It 'Should filter out certificates that do not match a text filter' {
-                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert2"
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert2" -AllowInvalid
+
+                $foundCerts | Should -HaveCount 0
+            }
+
+            It 'Should filter out certificates that are not trusted' {
+                $foundCerts = GetSCEPmanCerts -AppServiceUrl "https://test.com" -User -FilterString "Cert1"
 
                 $foundCerts | Should -HaveCount 0
             }

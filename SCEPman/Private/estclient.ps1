@@ -235,7 +235,9 @@ Function GetSCEPmanCerts {
         [string]$FilterString,
         [Parameter(Mandatory=$false)]
         [AllowNull()]
-        [Nullable[System.Int32]]$ValidityThresholdDays
+        [Nullable[System.Int32]]$ValidityThresholdDays,
+        [Parameter(Mandatory=$false)]
+        [switch]$AllowInvalid
     )
 
     if (!$User -and !$Machine -or $User -and $Machine) {
@@ -293,6 +295,11 @@ Function GetSCEPmanCerts {
     $ValidityThreshold = New-TimeSpan -Days $ValidityThresholdDays
     $certs = $certs | Where-Object { $ValidityThreshold -ge $_.NotAfter.Subtract([DateTime]::UtcNow) }
     Write-Verbose "Found $($certs.Count) certificates that are within $ValidityThresholdDays days of expiry"
+
+    if (!$AllowInvalid) {
+        $certs = $certs | Where-Object { $_.Verify() }
+        Write-Verbose "Found $($certs.Count) certificates that are valid (chaining to a trusted Root CA and neither revoked nor expired)"
+    }
 
     Write-Information "There are $($certs.Count) certificates applicable for renewal"
     $certs | Out-String | Write-Verbose

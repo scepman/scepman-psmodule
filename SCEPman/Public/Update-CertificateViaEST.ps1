@@ -20,6 +20,9 @@
  .Parameter ValidityThresholdDays
   Will only renew certificates that are within this number of days of expiry (default value is 30).
 
+ .Parameter AllowInvalid
+  Set this flag to allow renewal of certificates that are expired, revoked, or do not chain to a trusted Root CA.
+
  .Example
   Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -User -ValidityThresholdDays 100 -FilterString "certificate"
 #>
@@ -40,7 +43,9 @@ Function Update-CertificateViaEST {
         [string]$FilterString,
         [Parameter(Mandatory=$false, ParameterSetName='Search')]
         [AllowNull()]
-        [Nullable[System.Int32]]$ValidityThresholdDays
+        [Nullable[System.Int32]]$ValidityThresholdDays,
+        [Parameter(Mandatory=$false, ParameterSetName='Search')]
+        [switch]$AllowInvalid
     )
     BEGIN {
         if(-not $IsWindows) {
@@ -53,7 +58,7 @@ Function Update-CertificateViaEST {
             }
 
             # Get all certs to be renewed
-            $Certificate = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays
+            $Certificate = GetSCEPmanCerts -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -FilterString $FilterString -ValidityThresholdDays $ValidityThresholdDays -AllowInvalid:$AllowInvalid
         }
     }
 
