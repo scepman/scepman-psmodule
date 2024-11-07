@@ -142,6 +142,7 @@ Adds az as an Authorized Client Application to an existing App Registration. Ret
 #>
 function Add-AzAsTrustedClientApplication {
   [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([bool])]
   param(
     [Parameter(Mandatory=$true)]$AppId
   )
