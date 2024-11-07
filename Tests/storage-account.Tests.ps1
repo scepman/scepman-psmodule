@@ -2,6 +2,7 @@ BeforeAll {
   . $PSScriptRoot/../SCEPman/Private/constants.ps1
   . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
   . $PSScriptRoot/../SCEPman/Private/storage-account.ps1
+  . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'Storage Account' {
@@ -27,10 +28,8 @@ Describe 'Storage Account' {
 ],
 "skip_token": null,
 "total_records": 1
-}' } -ParameterFilter { $args[0] -eq 'graph' -and $args[1] -eq "query" }
-    Mock az {
-      throw "Unexpected parameter for az: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
-    }
+}' } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query' }
+    EnsureNoAdditionalAzCalls
   }
 
   It 'Finds an existing Storage Account' {
@@ -48,6 +47,41 @@ Describe 'Storage Account' {
     $staccount.primaryEndpoints.web | Should -Be "https://stgxyztest.z1.web.core.windows.net/"
     $staccount.resourceGroup | Should -Be "rg-xyz-test"
     $staccount.subscriptionId | Should -Be "63ee67fb-aad6-4711-82a9-ff838a489299"
+
+    Assert-MockCalled az -Exactly 1 -Scope It
+  }
+
+  It 'Verification finds an existing Storage Account' {
+    # Arrange
+    mock Read-Host { return "stgxyztest" } -ParameterFilter { ($Prompt -join '').Contains("enter the name of the storage account") }
+
+    # Act
+    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+
+    # Assert
+    $staccount.location | Should -Be "germanywestcentral"
+    $staccount.name | Should -Be "stgxyztest"
+    $staccount.primaryEndpoints.blob | Should -Be "https://stgxyztest.blob.core.windows.net/"
+    $staccount.primaryEndpoints.dfs | Should -Be "https://stgxyztest.dfs.core.windows.net/"
+    $staccount.primaryEndpoints.file | Should -Be "https://stgxyztest.file.core.windows.net/"
+    $staccount.primaryEndpoints.queue | Should -Be "https://stgxyztest.queue.core.windows.net/"
+    $staccount.primaryEndpoints.table | Should -Be "https://stgxyztest.table.core.windows.net/"
+    $staccount.primaryEndpoints.web | Should -Be "https://stgxyztest.z1.web.core.windows.net/"
+    $staccount.resourceGroup | Should -Be "rg-xyz-test"
+    $staccount.subscriptionId | Should -Be "63ee67fb-aad6-4711-82a9-ff838a489299"
+
+    Assert-MockCalled az -Exactly 1 -Scope It
+  }
+
+  It 'Verification allows creating a new Storage Account if the user wants it' {
+    # Arrange
+    mock Read-Host { return "" } -ParameterFilter { ($Prompt -join '').Contains("want to create a new storage account") }
+
+    # Act
+    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+
+    # Assert
+    $staccount | Should -Be $null
 
     Assert-MockCalled az -Exactly 1 -Scope It
   }

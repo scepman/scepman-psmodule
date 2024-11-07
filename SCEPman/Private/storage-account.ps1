@@ -1,5 +1,5 @@
 
-function GetStorageAccount ($ResourceGroup) {
+function VerifyStorageAccountDoesNotExist ($ResourceGroup) {
     $storageaccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId, location")
     if($storageaccounts.count -gt 0) {
         $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $ResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
@@ -17,7 +17,7 @@ function GetStorageAccount ($ResourceGroup) {
         }
     }
     else {
-        Write-Warning "Unable to determine the storage account"
+        Write-Information "Unable to find an existing storage account"
         return $null
     }
 }
@@ -53,7 +53,7 @@ function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $serv
 }
 
 function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrincipals) {
-    $ScStorageAccount = GetStorageAccount -ResourceGroup $ResourceGroup
+    $ScStorageAccount = VerifyStorageAccountDoesNotExist -ResourceGroup $ResourceGroup
     if($null -eq $ScStorageAccount) {
         Write-Information 'Storage account not found. We will create one now'
         $storageAccountName = $ResourceGroup.ToLower() -replace '[^a-z0-9]',''
@@ -127,6 +127,7 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
     }
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
+        Write-Warning "No storage account found. This is only expected if you upgrade from SCEPman 1.x"
         Write-Information "Creating storage account"
         if ($PSCmdlet.ShouldProcess($storageAccountTableEndpoint, "Create storage account")) {
             $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals
