@@ -23,15 +23,15 @@ Describe 'Intermediate CA' {
     Context 'New-IntermediateCA' {
         It "lets you set and get the policy" {
             $policy = Get-IntermediateCaPolicy
-    
+
             $policy.policy.issuer.name = "self-signed"
-    
+
             Set-IntermediateCaPolicy -Policy $policy
-    
+
             $policy2 = Get-IntermediateCaPolicy
             $policy2 | Should -Be $policy
         }
-    
+
         It 'creates a CSR' {
             # Arrange
             function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $null) { } # Mocked

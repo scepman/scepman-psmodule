@@ -2,15 +2,12 @@ BeforeAll {
   . $PSScriptRoot/../SCEPman/Private/constants.ps1
   . $PSScriptRoot/../SCEPman/Private/az-commands.ps1
   . $PSScriptRoot/../SCEPman/Private/storage-account.ps1
+  . $PSScriptRoot/test-helpers.ps1
 }
 
 Describe 'Storage Account' {
   BeforeEach {
-    Mock az {
-      return '{
-      "count": 1,
-"data": [
-{
+    $jsonOfStorageAccount = '{
   "location": "germanywestcentral",
   "name": "stgxyztest",
   "primaryEndpoints": {
@@ -23,13 +20,29 @@ Describe 'Storage Account' {
   },
   "resourceGroup": "rg-xyz-test",
   "subscriptionId": "63ee67fb-aad6-4711-82a9-ff838a489299"
-}
+}'
+    Mock az { 
+      return "{
+      ""count"": 1,
+""data"": [
+$jsonOfStorageAccount
 ],
-"skip_token": null,
-"total_records": 1
-}' } -ParameterFilter { $args[0] -eq 'graph' -and $args[1] -eq "query" }
-    Mock az {
-      throw "Unexpected parameter for az: $args (with array values $($args[0]), $($args[1]), ... -- #$($args.Count) in total)"
+""skip_token"": null,
+""total_records"": 1
+}"
+     } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query' }
+    EnsureNoAdditionalAzCalls
+    function CheckReturnedStorageAccountMatchesTestValue ($storageAccount) {
+      $storageAccount.location | Should -Be "germanywestcentral"
+      $storageAccount.name | Should -Be "stgxyztest"
+      $storageAccount.primaryEndpoints.blob | Should -Be "https://stgxyztest.blob.core.windows.net/"
+      $storageAccount.primaryEndpoints.dfs | Should -Be "https://stgxyztest.dfs.core.windows.net/"
+      $storageAccount.primaryEndpoints.file | Should -Be "https://stgxyztest.file.core.windows.net/"
+      $storageAccount.primaryEndpoints.queue | Should -Be "https://stgxyztest.queue.core.windows.net/"
+      $storageAccount.primaryEndpoints.table | Should -Be "https://stgxyztest.table.core.windows.net/"
+      $storageAccount.primaryEndpoints.web | Should -Be "https://stgxyztest.z1.web.core.windows.net/"
+      $storageAccount.resourceGroup | Should -Be "rg-xyz-test"
+      $storageAccount.subscriptionId | Should -Be "63ee67fb-aad6-4711-82a9-ff838a489299"
     }
   }
 
@@ -38,18 +51,55 @@ Describe 'Storage Account' {
     $staccount = GetExistingStorageAccount -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
 
     # Assert
-    $staccount.location | Should -Be "germanywestcentral"
-    $staccount.name | Should -Be "stgxyztest"
-    $staccount.primaryEndpoints.blob | Should -Be "https://stgxyztest.blob.core.windows.net/"
-    $staccount.primaryEndpoints.dfs | Should -Be "https://stgxyztest.dfs.core.windows.net/"
-    $staccount.primaryEndpoints.file | Should -Be "https://stgxyztest.file.core.windows.net/"
-    $staccount.primaryEndpoints.queue | Should -Be "https://stgxyztest.queue.core.windows.net/"
-    $staccount.primaryEndpoints.table | Should -Be "https://stgxyztest.table.core.windows.net/"
-    $staccount.primaryEndpoints.web | Should -Be "https://stgxyztest.z1.web.core.windows.net/"
-    $staccount.resourceGroup | Should -Be "rg-xyz-test"
-    $staccount.subscriptionId | Should -Be "63ee67fb-aad6-4711-82a9-ff838a489299"
+    CheckReturnedStorageAccountMatchesTestValue -StorageAccount $staccount
 
     Assert-MockCalled az -Exactly 1 -Scope It
+  }
+
+  It 'Verification finds an existing Storage Account' {
+    # Arrange
+    mock Read-Host { return "stgxyztest" } -ParameterFilter { ($Prompt -join '').Contains("enter the name of the storage account") }
+
+    # Act
+    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+
+    # Assert
+    CheckReturnedStorageAccountMatchesTestValue -StorageAccount $staccount
+
+    Assert-MockCalled az -Exactly 1 -Scope It
+  }
+
+  It 'Verification allows creating a new Storage Account if the user wants it' {
+    # Arrange
+    mock Read-Host { return "" } -ParameterFilter { ($Prompt -join '').Contains("want to create a new storage account") }
+
+    # Act
+    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+
+    # Assert
+    $staccount | Should -Be $null
+
+    Assert-MockCalled az -Exactly 1 -Scope It
+  }
+
+  It "Creates a new Storage Account if none exists" {
+    # Arrange
+    mock Read-Host { return "" } -ParameterFilter { ($Prompt -join '').Contains("hit enter now if you want to create the storage account") }
+    mock VerifyStorageAccountDoesNotExist { return $null }
+    mock az { return $jsonOfStorageAccount } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'storage account create' }
+    mock SetStorageAccountPermissions { 
+      $servicePrincipals | Should -Be @('123456')
+      CheckReturnedStorageAccountMatchesTestValue -StorageAccount $ScStorageAccount
+    }
+
+    # Act
+    $staccount = CreateScStorageAccount -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299' -ResourceGroup 'rg-xyz-test' -servicePrincipals @('123456')
+
+    # Assert
+    CheckReturnedStorageAccountMatchesTestValue -StorageAccount $staccount
+    Assert-MockCalled VerifyStorageAccountDoesNotExist -Exactly 1 -Scope It
+    Assert-MockCalled az -Exactly 1 -Scope It
+    Assert-MockCalled SetStorageAccountPermissions -Exactly 1 -Scope It
   }
 
   Context "When SCEPman and CertMaster have a configured Storage Account" {
