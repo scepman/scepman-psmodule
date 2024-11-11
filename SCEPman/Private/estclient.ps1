@@ -191,7 +191,7 @@ Function RenewCertificateMTLS {
     } else {
         throw "Unsupported key algorithm: $($Certificate.PublicKey.Oid.Value) ($($Certificate.PublicKey.Oid.FriendlyName))"
     }
-    Write-Verbose "New certificate $($newCertificateWithEphemeralPrivateKey.HasPrivateKey?"with":"without") private key: $($newCertificateWithEphemeralPrivateKey.Subject)"
+    Write-Verbose "New certificate with private key: $($newCertificateWithEphemeralPrivateKey.Subject)"
     $securePassword = CreateRandomSecureStringPassword
     $binNewCertPfx = $newCertificateWithEphemeralPrivateKey.Export([X509ContentType]::Pkcs12, $securePassword)
     $issuedCertificateAndPrivate = [X509Certificate2]::new($binNewCertPfx, $securePassword, [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
