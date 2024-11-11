@@ -25,6 +25,10 @@
 
  .Example
   Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -User -ValidityThresholdDays 100 -FilterString "certificate"
+
+ .EXAMPLE
+ $cert = Get-Item -Path "Cert:\CurrentUser\My\1234567890ABCDEF1234567890ABCDEF12345678"
+ Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -Certificate $cert
 #>
 Function Update-CertificateViaEST {
     [CmdletBinding(DefaultParameterSetName='Search')]
@@ -48,6 +52,10 @@ Function Update-CertificateViaEST {
         [switch]$AllowInvalid
     )
     BEGIN {
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            throw "This script requires PowerShell 7 or higher."
+        }
+
         if(-not $IsWindows) {
             throw "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
         }

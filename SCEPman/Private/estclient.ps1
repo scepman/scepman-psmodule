@@ -36,7 +36,11 @@ public static class CertificateCallbacks
         return localCertificates[0];
     }
 
-    public static System.Net.Security.LocalCertificateSelectionCallback SelectionCallback => SelectFirstCertificate;
+    public static System.Net.Security.LocalCertificateSelectionCallback SelectionCallback {
+        get {
+            return SelectFirstCertificate;
+        }
+    }
 }
 '@
 Add-Type -TypeDefinition $csCodeSelectFirstCertificateCallback -Language CSharp
