@@ -21,7 +21,7 @@ Describe 'Storage Account' {
   "resourceGroup": "rg-xyz-test",
   "subscriptionId": "63ee67fb-aad6-4711-82a9-ff838a489299"
 }'
-    Mock az { 
+    Mock az {
       return "{
       ""count"": 1,
 ""data"": [
@@ -87,7 +87,7 @@ $jsonOfStorageAccount
     mock Read-Host { return "" } -ParameterFilter { ($Prompt -join '').Contains("hit enter now if you want to create the storage account") }
     mock VerifyStorageAccountDoesNotExist { return $null }
     mock az { return $jsonOfStorageAccount } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'storage account create' }
-    mock SetStorageAccountPermissions { 
+    mock SetStorageAccountPermissions {
       $servicePrincipals | Should -Be @('123456')
       CheckReturnedStorageAccountMatchesTestValue -StorageAccount $ScStorageAccount
     }

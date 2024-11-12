@@ -1,37 +1,41 @@
 <#
- .Synopsis
-  Powershell script for renewing certificate using MTLS endpoint of SCEPman.
+.SYNOPSIS
+  Renews certificates via EST.
 
- .Parameter AppServiceUrl
-  The URL of the SCEPman App Service
+.DESCRIPTION
+  This function renews certificates via EST. It can renew user or machine certificates based on the specified parameters.
 
- .Parameter Certificate
+.PARAMETER AppServiceUrl
+  The URL of the App Service.
+
+.PARAMETER Certificate
   The certificate to renew. Either this or User/Machine must be set.
 
- .Parameter User
+.PARAMETER User
   Set this flag to renew a user certificate.
 
- .Parameter Machine
+.PARAMETER Machine
   Set this flag to renew a machine certificate. (Either User or Machine must be set)
 
- .Parameter FilterString
+.PARAMETER FilterString
   Only renew certificates whose Subject field contains the filter string.
 
- .Parameter ValidityThresholdDays
+.PARAMETER ValidityThresholdDays
   Will only renew certificates that are within this number of days of expiry (default value is 30).
 
- .Parameter AllowInvalid
+.PARAMETER AllowInvalid
   Set this flag to allow renewal of certificates that are expired, revoked, or do not chain to a trusted Root CA.
 
- .Example
+.EXAMPLE
   Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -User -ValidityThresholdDays 100 -FilterString "certificate"
 
- .EXAMPLE
- $cert = Get-Item -Path "Cert:\CurrentUser\My\1234567890ABCDEF1234567890ABCDEF12345678"
- Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -Certificate $cert
+.EXAMPLE
+  $cert = Get-Item -Path "Cert:\CurrentUser\My\1234567890ABCDEF1234567890ABCDEF12345678"
+  Update-CertificateViaEST -AppServiceUrl "https://scepman-appservice.net/" -Certificate $cert
+
 #>
 Function Update-CertificateViaEST {
-    [CmdletBinding(DefaultParameterSetName='Search')]
+    [CmdletBinding(SupportsShouldProcess=$true, DefaultParameterSetName='Search')]
     [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2[]])]
     param (
         [Parameter(Mandatory, ParameterSetName='Search')]
@@ -71,9 +75,15 @@ Function Update-CertificateViaEST {
     }
 
     PROCESS {
+        $renewedCertificates = @()
+
         # Renew all certs
         foreach ($cert in $Certificate) {
-            RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -Certificate $cert
+            if ($PSCmdlet.ShouldProcess("Certificate with subject $($cert.Subject)", "Renew certificate")) {
+                $renewedCertificates += RenewCertificateMTLS -AppServiceUrl $AppServiceUrl -User:$User -Machine:$Machine -Certificate $cert
+            }
         }
+
+        return $renewedCertificates
     }
 }
