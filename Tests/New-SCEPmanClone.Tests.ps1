@@ -141,14 +141,14 @@ Describe 'SCEPman Clone' {
         }
 
         function MockVnetCreation {
-            $global:mockedVnetId ="/subscriptions/test-subscription/resourceGroups/rg-scepman-geo2/providers/Microsoft.Network/virtualNetworks/vnet-as-scepman-clone/subnets/sub-scepman"
+            $script:mockedVnetId ="/subscriptions/test-subscription/resourceGroups/rg-scepman-geo2/providers/Microsoft.Network/virtualNetworks/vnet-as-scepman-clone/subnets/sub-scepman"
             Mock New-Vnet {
                 return @{
-                    id = $global:mockedVnetId
+                    id = $script:mockedVnetId
                 }
             } -ParameterFilter { $ResourceGroupName -eq "rg-scepman-geo2" -and $VnetName.Contains("scepman-clone") -and $SubnetName -eq "sub-scepman" -and $Location -eq "germanywestcentral" -and $StorageAccountLocation -eq "germanywestcentral" }
             Mock SetAppServiceVnetId {
-            } -ParameterFilter { $AppServiceName -eq "as-scepman-clone" -and $ResourceGroup -eq "rg-scepman-geo2" -and $VnetId -eq $global:mockedVnetId }
+            } -ParameterFilter { $AppServiceName -eq "as-scepman-clone" -and $ResourceGroup -eq "rg-scepman-geo2" -and $VnetId -eq $script:mockedVnetId }
             function Grant-VnetAccessToKeyVault ($KeyVaultName, $SubnetId, $SubscriptionId) {} # Mocked
             Mock Grant-VnetAccessToKeyVault {
             } -ParameterFilter { $KeyVaultName -eq "test-kv-name" -and $SubnetId -eq $mockedVnetId -and $SubscriptionId -eq "12345678-1234-1234-aaaabbbbcccc" }
@@ -158,9 +158,9 @@ Describe 'SCEPman Clone' {
 
         function AssertVnetCreation {
             Should -Invoke New-Vnet -Exactly 1 -ParameterFilter { $ResourceGroupName -eq "rg-scepman-geo2" -and $VnetName.Contains("scepman-clone") -and $SubnetName -eq "sub-scepman" -and $Location -eq "germanywestcentral" -and $StorageAccountLocation -eq "germanywestcentral" }
-            Should -Invoke SetAppServiceVnetId -Exactly 1 -ParameterFilter { $AppServiceName -eq "as-scepman-clone" -and $ResourceGroup -eq "rg-scepman-geo2" -and $VnetId -eq $global:mockedVnetId }
-            Should -Invoke Grant-VnetAccessToKeyVault -Exactly 1 -ParameterFilter { $KeyVaultName -eq "test-kv-name" -and $SubnetId -eq $global:mockedVnetId -and $SubscriptionId -eq "12345678-1234-1234-aaaabbbbcccc" }
-            Should -Invoke Grant-VnetAccessToStorageAccount -Exactly 1 -ParameterFilter { $ScStorageAccount.name -eq "stgxyztest" -and $SubnetId -eq $global:mockedVnetId -and $SubscriptionId -eq "12345678-1234-1234-aaaabbbbcccc" }
+            Should -Invoke SetAppServiceVnetId -Exactly 1 -ParameterFilter { $AppServiceName -eq "as-scepman-clone" -and $ResourceGroup -eq "rg-scepman-geo2" -and $VnetId -eq $script:mockedVnetId }
+            Should -Invoke Grant-VnetAccessToKeyVault -Exactly 1 -ParameterFilter { $KeyVaultName -eq "test-kv-name" -and $SubnetId -eq $script:mockedVnetId -and $SubscriptionId -eq "12345678-1234-1234-aaaabbbbcccc" }
+            Should -Invoke Grant-VnetAccessToStorageAccount -Exactly 1 -ParameterFilter { $ScStorageAccount.name -eq "stgxyztest" -and $SubnetId -eq $script:mockedVnetId -and $SubscriptionId -eq "12345678-1234-1234-aaaabbbbcccc" }
         }
     }
 

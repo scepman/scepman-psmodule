@@ -3,8 +3,8 @@ function NormalizeNativeParameters($argsFromCommand) {
         $argsFromCommand = $argsFromCommand[0]
     }
 
-    $quotedCommandArguments = $argsFromCommand | ForEach-Object { 
-        if ($_.Contains(' ')) {
+    $quotedCommandArguments = $argsFromCommand | ForEach-Object {
+        if ($_.ToString().Contains(' ')) {
             return "`"$($_)`""
         } else {
             return $_

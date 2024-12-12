@@ -143,7 +143,7 @@ function AzLogin {
             $accountInfo = Convert-LinesToObject($account)
         } catch {
             Write-Verbose "Raw output from az account show: $account"
-            Write-Error "Error parsing output from az account show:�n$_"
+            Write-Error "Error parsing output from az account show: $_"
             throw $_
         }
         Write-Information "Logged in to az as $($accountInfo.user.name)"
@@ -173,8 +173,7 @@ function IsAzureCloudShell {
         ++$cloudShellProves
     }
 
-    $cloudDrive = Get-ChildItem -Path ~\clouddrive
-    if ($null -ne $cloudDrive) {
+    if (Test-Path -Path ~/clouddrive) {
         ++$cloudShellProves
     }
 

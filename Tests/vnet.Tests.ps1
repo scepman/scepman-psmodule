@@ -41,7 +41,7 @@ Describe 'VNet' {
             # Assert
             $result | Should -Not -BeNullOrEmpty
             $result | Should -BeOfType [PSCustomObject]
-            
+
         }
     }
 
@@ -52,7 +52,7 @@ Describe 'VNet' {
             # Act
             $ipRangePrefix = RandomizeIpRangePrefix -inputString $randomizationInput
 
-            $bytes = $ipRangePrefix -replace '^10\.(\d{1,3})\.(\d{1,3})\.$', '$1 $2'
+            $bytes = $ipRangePrefix -replace '^10\.(\d{1,3})\.(\d{1,3})$', '$1 $2'
             $secondByte, $thirdByte = $bytes -split ' '
 
             # Convert to integers
@@ -60,7 +60,7 @@ Describe 'VNet' {
             $thirdByte = [int]$thirdByte
 
             # Assert
-            $ipRangePrefix | Should -Match '^10\.\d{1,3}\.\d{1,3}\.$'
+            $ipRangePrefix | Should -Match '^10\.\d{1,3}\.\d{1,3}$'
 
             $secondByte | Should -BeGreaterThan 0
             $secondByte | Should -BeLessOrEqual 254
