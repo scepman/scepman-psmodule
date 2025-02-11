@@ -144,14 +144,14 @@ function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionI
   return $asp
 }
 
-New-Variable -Name "DictAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
+New-Variable -Name "CacheAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
 
 function IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
-  if ($DictAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
-    $kind = $DictAppServiceKinds["$AppServiceName $ResourceGroup"]
+  if ($CacheAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
+    $kind = $CacheAppServiceKinds["$AppServiceName $ResourceGroup"]
   } else {
-    $kind = ExecuteAzCommandRobustly -callAzNatively -azCommand @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'kind', "--output", "tsv")
-    $DictAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
+    $kind = Invoke-Az @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'kind', "--output", "tsv")
+    $CacheAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
   }
   return $kind -eq "app,linux"
 }
