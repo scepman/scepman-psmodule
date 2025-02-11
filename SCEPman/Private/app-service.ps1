@@ -11,7 +11,13 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
     ForEach($potentialcmwebapp in $rgwebapps.data) {
       $scepmanUrl = ReadAppSetting -AppServiceName $potentialcmwebapp.name -ResourceGroup $CertMasterResourceGroup -SettingName 'AppConfig:SCEPman:URL'
       if($null -eq $scepmanUrl) {
-        Write-Verbose "Web app $($potentialcmwebapp.name) is not a Certificate Master, continuing search ..."
+        $isCmCandidateLinux = IsAppServiceLinux -AppServiceName $potentialcmwebapp.name -ResourceGroup $CertMasterResourceGroup
+        if ($isCmCandidateLinux) {
+          $candidateOs = "Linux"
+        } else {
+          $candidateOs = "Windows"
+        }
+        Write-Verbose "Web app $($potentialcmwebapp.name) running on $candidateOs is not a Certificate Master, continuing search ..."
       } else {
         $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
         if($hascorrectscepmanurl -eq $true) {
