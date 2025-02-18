@@ -64,6 +64,15 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     # Ignore, this is the next line of the previous issue
                     Write-Debug "Ignoring algorithm line for crypto warning: $outputElement"
                     $expectAlgorithmToBeIgnored = $false
+                } elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\ '")) {
+                    # Ignore, this is a harmless issue of az graph extension 2.10 with more recent python versions (?)
+                    # See https://github.com/Azure/azure-cli-extensions/issues/8369
+                    Write-Debug "Ignoring expected warning about wrong escape seqences: $outputElement"
+                    $expectIntervalWarning = $true
+                } elseif ($expectIntervalWarning -and ($outputElement.ToString().Trim(' ').StartsWith('"""'))) {
+                    # Ignore, this is the next line of the previous issue
+                    Write-Debug "Ignoring line for syntax warning: $outputElement"
+                    $expectIntervalWarning = $false
                 } elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                     -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {

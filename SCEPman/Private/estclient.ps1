@@ -171,8 +171,10 @@ Function RenewCertificateMTLS {
     [X509Certificate2Collection]$collectionForNewCertificate = [X509Certificate2Collection]::new()
     if ($Machine) {
         $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::MachineKeySet)
+        $keyStorageFlag = [X509KeyStorageFlags]::MachineKeySet
     } else {
         $collectionForNewCertificate.Import($binaryCertificateP7, $null, [X509KeyStorageFlags]::UserKeySet)
+        $keyStorageFlag = [X509KeyStorageFlags]::UserKeySet
     }
 
     if ($collectionForNewCertificate.Count -eq 0) {
@@ -198,7 +200,7 @@ Function RenewCertificateMTLS {
     Write-Verbose "New certificate with private key: $($newCertificateWithEphemeralPrivateKey.Subject)"
     $securePassword = CreateRandomSecureStringPassword
     $binNewCertPfx = $newCertificateWithEphemeralPrivateKey.Export([X509ContentType]::Pkcs12, $securePassword)
-    $issuedCertificateAndPrivate = [X509Certificate2]::new($binNewCertPfx, $securePassword, [X509KeyStorageFlags]::UserKeySet -bor [X509KeyStorageFlags]::PersistKeySet)
+    $issuedCertificateAndPrivate = [X509Certificate2]::new($binNewCertPfx, $securePassword, $keyStorageFlag -bor [X509KeyStorageFlags]::PersistKeySet)
 
     Write-Information "Adding the new certificate to the store"
     if ($Machine) {
