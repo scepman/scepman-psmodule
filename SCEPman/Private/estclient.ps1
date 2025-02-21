@@ -229,9 +229,11 @@ Function RenewCertificateMTLS {
 
     Write-Information "Adding the new certificate to the store"
     if ($Machine) {
-        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
+        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
+        $store.Open([OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     } else {
-        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
+        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser)
+        $store.Open([OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     }
 
     $store.Add($issuedCertificateAndPrivate)
