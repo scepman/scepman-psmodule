@@ -109,7 +109,7 @@ Function RenewCertificateMTLS {
         $sCertRequestDER = $oCertRequest.CreateSigningRequest()
         $sCertRequestB64 = [System.Convert]::ToBase64String($sCertRequestDER)
 
-        $sCertRequest = "-----BEGIN CERTIFICATE REQUEST-----`n"
+        $sCertRequest = ""
 
         # Append the encoded csr in chunks of 64 characters to compyly with PEM standard
         for ($i = 0; $i -lt $sCertRequestB64.Length; $i += 64) {
@@ -118,8 +118,6 @@ Function RenewCertificateMTLS {
 
         # Remove trailing newline
         $sCertRequest = $sCertRequest -replace '\n$'
-
-        $sCertRequest += "`n-----END CERTIFICATE REQUEST-----"
     } else {
         $sCertRequest = $oCertRequest.CreateSigningRequestPem()
     }
