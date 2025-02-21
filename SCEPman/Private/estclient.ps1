@@ -137,6 +137,13 @@ Function RenewCertificateMTLS {
 
     # Hence, we need to use SocketsHttpHandler instead. It allows more control over the SSL options.
     Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
+
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        Write-Verbose "Detected PowerShell 5: Using HttpClientHandler"
+        $handler = New-Object HttpClientHandler
+        $handler.ClientCertificates.Add($Certificate)
+    } else {
+        Write-Verbose "Detected PowerShell 7: Using SocketsHttpHandler"
     $handler = New-Object SocketsHttpHandler
 
     # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
@@ -151,6 +158,7 @@ Function RenewCertificateMTLS {
     $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
     $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
     $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
+    }
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
     $requestmessage.Content = [System.Net.Http.StringContent]::new(
@@ -164,7 +172,7 @@ Function RenewCertificateMTLS {
     $client = CreateHttpClient -HttpMessageHandler $handler
     Write-Information "Sending renewal request to $url ..."
     try {
-        $httpResponseMessage = $client.Send($requestmessage)
+        $httpResponseMessage = $client.SendAsync($requestmessage).GetAwaiter().GetResult()
     }
     catch {
         # dump details of the exception, including InnerException
