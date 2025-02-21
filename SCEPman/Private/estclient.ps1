@@ -121,7 +121,7 @@ Function RenewCertificateMTLS {
 
         $sCertRequest += "`n-----END CERTIFICATE REQUEST-----"
     } else {
-    $sCertRequest = $oCertRequest.CreateSigningRequestPem()
+        $sCertRequest = $oCertRequest.CreateSigningRequestPem()
     }
 
     Write-Information "Certificate request created"
@@ -144,20 +144,20 @@ Function RenewCertificateMTLS {
         $handler.ClientCertificates.Add($Certificate)
     } else {
         Write-Verbose "Detected PowerShell 7: Using SocketsHttpHandler"
-    $handler = New-Object SocketsHttpHandler
+        $handler = New-Object SocketsHttpHandler
 
-    # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
-    try {
-        $SocketHandlerType = $handler.GetType()
-        $ClientCertificateOptionsProperty = $SocketHandlerType.GetProperty("ClientCertificateOptions", [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic)
-        $ClientCertificateOptionsProperty.SetValue($handler, [ClientCertificateOption]::Manual)
-    }
-    catch {
-        Write-Warning "Couldn't set ClientCertificateOptions to Manual. This should cause an issue if the certificate is not in the MY store. This is probably due to a too recent .NET version (> 8.0)."
-    }
-    $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
-    $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
-    $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
+        # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
+        try {
+            $SocketHandlerType = $handler.GetType()
+            $ClientCertificateOptionsProperty = $SocketHandlerType.GetProperty("ClientCertificateOptions", [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic)
+            $ClientCertificateOptionsProperty.SetValue($handler, [ClientCertificateOption]::Manual)
+        }
+        catch {
+            Write-Warning "Couldn't set ClientCertificateOptions to Manual. This should cause an issue if the certificate is not in the MY store. This is probably due to a too recent .NET version (> 8.0)."
+        }
+        $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
+        $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
+        $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
     }
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
