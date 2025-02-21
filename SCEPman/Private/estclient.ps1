@@ -118,8 +118,6 @@ Function RenewCertificateMTLS {
 
         # Remove trailing newline
         $sCertRequest = $sCertRequest -replace '\n$'
-
-        $sCertRequest += "`n-----END CERTIFICATE REQUEST-----"
     } else {
         $sCertRequest = $oCertRequest.CreateSigningRequestPem()
     }
