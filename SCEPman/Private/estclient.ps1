@@ -105,7 +105,24 @@ Function RenewCertificateMTLS {
     }
     Write-Information "Private key created of type $($privateKey.SignatureAlgorithm) with $($privateKey.KeySize) bits"
 
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        $sCertRequestDER = $oCertRequest.CreateSigningRequest()
+        $sCertRequestB64 = [System.Convert]::ToBase64String($sCertRequestDER)
+
+        $sCertRequest = "-----BEGIN CERTIFICATE REQUEST-----`n"
+
+        # Append the encoded csr in chunks of 64 characters to compyly with PEM standard
+        for ($i = 0; $i -lt $sCertRequestB64.Length; $i += 64) {
+            $sCertRequest += $sCertRequestB64.Substring($i, [System.Math]::Min(64, $sCertRequestB64.Length - $i)) + "`n"
+        }
+
+        # Remove trailing newline
+        $sCertRequest = $sCertRequest -replace '\n$'
+
+        $sCertRequest += "`n-----END CERTIFICATE REQUEST-----"
+    } else {
     $sCertRequest = $oCertRequest.CreateSigningRequestPem()
+    }
 
     Write-Information "Certificate request created"
 
