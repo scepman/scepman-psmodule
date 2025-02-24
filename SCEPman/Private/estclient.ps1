@@ -138,7 +138,8 @@ Function RenewCertificateMTLS {
 
     if ($PSVersionTable.PSVersion.Major -lt 7) {
         Write-Verbose "Detected PowerShell 5: Using HttpClientHandler"
-        $handler = New-Object HttpClientHandler
+        Add-Type -AssemblyName System.Net.Http
+        $handler = New-Object System.Net.Http.HttpClientHandler
         $handler.ClientCertificates.Add($Certificate)
     } else {
         Write-Verbose "Detected PowerShell 7: Using SocketsHttpHandler"
