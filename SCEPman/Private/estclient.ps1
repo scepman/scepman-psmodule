@@ -74,18 +74,31 @@ Function RenewCertificateMTLS {
     if ([string]::IsNullOrEmpty($AppServiceUrl)) {
         Write-Verbose "No AppServiceUrl was specified. Trying to get the AppServiceUrl from the certificate's AIA extension."
         if ($PSVersionTable.PSVersion.Major -lt 7) {
-            throw "PowerShell 5 is not supported for this operation. Please specify the AppServiceUrl."
-        }
-        $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
-        if ($null -eq $AiaExtension) {
-            throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+            $AiaExtension = $Certificate.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.5.5.7.1.1' }
+
+            if ($null -eq $AiaExtension) {
+                throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+            }
+
+            $Encoding = New-Object System.Text.UTF8Encoding
+            $AppServiceUrl = [Regex]::Match($Encoding.GetString($AIA.RawData), 'https://.*?GetCACert').Value
+
+            if ([string]::IsNullOrEmpty($AppServiceUrl)) {
+                throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
+            }
+        } else {
+            $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
+            if ($null -eq $AiaExtension) {
+                throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+            }
+    
+            $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
+            if ($CaUrls.Count -eq 0) {
+                throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
+            }
+            $AppServiceUrl = $CaUrls[0] # This contains some path for the CA download that we still need to cut off
         }
 
-        $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
-        if ($CaUrls.Count -eq 0) {
-            throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
-        }
-        $AppServiceUrl = $CaUrls[0] # This contains some path for the CA download that we still need to cut off
         Write-Verbose "Found AIA CA URL in certificate: $AppServiceUrl"
         $AppServiceUrl = $AppServiceUrl.Substring(0, $AppServiceUrl.IndexOf('/', "https://".Length))
         Write-Information "Inferred AppServiceUrl from AIA extension: $AppServiceUrl"
