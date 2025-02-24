@@ -73,6 +73,9 @@ Function RenewCertificateMTLS {
 
     if ([string]::IsNullOrEmpty($AppServiceUrl)) {
         Write-Verbose "No AppServiceUrl was specified. Trying to get the AppServiceUrl from the certificate's AIA extension."
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            throw "PowerShell 5 is not supported for this operation. Please specify the AppServiceUrl."
+        }
         $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
         if ($null -eq $AiaExtension) {
             throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
