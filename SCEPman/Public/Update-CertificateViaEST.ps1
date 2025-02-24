@@ -56,11 +56,8 @@ Function Update-CertificateViaEST {
         [switch]$AllowInvalid
     )
     BEGIN {
-        if ($PSVersionTable.PSVersion.Major -lt 7) {
-            throw "This script requires PowerShell 7 or higher."
-        }
 
-        if(-not $IsWindows) {
+        if([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
             throw "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
         }
 
