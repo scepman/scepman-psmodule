@@ -73,16 +73,32 @@ Function RenewCertificateMTLS {
 
     if ([string]::IsNullOrEmpty($AppServiceUrl)) {
         Write-Verbose "No AppServiceUrl was specified. Trying to get the AppServiceUrl from the certificate's AIA extension."
-        $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
-        if ($null -eq $AiaExtension) {
-            throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            $AiaExtension = $Certificate.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.5.5.7.1.1' }
+
+            if ($null -eq $AiaExtension) {
+                throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+            }
+
+            $Encoding = New-Object System.Text.UTF8Encoding
+            $AppServiceUrl = [Regex]::Match($Encoding.GetString($AIA.RawData), 'https://.*?GetCACert').Value
+
+            if ([string]::IsNullOrEmpty($AppServiceUrl)) {
+                throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
+            }
+        } else {
+            $AiaExtension = $Certificate.Extensions | Where-Object { $_ -is [X509AuthorityInformationAccessExtension] }
+            if ($null -eq $AiaExtension) {
+                throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
+            }
+    
+            $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
+            if ($CaUrls.Count -eq 0) {
+                throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
+            }
+            $AppServiceUrl = $CaUrls[0] # This contains some path for the CA download that we still need to cut off
         }
 
-        $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
-        if ($CaUrls.Count -eq 0) {
-            throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
-        }
-        $AppServiceUrl = $CaUrls[0] # This contains some path for the CA download that we still need to cut off
         Write-Verbose "Found AIA CA URL in certificate: $AppServiceUrl"
         $AppServiceUrl = $AppServiceUrl.Substring(0, $AppServiceUrl.IndexOf('/', "https://".Length))
         Write-Information "Inferred AppServiceUrl from AIA extension: $AppServiceUrl"
@@ -105,7 +121,22 @@ Function RenewCertificateMTLS {
     }
     Write-Information "Private key created of type $($privateKey.SignatureAlgorithm) with $($privateKey.KeySize) bits"
 
-    $sCertRequest = $oCertRequest.CreateSigningRequestPem()
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        $sCertRequestDER = $oCertRequest.CreateSigningRequest()
+        $sCertRequestB64 = [System.Convert]::ToBase64String($sCertRequestDER)
+
+        $sCertRequest = ""
+
+        # Append the encoded csr in chunks of 64 characters to compyly with PEM standard
+        for ($i = 0; $i -lt $sCertRequestB64.Length; $i += 64) {
+            $sCertRequest += $sCertRequestB64.Substring($i, [System.Math]::Min(64, $sCertRequestB64.Length - $i)) + "`n"
+        }
+
+        # Remove trailing newline
+        $sCertRequest = $sCertRequest -replace '\n$'
+    } else {
+        $sCertRequest = $oCertRequest.CreateSigningRequestPem()
+    }
 
     Write-Information "Certificate request created"
 
@@ -120,20 +151,29 @@ Function RenewCertificateMTLS {
 
     # Hence, we need to use SocketsHttpHandler instead. It allows more control over the SSL options.
     Write-Debug "Cert Has Private Key: $($Certificate.HasPrivateKey)"
-    $handler = New-Object SocketsHttpHandler
 
-    # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
-    try {
-        $SocketHandlerType = $handler.GetType()
-        $ClientCertificateOptionsProperty = $SocketHandlerType.GetProperty("ClientCertificateOptions", [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic)
-        $ClientCertificateOptionsProperty.SetValue($handler, [ClientCertificateOption]::Manual)
+    if ($PSVersionTable.PSVersion.Major -lt 7) {
+        Write-Verbose "Detected PowerShell 5: Using HttpClientHandler"
+        Add-Type -AssemblyName System.Net.Http
+        $handler = New-Object System.Net.Http.HttpClientHandler
+        $handler.ClientCertificates.Add($Certificate)
+    } else {
+        Write-Verbose "Detected PowerShell 7: Using SocketsHttpHandler"
+        $handler = New-Object SocketsHttpHandler
+
+        # SocketsHttpHandler's ClientCertificateOptions is internal. So we need to use reflection to set it. If we leave it at 'Automatic', it would require the certificate to be in the store.
+        try {
+            $SocketHandlerType = $handler.GetType()
+            $ClientCertificateOptionsProperty = $SocketHandlerType.GetProperty("ClientCertificateOptions", [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic)
+            $ClientCertificateOptionsProperty.SetValue($handler, [ClientCertificateOption]::Manual)
+        }
+        catch {
+            Write-Warning "Couldn't set ClientCertificateOptions to Manual. This should cause an issue if the certificate is not in the MY store. This is probably due to a too recent .NET version (> 8.0)."
+        }
+        $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
+        $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
+        $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
     }
-    catch {
-        Write-Warning "Couldn't set ClientCertificateOptions to Manual. This should cause an issue if the certificate is not in the MY store. This is probably due to a too recent .NET version (> 8.0)."
-    }
-    $handler.SslOptions.LocalCertificateSelectionCallback = [CertificateCallbacks]::SelectionCallback # This just selects the first certificate in the collection. We only provide a single certificate, so this suffices.
-    $handler.SslOptions.ClientCertificates = [X509Certificate2Collection]::new()
-    $null = $handler.SslOptions.ClientCertificates.Add($Certificate)
 
     $requestmessage = [System.Net.Http.HttpRequestMessage]::new()
     $requestmessage.Content = [System.Net.Http.StringContent]::new(
@@ -147,7 +187,7 @@ Function RenewCertificateMTLS {
     $client = CreateHttpClient -HttpMessageHandler $handler
     Write-Information "Sending renewal request to $url ..."
     try {
-        $httpResponseMessage = $client.Send($requestmessage)
+        $httpResponseMessage = $client.SendAsync($requestmessage).GetAwaiter().GetResult()
     }
     catch {
         # dump details of the exception, including InnerException
@@ -204,9 +244,11 @@ Function RenewCertificateMTLS {
 
     Write-Information "Adding the new certificate to the store"
     if ($Machine) {
-        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
+        $store = [X509Store]::new("My", [StoreLocation]::LocalMachine)
+        $store.Open([OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     } else {
-        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser, [OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
+        $store = [X509Store]::new("My", [StoreLocation]::CurrentUser)
+        $store.Open([OpenFlags]::ReadWrite -bor [OpenFlags]::OpenExistingOnly)
     }
 
     $store.Add($issuedCertificateAndPrivate)
