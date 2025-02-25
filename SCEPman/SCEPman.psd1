@@ -1,7 +1,7 @@
 ﻿#
 # Module manifest for module 'SCEPman'
 #
-# Date: 2024-10-15
+# Date: 2025-02-25
 #
 
 @{
@@ -10,7 +10,7 @@
 RootModule = 'SCEPman.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.9.0.0'
+ModuleVersion = '2.9.2.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
