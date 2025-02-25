@@ -68,7 +68,9 @@ jobs:
           az account clear
 
   publish-to-psgallery:
+    name: Publish to PowerShell Gallery
     runs-on: ubuntu-latest
+    environment: PsGalleryPublication
     if: github.event.inputs.channel != 'none'
     needs: code-sign-scepman
     steps:

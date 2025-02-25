@@ -95,6 +95,8 @@ function GetSCEPmanResourcePermissions() {
     ### Managed identity permissions for SCEPman
     if ($null -ne $intuneResourceId) {  # When not using Intune at all (e.g. only JAMF), the IntuneAppId can be $null
         $permissions += [pscustomobject]@{'resourceId'=$intuneResourceId;'appRoleId'=$IntuneSCEPChallengePermission; 'permissionLevel' = 0;}
+    } else {
+        Write-Warning "Intune is not used. Skipping Intune permissions."
     }
 
     return $permissions
