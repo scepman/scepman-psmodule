@@ -82,7 +82,7 @@ function Get-DefaultPolicyWithoutKey {
     "policy" = @{
       "key_props" = @{
         "exportable" = $false
-        "reuse_key" = $false
+        "reuse_key" = $true
       }
       "secret_props" = @{
         "contentType" = "application/x-pkcs12"
