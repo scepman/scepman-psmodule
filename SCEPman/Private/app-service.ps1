@@ -134,7 +134,10 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
   $aspInfo = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId)
   if ($null -eq $aspInfo) {
     throw "App Service Plan $AppServicePlanId not found"
+  } else {
+    $aspInfo = $aspInfo | ConvertFrom-Json
   }
+
   $isLinuxAsp = $aspInfo.kind -eq "linux"
   $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
   $null = Invoke-Az @("webapp", "create", "--resource-group", $SCEPmanResourceGroup, "--plan", $AppServicePlanId, "--name", $SCEPmanAppServiceName, "--assign-identity", "[system]", "--runtime", $runtime)
