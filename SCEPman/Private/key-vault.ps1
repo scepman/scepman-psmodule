@@ -1,6 +1,6 @@
 function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
   if ($true -eq $KeyVault.properties_enableRbacAuthorization) {
-    Write-Information "Setting RBAC permissions to Key Vault $($KeyVault.Name) for principal id $tempServicePrincipal"
+    Write-Information "Setting RBAC permissions to Key Vault $($KeyVault.Name) for principal id $PrincipalId"
 
     Write-Debug "Key Vault Scope: $($KeyVault.id)"
 
