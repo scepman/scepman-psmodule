@@ -75,23 +75,23 @@ Describe 'App Service' {
             Mock az {
                 return "linux"
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "appservice plan show" }
-    
+
             # Act
             $isAspLinux = IsAppServicePlanLinux -AppServicePlanId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverfarms/asp-linux"
-    
+
             # Assert
             $isAspLinux | Should -Be $true
         }
-    
+
         It 'Detects Windows App Service Plans' {
             # Arrange
             Mock az {
                 return "app"
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "appservice plan show" }
-    
+
             # Act
             $isAspLinux = IsAppServicePlanLinux -AppServicePlanId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverfarms/asp-windows"
-    
+
             # Assert
             $isAspLinux | Should -Be $false
         }
