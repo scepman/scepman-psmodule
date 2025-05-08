@@ -347,6 +347,8 @@ function Update-ToConfiguredChannel {
 }
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null, $AsSlotSettings = $false) {
+  $totalSettingsCount = $Settings.Count
+  $processedSettingsCount = 0
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.ToString().Replace('"','\"')
@@ -356,6 +358,10 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     }
     $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
     if ($isAppServiceLinux) {
+      if ($settingName.Contains("-")) {
+        Write-Warning "Setting name $settingName contains at least one dash (-), which is unsupported on Linux. Skipping this setting."
+        continue
+      }
       $settingName = $settingName.Replace(":", "__")
     }
     Write-Verbose "Setting app setting $settingName of app $AppServiceName in slot [$Slot]"
@@ -377,7 +383,10 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     }
 
     $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+    $processedSettingsCount++
+    Write-Progress -Activity "Setting app settings" -Status "Processed $processedSettingsCount of $totalSettingsCount settings" -PercentComplete (($processedSettingsCount / $totalSettingsCount) * 100)
   }
+  Write-Progress -Activity "Setting app settings" -Completed -Status "Processed $processedSettingsCount of $totalSettingsCount settings" -PercentComplete 100
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
