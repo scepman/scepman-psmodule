@@ -13,6 +13,22 @@ function NormalizeNativeParameters($argsFromCommand) {
     return $quotedCommandArguments -join ' '
 }
 
+<#
+.SYNOPSIS
+# Helper to be used when mocking calls to az. This is used to check if the az command is called with the expected parameters.
+
+.PARAMETER argsFromCommand
+Pass $args from the command to this function.
+
+.PARAMETER azCommandPrefix
+Check that the command starts with this prefix.
+
+.PARAMETER azCommandMidfix
+Check that the command contains this anywhere in the command.
+
+.PARAMETER azCommandSuffix
+Check that the command ends with this suffix.
+#>
 function CheckAzParameters($argsFromCommand, [string] $azCommandPrefix = $null, [string] $azCommandMidfix = $null, [string] $azCommandSuffix = $null) {
     $theCommand = NormalizeNativeParameters -argsFromCommand $argsFromCommand
 
