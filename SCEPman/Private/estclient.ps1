@@ -91,7 +91,7 @@ Function RenewCertificateMTLS {
             if ($null -eq $AiaExtension) {
                 throw "No AppServiceUrl was specified and the certificate does not have an AIA extension to infer it from."
             }
-    
+
             $CaUrls = $AiaExtension.EnumerateCAIssuersUris()
             if ($CaUrls.Count -eq 0) {
                 throw "No AppServiceUrl was specified and the certificate does not have any CA Issuers URLs in the AIA extension to infer it from."
