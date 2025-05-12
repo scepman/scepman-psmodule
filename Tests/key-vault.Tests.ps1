@@ -18,7 +18,7 @@ Describe 'CA Generation Policies' {
             $policy.policy.x509_props.basic_constraints.ca | Should -Be $true -Because "This is a CA certificate"
 
             $policy.policy.key_props.exportable | Should -Be $false -Because "For security reasons"
-            $policy.policy.key_props.reuse_key | Should -Be $false -Because "It is usually the first certificate"
+            $policy.policy.key_props.reuse_key | Should -Be $true -Because "First certificates can also be created using this setting"
         }
     }
 

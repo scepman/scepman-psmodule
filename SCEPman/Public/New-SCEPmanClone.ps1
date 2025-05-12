@@ -128,9 +128,6 @@ function New-SCEPmanClone
 
         Write-Information "Adding permissions to Key Vault"
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
-
-        Write-Information "Adding permissions for Graph and Intune"
-        $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
     }
 
     if ($null -ne $scepManVnetId) {
@@ -160,9 +157,13 @@ function New-SCEPmanClone
     }
 
     if ($PSCmdlet.ShouldProcess($TargetAppServiceName, "Configuring SCEPman clone")) {
+        Write-Information "Adding permissions for Graph and Intune"
+        $resourcePermissionsForSCEPman = GetSCEPmanResourcePermissions
+
         $DelayForSecurityPrincipals = 3000
         Write-Verbose "Waiting for $DelayForSecurityPrincipals milliseconds until the Security Principals are available"
         Start-Sleep -Milliseconds $DelayForSecurityPrincipals
+
         $permissionLevelScepman = SetManagedIdentityPermissions -principalId $serviceprincipalsc.principalId -resourcePermissions $resourcePermissionsForSCEPman -GraphBaseUri $GraphBaseUri
 
         Write-Information "Copying app settings from source App Service to target"
