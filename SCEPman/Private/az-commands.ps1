@@ -64,6 +64,10 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     # Ignore, this is the next line of the previous issue
                     Write-Debug "Ignoring algorithm line for crypto warning: $outputElement"
                     $expectAlgorithmToBeIgnored = $false
+                } elseif ($expectPackageWarning -and $outputElement.ToString().Contains('pkg_resources')) {
+                    # Ignore, this is the next line of the previous issue
+                    Write-Debug "Ignoring package warning line: $outputElement"
+                    $expectPackageWarning = $false
                 } elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\ '")) {
                     # Ignore, this is a harmless issue of az graph extension 2.10 with more recent python versions (?)
                     # See https://github.com/Azure/azure-cli-extensions/issues/8369
@@ -83,6 +87,10 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                         Write-Debug "Ignoring expected warning about redacted app settings: $outputElement"
                     } elseif ($noSecretLeakageWarning -and $outputElement.ToString().StartsWith("WARNING: [Warning] This output may compromise security by showing")) {
                         Write-Debug "Ignoring expected warning about secret leakage: $outputElement"
+                    } elseif ($outputElement.ToString().Contains("pkg_resources is deprecated as an API.")) {
+                        # Ignore, see https://developercommunity.visualstudio.com/t/Azure-DevOps-Extension-reports-pkg_resou/10919558
+                        Write-Debug "Ignoring expected warning about a deprecated package because of some extension: $outputElement"
+                        $expectPackageWarning = $true
                     } else
                     {
                         Write-Debug "Warning about unexpected az output"
@@ -130,7 +138,8 @@ function AzLogin {
 
         # check whether already logged in
     $env:AZURE_HTTP_USER_AGENT = "pid-a262352f-52a9-4ed9-a9ba-6a2b2478d19b"
-    $account = az account show 2>&1
+    $accountRaw = az account show 2>&1
+    $account = CheckAzOutput -azOutput $accountRaw -fThrowOnError $true
     if ($account.GetType() -eq [System.Management.Automation.ErrorRecord]) {
         if (($account.ToString().Contains("az login")) -or ($account.ToString().Contains("az account set"))) {
             Write-Host "Not logged in to az yet. Please log in."
@@ -151,9 +160,11 @@ function AzLogin {
             }
             $accountInfo = Convert-LinesToObject($account)
         } catch {
-            Write-Verbose "Raw output from az account show: $account"
-            Write-Error "Error parsing output from az account show: $_"
-            throw $_
+            $errormessage = "Error parsing output from az account show. Error message: $_"
+            $errorMessage += "`r`nRaw Output: $accountRaw"
+            $errorMessage += "`r`nInterpreted Output: $account"
+            Write-Error $errormessage
+            throw $errorMessage
         }
         Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
