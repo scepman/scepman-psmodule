@@ -11,6 +11,17 @@ Describe 'az-commands' {
     }
 
     Context 'AzLogin' {
+        BeforeAll {
+            # Arrange
+            $script:PreviousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+        }
+
+        AfterAll {
+            # Restore the original ErrorActionPreference
+            $ErrorActionPreference = $script:PreviousErrorActionPreference
+        }
+
         It 'Should succeed if already logged in' {
             # Arrange
             mock az { return '{ "user": { "name": "testuser" } }' } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'account show' }
