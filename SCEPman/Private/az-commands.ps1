@@ -56,6 +56,8 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                 } elseif ($outputElement.ToString().Contains("Blowfish") -or $outputElement.ToString().Contains('cryptography on a 32-bit Python')) {
                     # Ignore, this is an issue of az 2.45.0 and az 2.45.0-preview
                     Write-Debug "Ignoring expected warning about Blowfish: $outputElement"
+                } elseif ($outputElement.ToString().EndsWith('MGMT_DEPLOYMENTMANAGER') -and $outputElement.ToString().StartsWith('ERROR')) {
+                    Write-Warning "Ignoring error message from az account show: $outputElement"
                 } elseif ($outputElement.ToString().Contains("CryptographyDeprecationWarning")) {
                     # Ignore, this is an issue of az 2.64.0-preview
                     Write-Debug "Ignoring expected warning about algorithm deprecation: $outputElement"
@@ -138,36 +140,31 @@ function AzLogin {
 
         # check whether already logged in
     $env:AZURE_HTTP_USER_AGENT = "pid-a262352f-52a9-4ed9-a9ba-6a2b2478d19b"
-    $accountRaw = az account show 2>&1
-    $account = CheckAzOutput -azOutput $accountRaw -fThrowOnError $true
-    if ($account.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-        if (($account.ToString().Contains("az login")) -or ($account.ToString().Contains("az account set"))) {
+    try {
+        $account = Invoke-Az -azCommand @("account", "show") -MaxRetries 0
+    }
+    catch {
+        $errorMessage = $_.Exception.Message
+        if (($errorMessage.Contains("az login")) -or ($errorMessage.Contains("az account set"))) {
             Write-Host "Not logged in to az yet. Please log in."
             $null = az login # TODO: Check whether the login worked
-            AzLogin
+            return AzLogin
         }
         else {
-            Write-Error "Error $account while trying to use az" # possibly az not installed?
-            throw $account
+            Write-Error "Error $errorMessage while trying to use az" # possibly az not installed?
+            throw new-object System.Exception("Error when checking whether az is logged in", $_.Exception)
         }
-    } else {
-        try {
-            if ($account[0].GetType() -eq [System.Management.Automation.ErrorRecord] -and `
-                $account[0].ToString().EndsWith('MGMT_DEPLOYMENTMANAGER') -and $account[0].ToString().StartsWith('ERROR')) {
-                Write-Warning "Ignoring error message from az account show: $($account[0])"
-                # This is a bug in az 2.45.0 (preview?) that causes the first line of the output to be the error message "ERROR: Error loading command module 'deploymentmanager': MGMT_DEPLOYMENTMANAGER"
-                $account = $account[1..$account.Count]
-            }
-            $accountInfo = Convert-LinesToObject($account)
-        } catch {
-            $errormessage = "Error parsing output from az account show. Error message: $_"
-            $errorMessage += "`r`nRaw Output: $accountRaw"
-            $errorMessage += "`r`nInterpreted Output: $account"
-            Write-Error $errormessage
-            throw $errorMessage
-        }
-        Write-Information "Logged in to az as $($accountInfo.user.name)"
     }
+    try {
+        $accountInfo = Convert-LinesToObject($account)
+    } catch {
+        $errormessage = "Error parsing output from az account show. Error message: $_"
+        $errorMessage += "`r`Output from az account show: $account"
+        Write-Error $errormessage
+        throw $errorMessage
+    }
+    Write-Information "Logged in to az as $($accountInfo.user.name)"
+
     return $accountInfo
 }
 
@@ -204,14 +201,14 @@ function IsAzureCloudShell {
     return $cloudShellProves -ge 2
 }
 
-function Invoke-Az ($azCommand) {
-    return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively
+function Invoke-Az ($azCommand, $maxRetries = $MAX_RETRY_COUNT) {
+    return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively -maxRetries $maxRetries
 }
 
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 # $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, [switch]$callAzNatively, [switch]$noSecretLeakageWarning) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $maxRetries = $MAX_RETRY_COUNT, [switch]$callAzNatively, [switch]$noSecretLeakageWarning) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
@@ -220,7 +217,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
         $definedPreference = $PSNativeCommandUseErrorActionPreference
         $PSNativeCommandUseErrorActionPreference = $false   # See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.3#psnativecommanduseerroractionpreference
 
-        while ($azErrorCode -gt 0 -and ($retryCount -le $MAX_RETRY_COUNT -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
+        while ($azErrorCode -gt 0 -and ($retryCount -le $maxRetries -or $script:Snail_Mode -and $retryCount -le $SNAILMODE_MAX_RETRY_COUNT)) {
             $PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             $LASTEXITCODE = 0   # Required for unit tests when mocking az

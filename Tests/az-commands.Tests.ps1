@@ -15,6 +15,7 @@ Describe 'az-commands' {
             # Arrange
             $script:PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
+            EnsureNoAdditionalAzCalls
         }
 
         AfterAll {
@@ -25,7 +26,6 @@ Describe 'az-commands' {
         It 'Should succeed if already logged in' {
             # Arrange
             mock az { return '{ "user": { "name": "testuser" } }' } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'account show' }
-            EnsureNoAdditionalAzCalls
 
             # Act
             $account = AzLogin
@@ -43,7 +43,22 @@ Describe 'az-commands' {
                     '{ "user": { "name": "testuser" } }'
                 )
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'account show' }
-            EnsureNoAdditionalAzCalls
+
+            # Act
+            $account = AzLogin
+
+            # Assert
+            $account.user.name | Should -Be "testuser"
+        }
+
+        It 'Should succeed if az account show returns MGMT_DEPLOYMENTMANAGER error before JSON' {
+            # Arrange
+            mock az {
+                Write-Error 'ERROR: blahblah MGMT_DEPLOYMENTMANAGER'   # I don't recall the actual error message, but it is something like this
+                return @(
+                    '{ "user": { "name": "testuser" } }'
+                )
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'account show' }
 
             # Act
             $account = AzLogin
