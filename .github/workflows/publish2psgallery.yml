@@ -75,7 +75,7 @@ jobs:
     needs: code-sign-scepman
     steps:
       - name: Checkout
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: Signed Module
           path: ./SCEPman
