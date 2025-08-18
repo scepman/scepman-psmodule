@@ -57,6 +57,7 @@ function Complete-SCEPmanInstallation
         [switch]$SearchAllSubscriptions,
         $DeploymentSlotName,
         $SubscriptionId,
+        [switch]$AddAdditionalCertMasterAppRoles,
         [switch]$SkipAppRoleAssignments,
         [switch]$SkipCertificateMaster,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
@@ -236,7 +237,7 @@ function Complete-SCEPmanInstallation
             $CertMasterBaseURL = $CertMasterBaseURLs[0]
             Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments -AddAdditionalAppRoles $AddAdditionalCertMasterAppRoles
         }
     }
 
