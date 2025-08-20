@@ -95,6 +95,9 @@ jobs:
 
         # https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt
 
+      - name: Check az extensions for Debugging
+        run: az version
+
       - name: Log in with Azure
         if: ${{ !env.ACT }}
         uses: azure/login@v2
