@@ -78,9 +78,9 @@ Describe 'az-commands' {
                     Write-Error "Please run 'az login' to setup account."
                 }
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'account show' }
-            mock az { 
+            mock az {
                 $script:loggedInAlready = $true
-                return '{ "user": { "name": "testuser" } }' 
+                return '{ "user": { "name": "testuser" } }'
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'login' }
 
             # Act
@@ -88,6 +88,6 @@ Describe 'az-commands' {
 
             # Assert
             $account.user.name | Should -Be "testuser"
-        }   
+        }
     }
 }
