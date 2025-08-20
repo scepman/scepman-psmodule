@@ -128,7 +128,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $AppRoleAssignments -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $AppRoleAssignments -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   # Expose CertMaster API

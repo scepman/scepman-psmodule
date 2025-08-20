@@ -26,7 +26,7 @@ function Register-SCEPmanCertMaster
       Write-Information "Logging in to az"
       $CurrentAccount = AzLogin
 
-      $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
+      $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs @($CertMasterBaseURL)
       if($null -eq $appregcm) {
         Write-Error "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"
         throw "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"

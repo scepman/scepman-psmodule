@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd"[]>
-<report name="Pester (08/20/2025 10:11:12)">
-  <sessioninfo id="this" start="1755684578930" dump="1755684672285" />
+<report name="Pester (08/20/2025 10:18:44)">
+  <sessioninfo id="this" start="1755685077903" dump="1755685124862" />
   <package name="SCEPman">
     <class name="SCEPman/SCEPman" sourcefilename="SCEPman.psm1">
       <method name="&lt;script&gt;" desc="()" line="4">
@@ -1811,11 +1811,11 @@
     </class>
     <class name="SCEPman/Public/Register-SCEPmanCertMaster" sourcefilename="Register-SCEPmanCertMaster.ps1">
       <method name="Register-SCEPmanCertMaster" desc="()" line="26">
-        <counter type="INSTRUCTION" missed="9" covered="0" />
+        <counter type="INSTRUCTION" missed="10" covered="0" />
         <counter type="LINE" missed="7" covered="0" />
         <counter type="METHOD" missed="1" covered="0" />
       </method>
-      <counter type="INSTRUCTION" missed="9" covered="0" />
+      <counter type="INSTRUCTION" missed="10" covered="0" />
       <counter type="LINE" missed="7" covered="0" />
       <counter type="METHOD" missed="1" covered="0" />
       <counter type="CLASS" missed="1" covered="0" />
@@ -2205,12 +2205,12 @@
     <sourcefile name="Register-SCEPmanCertMaster.ps1">
       <line nr="26" mi="1" ci="0" mb="0" cb="0" />
       <line nr="27" mi="1" ci="0" mb="0" cb="0" />
-      <line nr="29" mi="1" ci="0" mb="0" cb="0" />
+      <line nr="29" mi="2" ci="0" mb="0" cb="0" />
       <line nr="30" mi="1" ci="0" mb="0" cb="0" />
       <line nr="31" mi="1" ci="0" mb="0" cb="0" />
       <line nr="32" mi="1" ci="0" mb="0" cb="0" />
       <line nr="34" mi="3" ci="0" mb="0" cb="0" />
-      <counter type="INSTRUCTION" missed="9" covered="0" />
+      <counter type="INSTRUCTION" missed="10" covered="0" />
       <counter type="LINE" missed="7" covered="0" />
       <counter type="METHOD" missed="1" covered="0" />
       <counter type="CLASS" missed="1" covered="0" />
@@ -2346,12 +2346,12 @@
       <counter type="METHOD" missed="1" covered="0" />
       <counter type="CLASS" missed="1" covered="0" />
     </sourcefile>
-    <counter type="INSTRUCTION" missed="362" covered="149" />
+    <counter type="INSTRUCTION" missed="363" covered="149" />
     <counter type="LINE" missed="314" covered="127" />
     <counter type="METHOD" missed="8" covered="7" />
     <counter type="CLASS" missed="5" covered="3" />
   </package>
-  <counter type="INSTRUCTION" missed="1118" covered="957" />
+  <counter type="INSTRUCTION" missed="1119" covered="957" />
   <counter type="LINE" missed="882" covered="746" />
   <counter type="METHOD" missed="42" covered="53" />
   <counter type="CLASS" missed="9" covered="10" />
