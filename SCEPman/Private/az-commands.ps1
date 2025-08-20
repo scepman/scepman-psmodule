@@ -163,7 +163,7 @@ function AzLogin {
     catch {
         $errorMessage = $_.Exception.Message
         if (($errorMessage.Contains("az login")) -or ($errorMessage.Contains("az account set"))) {
-            Write-Host "Not logged in to az yet. Please log in."
+            Write-Warning "Not logged in with az yet. Trying to log in ... if this doesn't work, please log in manually."
             $null = az login # TODO: Check whether the login worked
             return AzLogin
         }
