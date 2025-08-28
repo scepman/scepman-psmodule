@@ -40,7 +40,7 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {
+                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object") -or $outputElement.ToString().Contains("RoleAssignmentExists")) {
                     Write-Information "Permission is already assigned when executing $azCommand"
                     Write-Output $PERMISSION_ALREADY_ASSIGNED
                 }
