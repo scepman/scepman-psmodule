@@ -40,7 +40,7 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {
+                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object") -or $outputElement.ToString().Contains("RoleAssignmentExists") -or $outputElement.ToString().Contains("Permission already assigned") -or $outputElement.ToString() -match 'A role assignment with ID.*already exists') {
                     Write-Information "Permission is already assigned when executing $azCommand"
                     Write-Output $PERMISSION_ALREADY_ASSIGNED
                 }
@@ -163,7 +163,7 @@ function AzLogin {
     catch {
         $errorMessage = $_.Exception.Message
         if (($errorMessage.Contains("az login")) -or ($errorMessage.Contains("az account set"))) {
-            Write-Host "Not logged in to az yet. Please log in."
+            Write-Warning "Not logged in with az yet. Trying to log in ... if this doesn't work, please log in manually."
             $null = az login # TODO: Check whether the login worked
             return AzLogin
         }
