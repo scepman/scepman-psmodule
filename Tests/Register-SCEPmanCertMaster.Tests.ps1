@@ -9,55 +9,70 @@ BeforeAll {
 
 Describe "Register-SCEPmanCertMaster" {
     
-    Context "URL Validation" {
+    Context "Protocol Prefix Handling" {
         BeforeAll {
-            # Create a test function with the same validation as the actual function
-            $TestValidation = {
-                param(
-                    [Parameter(Mandatory=$true)]
-                    [ValidateScript({
-                        # Ensure URL has a protocol prefix, add https:// if missing
-                        if ($_ -match '^https?://') {
-                            return $true
-                        } elseif ($_ -match '^[a-zA-Z0-9][a-zA-Z0-9\.\-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}(:\d+)?(/.*)?$' -or $_ -match '^localhost(:\d+)?(/.*)?$') {
-                            # Looks like a domain name or localhost without protocol, we'll add https://
-                            return $true
-                        } else {
-                            throw "CertMasterBaseURL must be a valid URL with protocol (http:// or https://) or a valid domain name."
-                        }
-                    })]
-                    [string]$CertMasterBaseURL
-                )
-                return $CertMasterBaseURL
+            # Mock the Azure CLI and authentication functions
+            Mock az {
+                return '{"azure-cli": "2.60.0"}'
+            } -ParameterFilter { $args[0] -eq 'version' }
+            
+            Mock AzLogin {
+                return @{ homeTenantId = "test-tenant-id" }
+            }
+            
+            Mock CreateCertMasterAppRegistration {
+                return @{ appId = "12345678-aad6-4711-82a9-0123456789ab" }
             }
         }
         
-        It "Accepts URLs with https:// prefix" {
-            { & $TestValidation -CertMasterBaseURL "https://scepman-cm.azurewebsites.net" } | Should -Not -Throw
+        It "Preserves URLs with https:// prefix" {
+            # Act
+            Register-SCEPmanCertMaster -CertMasterBaseURL "https://scepman-cm.azurewebsites.net"
+
+            # Assert
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
+                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
+            }
         }
 
-        It "Accepts URLs with http:// prefix" {
-            { & $TestValidation -CertMasterBaseURL "http://scepman-cm.azurewebsites.net" } | Should -Not -Throw
+        It "Preserves URLs with http:// prefix" {
+            # Act
+            Register-SCEPmanCertMaster -CertMasterBaseURL "http://scepman-cm.azurewebsites.net"
+
+            # Assert
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
+                $CertMasterBaseURLs[0] -eq "http://scepman-cm.azurewebsites.net" 
+            }
         }
 
-        It "Accepts domain names without protocol" {
-            { & $TestValidation -CertMasterBaseURL "scepman-cm.azurewebsites.net" } | Should -Not -Throw
+        It "Automatically adds https:// prefix when missing" {
+            # Act
+            Register-SCEPmanCertMaster -CertMasterBaseURL "scepman-cm.azurewebsites.net"
+
+            # Assert
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
+                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
+            }
         }
 
-        It "Accepts localhost with port without protocol" {
-            { & $TestValidation -CertMasterBaseURL "localhost:8080" } | Should -Not -Throw
+        It "Adds https:// prefix to localhost" {
+            # Act
+            Register-SCEPmanCertMaster -CertMasterBaseURL "localhost:8080"
+
+            # Assert
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
+                $CertMasterBaseURLs[0] -eq "https://localhost:8080" 
+            }
         }
 
-        It "Rejects invalid URLs" {
-            { & $TestValidation -CertMasterBaseURL "not-a-valid-url" } | Should -Throw "*CertMasterBaseURL must be a valid URL*"
-        }
+        It "Adds https:// prefix to any input without protocol" {
+            # Act
+            Register-SCEPmanCertMaster -CertMasterBaseURL "example.com"
 
-        It "Rejects empty URLs" {
-            { & $TestValidation -CertMasterBaseURL "" } | Should -Throw "*CertMasterBaseURL must be a valid URL*"
-        }
-
-        It "Rejects URLs with invalid protocols" {
-            { & $TestValidation -CertMasterBaseURL "ftp://scepman-cm.azurewebsites.net" } | Should -Throw "*CertMasterBaseURL must be a valid URL*"
+            # Assert
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
+                $CertMasterBaseURLs[0] -eq "https://example.com" 
+            }
         }
     }
 
@@ -77,17 +92,6 @@ Describe "Register-SCEPmanCertMaster" {
             }
         }
 
-        It "Successfully registers CertMaster with valid URL" {
-            # Act
-            Register-SCEPmanCertMaster -CertMasterBaseURL "https://scepman-cm.azurewebsites.net"
-
-            # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $AzureADAppNameForCertMaster -eq "SCEPman-CertMaster" -and 
-                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
-            }
-        }
-
         It "Successfully registers CertMaster with custom app name" {
             # Act
             Register-SCEPmanCertMaster -CertMasterBaseURL "https://scepman-cm.azurewebsites.net" -AzureADAppNameForCertMaster "CustomCertMaster"
@@ -95,16 +99,6 @@ Describe "Register-SCEPmanCertMaster" {
             # Assert
             Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
                 $AzureADAppNameForCertMaster -eq "CustomCertMaster" -and 
-                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
-            }
-        }
-
-        It "Automatically adds https:// prefix when missing" {
-            # Act
-            Register-SCEPmanCertMaster -CertMasterBaseURL "scepman-cm.azurewebsites.net"
-
-            # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
                 $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
             }
         }
