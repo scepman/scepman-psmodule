@@ -21,17 +21,6 @@ function Register-SCEPmanCertMaster
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [ValidateScript({
-            # Ensure URL has a protocol prefix, add https:// if missing
-            if ($_ -match '^https?://') {
-                return $true
-            } elseif ($_ -match '^[a-zA-Z0-9][a-zA-Z0-9\.\-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}(:\d+)?(/.*)?$' -or $_ -match '^localhost(:\d+)?(/.*)?$') {
-                # Looks like a domain name or localhost without protocol, we'll add https://
-                return $true
-            } else {
-                throw "CertMasterBaseURL must be a valid URL with protocol (http:// or https://) or a valid domain name."
-            }
-        })]
         [string]$CertMasterBaseURL,
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster'
       )
