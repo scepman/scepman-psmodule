@@ -23,6 +23,9 @@
  .Parameter SubscriptionId
   The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
+ .Parameter AddAdditionalCertMasterAppRoles
+  Set this flag to add additional app roles to the SCEPman Certificate Master App Service.
+
  .PARAMETER SkipAppRoleAssignments
   Set this flag to skip the app role assignments. This is useful if you don't have Global Administrator permissions. You will have to assign the app roles manually later, but the CMDlet will show which az commands to execute manually for the assignment.
 
@@ -57,6 +60,7 @@ function Complete-SCEPmanInstallation
         [switch]$SearchAllSubscriptions,
         $DeploymentSlotName,
         $SubscriptionId,
+        [switch]$AddAdditionalCertMasterAppRoles,
         [switch]$SkipAppRoleAssignments,
         [switch]$SkipCertificateMaster,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
@@ -236,7 +240,7 @@ function Complete-SCEPmanInstallation
             $CertMasterBaseURL = $CertMasterBaseURLs[0]
             Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments -AddAdditionalAppRoles $AddAdditionalCertMasterAppRoles
         }
     }
 

@@ -5,13 +5,19 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
   $strangeCertMasterFound = $false
 
-  $rgwebapps =  Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name")
+  $rgwebapps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name") | Convert-LinesToObject
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
       $scepmanUrl = ReadAppSetting -AppServiceName $potentialcmwebapp.name -ResourceGroup $CertMasterResourceGroup -SettingName 'AppConfig:SCEPman:URL'
       if($null -eq $scepmanUrl) {
-        Write-Verbose "Web app $($potentialcmwebapp.name) is not a Certificate Master, continuing search ..."
+        $isCmCandidateLinux = IsAppServiceLinux -AppServiceName $potentialcmwebapp.name -ResourceGroup $CertMasterResourceGroup
+        if ($isCmCandidateLinux) {
+          $candidateOs = "Linux"
+        } else {
+          $candidateOs = "Windows"
+        }
+        Write-Verbose "Web app $($potentialcmwebapp.name) running on $candidateOs is not a Certificate Master, continuing search ..."
       } else {
         $hascorrectscepmanurl = $scepmanUrl.ToUpperInvariant().Contains($SCEPmanAppServiceName.ToUpperInvariant())  # this works for deployment slots, too
         if($hascorrectscepmanurl -eq $true) {
@@ -34,7 +40,7 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
 function SelectBestDotNetRuntime ($ForLinux = $false) {
   if ($ForLinux) {
-    return "DOTNETCORE:8.0" # Linux does not include auto-updating runtimes. Therefore we must select a specific one.
+    return "DOTNETCORE:8.0" # Linux does not include auto-updating inbuilt runtimes. Therefore this should be a self-contained package, but we must still select some dotnet runtime.
   }
   try
   {
@@ -66,11 +72,11 @@ function New-CertMasterAppService {
     $ShallCreateCertMasterAppService = [String]::IsNullOrWhiteSpace($CertMasterAppServiceName)
   } else {
     # Check whether a cert master app service with the passed in name exists
-    $CertMasterWebApps = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name")
+    $CertMasterWebApps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name") | Convert-LinesToObject
     $ShallCreateCertMasterAppService = 0 -eq $CertMasterWebApps.count
   }
 
-  $scwebapp = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'")
+  $scwebapp = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'") | Convert-LinesToObject
 
   if([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = $scwebapp.data.name
@@ -100,8 +106,8 @@ function New-CertMasterAppService {
       # Do all the configuration that the ARM template does normally
       $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
       if (-not [String]::IsNullOrWhiteSpace($DeploymentSlotName)) {
-          $selectedSlot = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'")
-          $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
+        $selectedSlot = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'") | Convert-LinesToObject
+        $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{
         WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
@@ -125,11 +131,7 @@ function New-CertMasterAppService {
 
 function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName, $AppServicePlanId) {
   # Find out which OS the App Service Plan uses
-  $aspInfo = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId)
-  if ($null -eq $aspInfo) {
-    throw "App Service Plan $AppServicePlanId not found"
-  }
-  $isLinuxAsp = $aspInfo.kind -eq "linux"
+  $isLinuxAsp = IsAppServicePlanLinux -AppServicePlanId $AppServicePlanId
   $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAsp
   $null = Invoke-Az @("webapp", "create", "--resource-group", $SCEPmanResourceGroup, "--plan", $AppServicePlanId, "--name", $SCEPmanAppServiceName, "--assign-identity", "[system]", "--runtime", $runtime)
   Write-Information "SCEPman web app $SCEPmanAppServiceName created"
@@ -144,16 +146,22 @@ function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionI
   return $asp
 }
 
-New-Variable -Name "DictAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
+New-Variable -Name "CacheAppServiceKinds" -Value @{} -Scope "Script" -Option ReadOnly
 
 function IsAppServiceLinux ($AppServiceName, $ResourceGroup) {
-  if ($DictAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
-    $kind = $DictAppServiceKinds["$AppServiceName $ResourceGroup"]
+  if ($CacheAppServiceKinds.ContainsKey("$AppServiceName $ResourceGroup")) {
+    $kind = $CacheAppServiceKinds["$AppServiceName $ResourceGroup"]
   } else {
-    $kind = ExecuteAzCommandRobustly -callAzNatively -azCommand @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'kind', "--output", "tsv")
-    $DictAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
+    $kind = Invoke-Az @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'kind', "--output", "tsv")
+    $CacheAppServiceKinds["$AppServiceName $ResourceGroup"] = $kind
   }
   return $kind -eq "app,linux"
+}
+
+function IsAppServicePlanLinux ($AppServicePlanId) {
+  $kind = Invoke-Az @("appservice", "plan", "show", "--id", $AppServicePlanId, "--query", 'kind', "--output", "tsv")
+
+  return $kind -eq "linux"
 }
 
 function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
@@ -339,6 +347,8 @@ function Update-ToConfiguredChannel {
 }
 
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null, $AsSlotSettings = $false) {
+  $totalSettingsCount = $Settings.Count
+  $processedSettingsCount = 0
   foreach ($oneSetting in $Settings) {
     $settingName = $oneSetting.name
     $settingValueEscaped = $oneSetting.value.ToString().Replace('"','\"')
@@ -348,6 +358,10 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     }
     $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
     if ($isAppServiceLinux) {
+      if ($settingName.Contains("-")) {
+        Write-Warning "Setting name $settingName contains at least one dash (-), which is unsupported on Linux. Skipping this setting."
+        continue
+      }
       $settingName = $settingName.Replace(":", "__")
     }
     Write-Verbose "Setting app setting $settingName of app $AppServiceName in slot [$Slot]"
@@ -369,7 +383,10 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     }
 
     $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+    $processedSettingsCount++
+    Write-Progress -Activity "Setting app settings" -Status "Processed $processedSettingsCount of $totalSettingsCount settings" -PercentComplete (($processedSettingsCount / $totalSettingsCount) * 100)
   }
+  Write-Progress -Activity "Setting app settings" -Completed -Status "Processed $processedSettingsCount of $totalSettingsCount settings" -PercentComplete 100
   # The following does not work, as equal signs split this into incomprehensible gibberish:
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }

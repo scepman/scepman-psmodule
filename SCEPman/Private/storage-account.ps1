@@ -1,13 +1,13 @@
 
-function GetStorageAccount ($ResourceGroup) {
-    $storageaccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId, location")
-    if($storageaccounts.count -gt 0) {
+function VerifyStorageAccountDoesNotExist ($ResourceGroup) {
+    $storageAccounts = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.storage/storageaccounts' and resourceGroup == '$ResourceGroup' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId, location") | Convert-LinesToObject
+    if($storageAccounts.count -gt 0) {
         $potentialStorageAccountName = Read-Host "We have found one or more existing storage accounts in the resource group $ResourceGroup. Please hit enter now if you still want to create a new storage account or enter the name of the storage account you would like to use, and then hit enter"
         if(!$potentialStorageAccountName) {
             Write-Information "User selected to create a new storage account"
             return $null
         } else {
-            $potentialStorageAccount = $storageaccounts.data | Where-Object { $_.name -eq $potentialStorageAccountName }
+            $potentialStorageAccount = $storageAccounts.data | Where-Object { $_.name -eq $potentialStorageAccountName }
             if($null -eq $potentialStorageAccount) {
                 Write-Error "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
                 throw "We couldn't find a storage account with name $potentialStorageAccountName in resource group $ResourceGroup. Please try to re-run the script"
@@ -17,13 +17,13 @@ function GetStorageAccount ($ResourceGroup) {
         }
     }
     else {
-        Write-Warning "Unable to determine the storage account"
+        Write-Information "Unable to find an existing storage account"
         return $null
     }
 }
 
 function GetExistingStorageAccount ($dataTableEndpoint) {
-    $storageAccounts = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId, location")
+    $storageAccounts = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.storage/storageaccounts' and properties.primaryEndpoints.table startswith '$($dataTableEndpoint.TrimEnd('/'))' | project name, resourceGroup, primaryEndpoints = properties.primaryEndpoints, subscriptionId, location") | Convert-LinesToObject
     Write-Debug "When searching for Storage Account $dataTableEndpoint, $($storageAccounts.count) accounts look like the searched one"
     $storageAccounts = $storageAccounts.data | Where-Object { $_.primaryEndpoints.table.TrimEnd('/') -eq $dataTableEndpoint.TrimEnd('/')}
     if ($null -ne $storageAccounts.count) { # In PS 7 (?), $storageAccounts is an array; In PS 5, $null has a count property with value 0
@@ -53,7 +53,7 @@ function SetStorageAccountPermissions ($SubscriptionId, $ScStorageAccount, $serv
 }
 
 function CreateScStorageAccount ($SubscriptionId, $ResourceGroup, $servicePrincipals) {
-    $ScStorageAccount = GetStorageAccount -ResourceGroup $ResourceGroup
+    $ScStorageAccount = VerifyStorageAccountDoesNotExist -ResourceGroup $ResourceGroup
     if($null -eq $ScStorageAccount) {
         Write-Information 'Storage account not found. We will create one now'
         $storageAccountName = $ResourceGroup.ToLower() -replace '[^a-z0-9]',''
@@ -127,6 +127,7 @@ function Set-TableStorageEndpointsInScAndCmAppSettings {
     }
 
     if([string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
+        Write-Warning "No storage account found. This is only expected if you upgrade from SCEPman 1.x"
         Write-Information "Creating storage account"
         if ($PSCmdlet.ShouldProcess($storageAccountTableEndpoint, "Create storage account")) {
             $ScStorageAccount = CreateScStorageAccount -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup -servicePrincipals $servicePrincipals

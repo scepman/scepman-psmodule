@@ -40,7 +40,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
         # This step is always skipped, as winget is not available on the Window Server like windows-latest and therefore we cannot use this method to install PowerShell
       - name: Install PowerShell Preview for Windows
@@ -94,6 +94,9 @@ jobs:
           fi
 
         # https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt
+
+      - name: Check az extensions for Debugging
+        run: az version
 
       - name: Log in with Azure
         if: ${{ !env.ACT }}

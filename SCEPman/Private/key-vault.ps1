@@ -1,6 +1,6 @@
 function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
   if ($true -eq $KeyVault.properties_enableRbacAuthorization) {
-    Write-Information "Setting RBAC permissions to Key Vault $($KeyVault.Name) for principal id $tempServicePrincipal"
+    Write-Information "Setting RBAC permissions to Key Vault $($KeyVault.Name) for principal id $PrincipalId"
 
     Write-Debug "Key Vault Scope: $($KeyVault.id)"
 
@@ -21,8 +21,7 @@ function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
 function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
   [uri]$configuredKeyVaultURL = FindConfiguredKeyVaultUrl -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
 
-  # TODO: Use Invoke-az
-  $keyVault = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name,subscriptionId,properties.enableRbacAuthorization,id")
+  $keyVault = Invoke-az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name,subscriptionId,properties.enableRbacAuthorization,id") | Convert-LinesToObject
 
   if($keyVault.count -eq 1) {
     return $keyVault.data
@@ -83,7 +82,7 @@ function Get-DefaultPolicyWithoutKey {
     "policy" = @{
       "key_props" = @{
         "exportable" = $false
-        "reuse_key" = $false
+        "reuse_key" = $true
       }
       "secret_props" = @{
         "contentType" = "application/x-pkcs12"

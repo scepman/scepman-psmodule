@@ -22,7 +22,7 @@ function Get-SubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
 
 function Get-SubscriptionDetailsUsingPlanName($AppServicePlanName, $subscriptions) {
     Write-Information "Finding correct subscription for App Service Plan $AppServicePlanName among the $($subscriptions.count) selected subscriptions"
-    $scPlansAcrossAllAccessibleSubscriptions = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, subscriptionId")
+    $scPlansAcrossAllAccessibleSubscriptions = Invoke-Az -azCommand @('graph', 'query', '-q', "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, subscriptionId") | Convert-LinesToObject
     if($scPlansAcrossAllAccessibleSubscriptions.count -eq 1) {
         Write-Verbose "App Service Plan $AppServicePlanName is in subscription $($scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
         $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
@@ -90,7 +90,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
 }
 
 function GetResourceGroup ($SCEPmanAppServiceName) {
-    $scWebAppsInTheSubscription = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/sites' and name =~ '$SCEPmanAppServiceName' | project name, resourceGroup")
+    $scWebAppsInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '-q', "Resources | where type == 'microsoft.web/sites' and name =~ '$SCEPmanAppServiceName' | project name, resourceGroup") | Convert-LinesToObject
     if($null -ne $scWebAppsInTheSubscription -and $($scWebAppsInTheSubscription.count) -eq 1) {
         return $scWebAppsInTheSubscription.data[0].resourceGroup
     }
@@ -99,7 +99,7 @@ function GetResourceGroup ($SCEPmanAppServiceName) {
 }
 
 function GetResourceGroupFromPlanName ($AppServicePlanName) {
-    $asplansInTheSubscription = Convert-LinesToObject -lines $(az graph query -q "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, resourceGroup")
+    $asplansInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '-q', "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, resourceGroup") | Convert-LinesToObject
     if($null -ne $asplansInTheSubscription -and $($asplansInTheSubscription.count) -eq 1) {
         return $asplansInTheSubscription.data[0].resourceGroup
     }

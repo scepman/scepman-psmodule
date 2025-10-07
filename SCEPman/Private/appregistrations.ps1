@@ -112,16 +112,23 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false, $AddAdditionalAppRoles = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
+
+  if ($AddAdditionalAppRoles) {
+    Write-Verbose "Adding additional app roles to CertMaster App Registration"
+    $AppRoleAssignments = $CertmasterManifest + $CertmasterAdditionalManifest
+  } else {
+    $AppRoleAssignments = $CertmasterManifest
+  }
 
   $signInUrlArray = $CertMasterBaseURLs | ForEach-Object { "$_/signin-oidc" }
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURL -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $AppRoleAssignments -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   # Expose CertMaster API
@@ -142,6 +149,7 @@ Adds az as an Authorized Client Application to an existing App Registration. Ret
 #>
 function Add-AzAsTrustedClientApplication {
   [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([bool])]
   param(
     [Parameter(Mandatory=$true)]$AppId
   )

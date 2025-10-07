@@ -136,6 +136,92 @@ New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value 
   'value' = 'Request.Server'
 })
 
+# To-be JSON defining additional, non-default, App Roles that User can have when authenticating against CertMaster
+New-Variable -Name "CertmasterAdditionalManifest" -Scope "Script" -Option ReadOnly -Value @(@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request certificates of all types using CSR"
+  'displayName' = 'Request All (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.All.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request certificates of all types using form"
+  'displayName' = 'Request All (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.All.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request client certificates using CSR"
+  'displayName' = 'Request Client (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.Client.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request client certificates using form"
+  'displayName' = 'Request Client (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.Client.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request user certificates using CSR"
+  'displayName' = 'Request User (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.User.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request user certificates using form"
+  'displayName' = 'Request User (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.User.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request code signing certificates using CSR"
+  'displayName' = 'Request Code Signing (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.CodeSigning.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request code signing certificates using form"
+  'displayName' = 'Request Code Signing (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.CodeSigning.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request Subordinate CA certificates for Firewalls using CSR"
+  'displayName' = 'Request Subordinate CA (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.SubCa.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request Subordinate CA certificates for Firewalls using form"
+  'displayName' = 'Request Subordinate CA (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.SubCa.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request server certificates using CSR"
+  'displayName' = 'Request Server (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.Server.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Request server certificates using form"
+  'displayName' = 'Request Server (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.Server.Form'
+})
+
 New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
   prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"
   beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Beta.zip"
