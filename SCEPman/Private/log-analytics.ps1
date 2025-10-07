@@ -104,7 +104,7 @@ function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscriptio
 
     $azCommandToCreateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "create", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName_New)
 
-    if ($oldTableExists) { 
+    if ($oldTableExists) {
         $azCommandToCreateWorkspaceTable += @("--total-retention-time", $oldTableDetails.totalRetentionInDays, "--plan", $oldTableDetails.plan)
         if (-not $oldTableDetails.retentionInDaysAsDefault) {
             $azCommandToCreateWorkspaceTable += @("--retention-time", $oldTableDetails.retentionInDays)
@@ -118,18 +118,17 @@ function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscriptio
 }
 
 function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
-    $dcrAssociationName = "dcr-association-scepmanlogs"
-    $dcrAssociationDetails = az monitor data-collection rule association show --name $dcrAssociationName --resource $WorkspaceResourceId | Convert-LinesToObject
+    $dcrAssociationDetails = az monitor data-collection rule association show --name $DCRAssociationName --resource $WorkspaceResourceId | Convert-LinesToObject
     if ($null -ne $dcrAssociationDetails) {
-        Write-Information "Data Collection Rule association $dcrAssociationName already exists. Skipping the association of the DCR"
+        Write-Information "Data Collection Rule association $DCRAssociationName already exists. Skipping the association of the DCR"
         return
     }
-    $null = Invoke-Az @("monitor", "data-collection", "rule", "association", "create", "--name", $dcrAssociationName, "--rule-id", $RuleIdName, "--resource", $WorkspaceResourceId, "--only-show-errors")
-    Write-Information "Data Collection Rule association $dcrAssociationName successfully created"
+    $null = Invoke-Az @("monitor", "data-collection", "rule", "association", "create", "--name", $DCRAssociationName, "--rule-id", $RuleIdName, "--resource", $WorkspaceResourceId, "--only-show-errors")
+    Write-Information "Data Collection Rule association $DCRAssociationName successfully created"
 }
 
 function CreateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
-    
+
     $existingDcrDetails = az monitor data-collection rule show --resource-group $ResourceGroup --name $DCRName | Convert-LinesToObject
     if ($null -ne $existingDcrDetails) {
         Write-Information "Data Collection Rule $DCRName already exists. Skipping the creation of the DCR"
@@ -239,7 +238,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     $workspaceIdCm = $null;
 
     $workspaceId = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
-    
+
     if($null -ne $workspaceId) {
         Write-Information "Found workspace ID $workspaceId in the App Service $SCEPmanAppServiceName"
         $workspaceIdSc = $workspaceId.value
@@ -247,7 +246,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
 
     if($null -ne $ExistingConfigCm -and $null -ne $ExistingConfigCm.settings) {
         $workspaceId = $ExistingConfigCm.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
-        
+
         if($null -ne $workspaceId) {
             Write-Information "Found workspace ID $workspaceId in the App Service $CertMasterAppServiceName"
             $workspaceIdCm = $workspaceId.value
@@ -328,7 +327,7 @@ function Set-LoggingConfigInScAndCmAppSettings {
 
     $existingConfigSc = ReadAppSettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     $existingConfigCm = $null
-    
+
     if($CertMasterResourceGroup -and $CertMasterAppServiceName) {
         $existingConfigCm = ReadAppSettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
     }
@@ -352,5 +351,5 @@ function Set-LoggingConfigInScAndCmAppSettings {
             RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
         }
     }
-    
+
 }
