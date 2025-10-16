@@ -96,7 +96,7 @@ Function New-SCEPmanADPrincipal {
         if (-not $OU) {
             Write-Verbose "No OU provided. Ask for confirmation to create in default Computers container."
             # Take default Computers container if no OU provided
-            $OU = $domainInfo.ComputerContainer
+            $OU = $domainInfo.ComputersContainer
 
             if($PSCmdlet.ShouldContinue($OU, "No OU provider. Create in default Computers container?") -eq $false) {
                 Write-Output "Operation cancelled by user."
