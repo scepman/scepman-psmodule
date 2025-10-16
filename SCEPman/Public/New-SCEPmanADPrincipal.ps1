@@ -52,6 +52,7 @@ Function New-SCEPmanADPrincipal {
             }
         })]
         [string]$CaCertificate,
+        [string]$CaEndpoint = "/ca",
         [string]$SPN
     )
 
@@ -106,7 +107,7 @@ Function New-SCEPmanADPrincipal {
         # Ensure we have a certificate to encrypt the keytab
         if (-not $CaCertificate) {
             Write-Verbose "No CA certificate provided. Fetch from app service"
-            $CaUri = $AppServiceUrl -replace '/+$'  + "/ca"
+            $CaUri = ($AppServiceUrl -replace '/+$') + $CaEndpoint
             $Response = Invoke-WebRequest -Uri $CaUri -UseBasicParsing -ErrorAction Stop
             $RecipientCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]$Response.Content
         } else {
