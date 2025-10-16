@@ -89,7 +89,7 @@ Function New-SCEPmanADPrincipal {
         # Make sure we have a SPN
         if (-not $SPN) {
             Write-Verbose "No SPN provided. Using default: $SPN"
-            $SPN = $AppServiceUrl -replace 'https?://', 'HTTP/' -replace '/+$' + "@$domainFQDN"
+            $SPN = ($AppServiceUrl -replace 'https?://', 'HTTP/' -replace '/+$') + "@$domainFQDN"
         }
 
         # Make sure we have an OU to create the principal in
@@ -124,6 +124,14 @@ Function New-SCEPmanADPrincipal {
     }
 
     Process {
+        try {
+            Get-AdComputer $Name | Out-Null
+            Write-Error "A computer account with the name '$Name' already exists. Please choose a different name."
+            return
+        } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+            # Nothing to do here, account does not exist and we can continue
+        }
+
         try {
             if ($PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU' with SPN '$SPN'")) {
                 New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true
