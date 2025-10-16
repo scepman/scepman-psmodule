@@ -1,12 +1,36 @@
 <#
- .Synopsis
-  Creates a new Active Directory principal (computer account) for SCEPman to use.
+    .Synopsis
+    Creates a new Active Directory principal (computer account) for SCEPman to use.
 
- .Parameter Name
-    The name of the computer account to create.
+    .Parameter Name
+        The name of the computer account to create.
 
- .Example
-   New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -SPN "HTTP/stepman.example.com" -WhatIf
+    .Parameter AppServiceUrl
+        The URL of the SCEPman App Service
+
+    .Parameter Domain
+        The Active Directory domain to create the account in. If not provided, the current domain is used.
+
+    .Parameter OU
+        The OU to create the account in. If not provided, the default Computers container is used.
+
+    .Parameter CaCertificate
+        A DER encoded certificate file to encrypt the keytab for. If not provided, the certificate is fetched from the SCEPman App Service.
+
+    .Parameter SPN
+        The Service Principal Name to assign to the account. If not provided, a default SPN is generated based on the AppServiceUrl.
+
+    .Example
+        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
+
+        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        with a SPN based on the provided AppServiceUrl. The keytab is encrypted using
+    .EXAMPLE
+        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/stepman.contoso.com@CONTOSO"
+
+        Creates a computer account named "STEPman" in the specified OU of the specified domain,
+        with a SPN based on the provided AppServiceUrl. The keytab is encrypted using the provided
+        CA certificate.
 #>
 
 Function New-SCEPmanADPrincipal {
