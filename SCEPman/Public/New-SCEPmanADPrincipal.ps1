@@ -124,14 +124,15 @@ Function New-SCEPmanADPrincipal {
     }
 
     Process {
-        if ($PSCmdlet.ShouldProcess($Name, "Creating AD $Type account")) {
-            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
-            Write-Output "WhatIf: Computer account would be created."
-            return
-        }
-
         try {
-            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true
+            if ($PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU' with SPN '$SPN'")) {
+                New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true
+            } else {
+                # Shorter version for WhatIf
+                New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
+                return
+            }
+
             Write-Output "Computer account '$Name' created in '$OU'."
         } catch {
             Write-Error "An error occurred while creating account: $_"
