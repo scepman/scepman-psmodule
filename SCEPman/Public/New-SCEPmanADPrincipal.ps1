@@ -62,7 +62,7 @@ Function New-SCEPmanADPrincipal {
             Write-Error "ActiveDirectory module not found. Install RSAT or run on a DC."
             exit 1
         }
-        Import-Module ActiveDirectory -ErrorAction Stop
+        Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
 
         # Validate tooling
         if (-not (Get-Command ktpass -ErrorAction SilentlyContinue)) {
