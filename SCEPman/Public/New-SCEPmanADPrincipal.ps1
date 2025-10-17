@@ -70,6 +70,14 @@ Function New-SCEPmanADPrincipal {
             return
         }
 
+        # Ensure we have loaded assembly for enveloped CMS
+        try {
+            Add-Type -AssemblyName System.Security
+        } catch {
+            Write-Error "Could not load System.Security assembly: $_"
+            return
+        }
+
         if (-not $Domain) {
             Write-Verbose "No domain provided, getting information for current domain."
             $domainInfo = Get-ADDomain
