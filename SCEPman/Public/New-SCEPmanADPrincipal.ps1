@@ -118,7 +118,7 @@ Function New-SCEPmanADPrincipal {
         }
 
         # Make sure we have an OU to create the principal in
-        if (-not $OU) {
+        if (-not $OU -and -not $SkipObjectCreation) {
             Write-Verbose "No OU provided. Ask for confirmation to create in default Computers container."
             # Take default Computers container if no OU provided
             $OU = $domainInfo.ComputersContainer
