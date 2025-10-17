@@ -56,7 +56,9 @@ Function New-SCEPmanADKeyTab {
         [string]$ServicePrincipalName,
 
         [string]$PrincipalType = 'KRB5_NT_PRINCIPAL',
-        [string]$Algorithm = 'AES256-SHA1'
+        [string]$Algorithm = 'AES256-SHA1',
+
+        [string]$ktpassPath = "ktpass.exe"
     )
 
     # Use for temporary keytab storage
@@ -64,16 +66,28 @@ Function New-SCEPmanADKeyTab {
 
     try {
         $ktpassArgs = "/princ $ServicePrincipalName /mapuser `"$DownlevelLogonName`" /rndPass /out `"$tempFile`" /ptype $PrincipalType /crypto $Algorithm +Answer"
-        Write-Verbose "$($MyInvocation.MyCommand): Running ktpass with arguments: $ktpassArgs"
+        Write-Verbose "$($MyInvocation.MyCommand): Running $ktpassPath with arguments: $ktpassArgs"
 
-        Write-Output "Creating keytab for principal '$ServicePrincipalName' `n"
-        $proc = Start-Process -FilePath ktpass -ArgumentList $ktpassArgs -NoNewWindow -Wait -PassThru
+        Write-Information "Creating keytab for principal '$ServicePrincipalName' `n"
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = $ktpassPath
+        $ProcessInfo.RedirectStandardError = $true
+        $ProcessInfo.RedirectStandardOutput = $true
+        $ProcessInfo.UseShellExecute = $false
+        $ProcessInfo.Arguments = $ktpassArgs
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
 
-        if ($proc.ExitCode -eq 0) {
+        if ($Process.ExitCode -eq 0) {
                 Write-Verbose "$($MyInvocation.MyCommand): Keytab written to $tempFile"
                 [byte[]]$keyTabData = [System.IO.File]::ReadAllBytes($tempFile)
         } else {
-            Write-Warning "$($MyInvocation.MyCommand): ktpass returned exit code $($proc.ExitCode). Check output for errors."
+            Write-Warning "$($MyInvocation.MyCommand): ktpass returned exit code $($Process.ExitCode)"
+            Write-Warning "$($MyInvocation.MyCommand): ktpass stdout: `n $($Process.StandardOutput.ReadToEnd())"
+            Write-Warning "$($MyInvocation.MyCommand): ktpass stderr: `n $($Process.StandardError.ReadToEnd())"
+            return
         }
     } catch {
         Write-Error "$($MyInvocation.MyCommand): An error occurred while creating keytab: $_"
