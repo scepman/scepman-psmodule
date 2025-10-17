@@ -20,6 +20,9 @@
     .Parameter SPN
         The Service Principal Name to assign to the account. If not provided, a default SPN is generated based on the AppServiceUrl.
 
+    .Parameter SkipObjectCreation
+        If set, the AD object creation is skipped. Useful if the object already exists.
+
     .Example
         New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
 
@@ -53,7 +56,8 @@ Function New-SCEPmanADPrincipal {
         })]
         [string]$CaCertificate,
         [string]$CaEndpoint = "/ca",
-        [string]$SPN
+        [string]$SPN,
+        [switch]$SkipObjectCreation
     )
 
     Begin {
@@ -132,11 +136,16 @@ Function New-SCEPmanADPrincipal {
     }
 
     Process {
-        New-SCEPmanADObject -Name $Name -OU $OU
-        if(Get-AdComputer $Name) {
-            Write-Output "Computer account '$Name' created in '$OU'."
+
+        if($SkipObjectCreation) {
+            Write-Verbose "Skipping AD object creation as per parameter."
         } else {
-            Write-Error "Failed to create computer account '$Name' in '$OU'."
+            New-SCEPmanADObject -Name $Name -OU $OU
+            if(Get-AdComputer $Name) {
+                Write-Output "Computer account '$Name' created in '$OU'."
+            } else {
+                Write-Error "Failed to create computer account '$Name' in '$OU'."
+            }
         }
 
         $keyTabData = New-SCEPmanKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN
