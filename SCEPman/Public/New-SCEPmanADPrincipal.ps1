@@ -133,6 +133,11 @@ Function New-SCEPmanADPrincipal {
             }
         }
 
+        if ($null -eq $RecipientCert) {
+            Write-Error "Could not obtain recipient certificate for keytab encryption."
+            return
+        }
+
     }
 
     Process {
