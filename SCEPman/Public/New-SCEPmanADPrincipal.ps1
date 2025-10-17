@@ -140,11 +140,10 @@ Function New-SCEPmanADPrincipal {
         if($SkipObjectCreation) {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
-            New-SCEPmanADObject -Name $Name -OU $OU
-            if(Get-AdComputer $Name) {
-                Write-Output "Computer account '$Name' created in '$OU'."
-            } else {
+            $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
+            if($null -eq $SCEPmanADObject) {
                 Write-Error "Failed to create computer account '$Name' in '$OU'."
+                return
             }
         }
 

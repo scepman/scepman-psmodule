@@ -21,11 +21,26 @@ Function New-SCEPmanADObject {
         } else {
             # Shorter version for WhatIf
             New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
-            return
         }
 
     } catch {
         Write-Error "$($MyInvocation.MyCommand): An error occurred while creating account: $_"
+        return
+    }
+
+    # Validate creation
+    try {
+        $ADComputer = Get-AdComputer $Name
+        if ($null -eq $ADComputer) {
+            # Condition should not be hit, but might be implemented in a future version of Get-ADComputer
+            Write-Error "$($MyInvocation.MyCommand): Computer account '$Name' could not be found after creation."
+            return
+        }
+
+        return $ADComputer
+    }
+    catch {
+        Write-Error "$($MyInvocation.MyCommand): An error occurred while validating account: $_"
         return
     }
 }
