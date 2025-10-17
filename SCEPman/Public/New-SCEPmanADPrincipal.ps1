@@ -57,7 +57,15 @@ Function New-SCEPmanADPrincipal {
         [string]$CaCertificate,
         [string]$CaEndpoint = "/ca",
         [string]$SPN,
-        [switch]$SkipObjectCreation
+        [switch]$SkipObjectCreation,
+
+        # App service parameters for Set-SCEPmanEndpoint
+        [string]$SCEPmanAppServiceName,
+        [string]$SCEPmanResourceGroupName,
+        [string]$DeploymentSlotName,
+        [string]$SubscriptionId,
+        [switch]$SearchAllSubscriptions
+
     )
 
     Begin {
@@ -71,6 +79,11 @@ Function New-SCEPmanADPrincipal {
         # Validate tooling
         if (-not (Get-Command ktpass -ErrorAction SilentlyContinue)) {
             Write-Warning "ktpass.exe not found in PATH. Copy ktpass to PATH or run this on a DC"
+            return
+        }
+
+        if ($SCEPmanAppServiceName -and -not (Get-Command 'az')) {
+            Write-Warning "App service parameter found but az CLI not found in PATH. Ensure Azure CLI is installed and accessible."
             return
         }
 
@@ -164,6 +177,27 @@ Function New-SCEPmanADPrincipal {
             return
         }
 
-        $encryptedKeyTab
+        if ($SCEPmanAppServiceName) {
+            Write-Verbose "App service parameters provided, configuring SCEPman endpoint."
+            $EndpointParameters = @{
+                Endpoint                 = "ActiveDirectory"
+                EncryptedKeyTab          = $encryptedKeyTab
+                EnableComputer           = $true
+                EnableUser               = $true
+                EnableDC                 = $true
+                SCEPmanAppServiceName    = $SCEPmanAppServiceName
+            }
+
+            if ($SCEPmanResourceGroupName) { $EndpointParameters.SCEPmanResourceGroupName = $SCEPmanResourceGroupName }
+            if ($DeploymentSlotName) { $EndpointParameters.DeploymentSlotName = $DeploymentSlotName }
+            if ($SubscriptionId) { $EndpointParameters.SubscriptionId = $SubscriptionId }
+            if ($SearchAllSubscriptions) { $EndpointParameters.SearchAllSubscriptions = $true }
+
+            Set-SCEPmanEndpoint @EndpointParameters
+        } else {
+            Write-Output "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
+            Write-Output "AppConfig:ActiveDirectory:KeyTab`n"
+            Write-Output $encryptedKeyTab
+        }
     }
 }
