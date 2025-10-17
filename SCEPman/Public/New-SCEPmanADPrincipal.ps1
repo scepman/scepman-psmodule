@@ -160,6 +160,9 @@ Function New-SCEPmanADPrincipal {
 
         try {
             $ktpassArgs = "/princ $SPN /mapuser `"$domainNetBIOS\$Name$`" /rndPass /out `"$tempFile`" /ptype KRB5_NT_PRINCIPAL /crypto AES256-SHA1 +Answer"
+            Write-Verbose "Running ktpass with arguments: $ktpassArgs"
+
+            Write-Output "Creating keytab for principal '$SPN' `n"
             $proc = Start-Process -FilePath ktpass -ArgumentList $ktpassArgs -NoNewWindow -Wait -PassThru
 
             if ($proc.ExitCode -eq 0) {
@@ -187,6 +190,7 @@ Function New-SCEPmanADPrincipal {
 
         $encryptedContent = $envelopedCms.Encode()
 
+        Write-Output "Encrypted keytab for SCEPman: `n"
         Write-Output ([System.Convert]::ToBase64String($encryptedContent))
     }
 }
