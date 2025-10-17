@@ -132,65 +132,25 @@ Function New-SCEPmanADPrincipal {
     }
 
     Process {
-        try {
-            Get-AdComputer $Name | Out-Null
-            Write-Error "A computer account with the name '$Name' already exists. Please choose a different name."
-            return
-        } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-            # Nothing to do here, account does not exist and we can continue
-        }
-
-        try {
-            if ($PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU' with SPN '$SPN'")) {
-                New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true
-            } else {
-                # Shorter version for WhatIf
-                New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
-                return
-            }
-
+        New-SCEPmanADObject -Name $Name -OU $OU
+        if(Get-AdComputer $Name) {
             Write-Output "Computer account '$Name' created in '$OU'."
-        } catch {
-            Write-Error "An error occurred while creating account: $_"
+        } else {
+            Write-Error "Failed to create computer account '$Name' in '$OU'."
+        }
+
+        $keyTabData = New-SCEPmanKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN
+        if ($null -eq $keyTabData) {
+            Write-Error "Failed to create keytab for principal '$SPN'"
             return
         }
 
-        # Use for temporary keytab storage
-        $tempFile = [System.IO.Path]::GetTempFileName()
-
-        try {
-            $ktpassArgs = "/princ $SPN /mapuser `"$domainNetBIOS\$Name$`" /rndPass /out `"$tempFile`" /ptype KRB5_NT_PRINCIPAL /crypto AES256-SHA1 +Answer"
-            Write-Verbose "Running ktpass with arguments: $ktpassArgs"
-
-            Write-Output "Creating keytab for principal '$SPN' `n"
-            $proc = Start-Process -FilePath ktpass -ArgumentList $ktpassArgs -NoNewWindow -Wait -PassThru
-
-            if ($proc.ExitCode -eq 0) {
-                    Write-Verbose "Keytab written to $tempFile"
-                    [byte[]]$keyTabData = [System.IO.File]::ReadAllBytes($tempFile)
-            } else {
-                Write-Warning "ktpass returned exit code $($proc.ExitCode). Check output for errors."
-            }
-        } catch {
-            Write-Error "An error occurred while creating keytab: $_"
+        $encryptedKeyTab = Protect-SCEPmanKeyTab -RecipientCert $RecipientCert -KeyTabData $keyTabData
+        if ($null -eq $encryptedKeyTab) {
+            Write-Error "Failed to encrypt keytab for recipient $($RecipientCert.Subject)"
             return
-        } finally {
-            Write-Verbose "Cleaning up temporary keytab file: $tempFile"
-            if (Test-Path -Path $tempFile) {
-                Remove-Item -Path $tempFile -Force
-            }
         }
 
-        # Create pck7 encrypted keytab
-        $encryptionContentInfo = [System.Security.Cryptography.Pkcs.ContentInfo]::new($keyTabData)
-        $envelopedCms = [System.Security.Cryptography.Pkcs.EnvelopedCms]::new($encryptionContentInfo)
-
-        $recipient = New-Object System.Security.Cryptography.Pkcs.CmsRecipient ($RecipientCert)
-        $envelopedCms.Encrypt($recipient)
-
-        $encryptedContent = $envelopedCms.Encode()
-
-        Write-Output "Encrypted keytab for SCEPman: `n"
-        Write-Output ([System.Convert]::ToBase64String($encryptedContent))
+        $encryptedKeyTab
     }
 }
