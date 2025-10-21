@@ -23,17 +23,42 @@
     .Parameter SkipObjectCreation
         If set, the AD object creation is skipped. Useful if the object already exists.
 
+    .Parameter ShowKtpassOutput
+        If set, the stdout and stderr output of ktpass.exe is shown in the console.
+
+    .Parameter SCEPmanAppServiceName
+        The name of the SCEPman App Service to configure the endpoint in.
+
+    .Parameter SCEPmanResourceGroupName
+        The resource group of the SCEPman App Service.
+
+    .Parameter DeploymentSlotName
+        The deployment slot name of the SCEPman App Service
+
+    .Parameter SubscriptionId
+        The subscription ID to use for the SCEPman App Service.
+
+    .Parameter SearchAllSubscriptions
+        If set, all subscriptions the user has access to are searched for the SCEPman App
+
     .Example
         New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
 
         Creates a computer account named "STEPman" in the default Computers container of the current domain,
-        with a SPN based on the provided AppServiceUrl. The keytab is encrypted using
+        with a SPN based on the provided AppServiceUrl. The keytab is will be encrypted and output in base 64 format.
+
     .EXAMPLE
         New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/stepman.contoso.com@CONTOSO"
 
         Creates a computer account named "STEPman" in the specified OU of the specified domain,
         with a SPN based on the provided AppServiceUrl. The keytab is encrypted using the provided
         CA certificate.
+
+    .EXAMPLE
+        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -AppServiceName "app-scepman-contoso"
+
+        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        with a SPN based on the provided AppServiceUrl. The keytab is encrypted and configured on the specified SCEPman App Service.
 #>
 
 Function New-SCEPmanADPrincipal {
