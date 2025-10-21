@@ -129,7 +129,7 @@ Function New-SCEPmanADPrincipal {
             $OU = $domainInfo.ComputersContainer
 
             if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
-                Write-Output "Operation cancelled by user."
+                Write-Information "Operation cancelled by user."
                 return
             }
         }
@@ -166,7 +166,10 @@ Function New-SCEPmanADPrincipal {
             $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
             if($null -eq $SCEPmanADObject) {
                 Write-Error "Failed to create computer account '$Name' in '$OU'."
+                Write-Error "Make sure you have the necessary permissions."
                 return
+            } else {
+                Write-Information "Successfully created computer account '$Name' in '$OU'."
             }
         }
 
@@ -200,9 +203,9 @@ Function New-SCEPmanADPrincipal {
 
             Set-SCEPmanEndpoint @EndpointParameters
         } else {
-            Write-Output "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
-            Write-Output "AppConfig:ActiveDirectory:KeyTab`n"
-            Write-Output $encryptedKeyTab
+            Write-Information "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
+            Write-Information "AppConfig:ActiveDirectory:KeyTab`n"
+            Write-Information $encryptedKeyTab
         }
     }
 }
