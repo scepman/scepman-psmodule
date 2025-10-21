@@ -228,7 +228,23 @@ Function New-SCEPmanADPrincipal {
             if ($SubscriptionId) { $EndpointParameters.SubscriptionId = $SubscriptionId }
             if ($SearchAllSubscriptions) { $EndpointParameters.SearchAllSubscriptions = $true }
 
+            # Check if we need to temporarily disable Web Account Broker
+            $brokerSetting = az config get core.enable_broker_on_windows 2> $null | ConvertFrom-Json
+            if($brokerSetting.value -eq $true) {
+                Write-Verbose "Web Account Broker is enabled in Azure CLI config. Disabling for this session to avoid authentication issues."
+                az config set core.enable_broker_on_windows=0
+                $restoreBrokerSetting = $true
+            } else {
+                $restoreBrokerSetting = $false
+            }
+
             Set-SCEPmanEndpoint @EndpointParameters
+
+            # Restore Web Account Broker setting if we changed it
+            if($restoreBrokerSetting) {
+                Write-Verbose "Restoring Web Account Broker setting in Azure CLI config."
+                az config set core.enable_broker_on_windows=1
+            }
         } else {
             Write-Information "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
             Write-Information "AppConfig:ActiveDirectory:KeyTab`n"
