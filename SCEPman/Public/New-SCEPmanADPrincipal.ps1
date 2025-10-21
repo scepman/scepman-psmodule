@@ -58,6 +58,7 @@ Function New-SCEPmanADPrincipal {
         [string]$CaEndpoint = "/ca",
         [string]$SPN,
         [switch]$SkipObjectCreation,
+        [switch]$ShowKtpassOutput,
 
         # App service parameters for Set-SCEPmanEndpoint
         [string]$SCEPmanAppServiceName,

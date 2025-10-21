@@ -58,7 +58,8 @@ Function New-SCEPmanADKeyTab {
         [string]$PrincipalType = 'KRB5_NT_PRINCIPAL',
         [string]$Algorithm = 'AES256-SHA1',
 
-        [string]$ktpassPath = "ktpass.exe"
+        [string]$ktpassPath = "ktpass.exe",
+        [switch]$ShowKtpassOutput
     )
 
     # Use for temporary keytab storage
@@ -80,13 +81,26 @@ Function New-SCEPmanADKeyTab {
         $Process.Start() | Out-Null
         $Process.WaitForExit()
 
+        $stdout = $Process.StandardOutput.ReadToEnd()
+        $stderr = $Process.StandardError.ReadToEnd()
+
+        if ($stderr.Contains('Failed to set property ''servicePrincipalName''')) {
+            Write-Error "$($MyInvocation.MyCommand): SPN could not be set successfully`nstderr: `n $stderr"
+            return
+        }
+
         if ($Process.ExitCode -eq 0) {
                 Write-Verbose "$($MyInvocation.MyCommand): Keytab written to $tempFile"
                 [byte[]]$keyTabData = [System.IO.File]::ReadAllBytes($tempFile)
+
+                if ($ShowKtpassOutput) {
+                    Write-Information "ktpass stdout:`n$stdout"
+                    Write-Information "ktpass stderr:`n$stderr"
+                }
         } else {
             Write-Warning "$($MyInvocation.MyCommand): ktpass returned exit code $($Process.ExitCode)"
-            Write-Warning "$($MyInvocation.MyCommand): ktpass stdout: `n $($Process.StandardOutput.ReadToEnd())"
-            Write-Warning "$($MyInvocation.MyCommand): ktpass stderr: `n $($Process.StandardError.ReadToEnd())"
+            Write-Warning "$($MyInvocation.MyCommand): ktpass stdout: `n $stdout"
+            Write-Warning "$($MyInvocation.MyCommand): ktpass stderr: `n $stderr"
             return
         }
     } catch {
