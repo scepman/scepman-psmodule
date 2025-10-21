@@ -103,7 +103,7 @@ Function New-SCEPmanADPrincipal {
         # Make sure we have RSAT tools
         if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
             Write-Error "ActiveDirectory module not found. Install RSAT or run on a DC."
-            exit 1
+            return
         }
         Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
 
