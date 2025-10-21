@@ -160,14 +160,15 @@ Function New-SCEPmanADPrincipal {
     }
 
     Process {
+        # Hold state to determine if we need to clean up
+        $ExecutionSuccessful = $false
 
         if($SkipObjectCreation) {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
             $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
             if($null -eq $SCEPmanADObject) {
-                Write-Error "Failed to create computer account '$Name' in '$OU'."
-                Write-Error "Make sure you have the necessary permissions."
+                Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
                 return
             } else {
                 Write-Information "Successfully created computer account '$Name' in '$OU'."
@@ -207,6 +208,25 @@ Function New-SCEPmanADPrincipal {
             Write-Information "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
             Write-Information "AppConfig:ActiveDirectory:KeyTab`n"
             Write-Information $encryptedKeyTab
+        }
+
+        $ExecutionSuccessful = $true
+    }
+
+    End {
+        # Check if we need to clean up created object
+        if ($SCEPmanADObject -and $ExecutionSuccessful -eq $false) {
+            # Ask for confirmation as we are deleting an object that was just created
+            if($PSCmdlet.ShouldContinue("Computer account '$($SCEPmanADObject.Name)' in '$($SCEPmanADObject.DistinguishedName)'", "An error occurred during execution. Delete created computer account?") -eq $true) {
+                try {
+                    Remove-ADComputer -Identity $SCEPmanADObject -Confirm:$false
+                    Write-Information "Deleted computer account '$($SCEPmanADObject.Name)'."
+                } catch {
+                    Write-Warning "Failed to delete computer account '$($SCEPmanADObject.Name)': $_"
+                }
+            } else {
+                Write-Information "Created computer account '$($SCEPmanADObject.Name)' retained as per user choice."
+            }
         }
     }
 }
