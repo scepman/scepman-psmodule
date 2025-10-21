@@ -95,6 +95,10 @@ Function New-SCEPmanADPrincipal {
     )
 
     Begin {
+        # State to only proceed if all prerequisites are met
+        # Required as return statements will only proceed to Process block
+        $PrerequisitesOk = $false
+
         if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
             Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
             $InformationPreference = 'Continue'
@@ -182,9 +186,15 @@ Function New-SCEPmanADPrincipal {
             return
         }
 
+        $PrerequisitesOk = $true
     }
 
     Process {
+        if (-not $PrerequisitesOk) {
+            Write-Verbose "Prerequisites not met. Aborting operation."
+            return
+        }
+
         # Hold state to determine if we need to clean up
         $ExecutionSuccessful = $false
 
