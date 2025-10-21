@@ -145,6 +145,7 @@ Function New-SCEPmanADPrincipal {
         # Make sure we have a SPN
         if (-not $SPN) {
             $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + "@$domainFQDN"
+            Write-Verbose "No SPN provided. Using default: $SPN"
         }
 
         # Make sure we have an OU to create the principal in
