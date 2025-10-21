@@ -69,6 +69,11 @@ Function New-SCEPmanADPrincipal {
     )
 
     Begin {
+        if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+            Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+            $InformationPreference = 'Continue'
+        }
+
         # Make sure we have RSAT tools
         if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
             Write-Error "ActiveDirectory module not found. Install RSAT or run on a DC."
