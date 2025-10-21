@@ -175,9 +175,9 @@ Function New-SCEPmanADPrincipal {
             }
         }
 
-        $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN
+        $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN -ShowKtpassOutput:$ShowKtpassOutput
         if ($null -eq $keyTabData) {
-            Write-Error "Failed to create keytab for principal '$SPN'"
+            Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
             return
         }
 

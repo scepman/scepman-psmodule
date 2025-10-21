@@ -85,7 +85,12 @@ Function New-SCEPmanADKeyTab {
         $stderr = $Process.StandardError.ReadToEnd()
 
         if ($stderr.Contains('Failed to set property ''servicePrincipalName''')) {
-            Write-Error "$($MyInvocation.MyCommand): SPN could not be set successfully`nstderr: `n $stderr"
+            Write-Error "$($MyInvocation.MyCommand): ServicePrincipalName could not be set successfully`nstderr: `n $stderr"
+            return
+        }
+
+        if ($stderr.Contains('Failed to set property ''userPrincipalName''')) {
+            Write-Error "$($MyInvocation.MyCommand): UserPrincipalName could not be set successfully`nstderr: `n $stderr"
             return
         }
 
