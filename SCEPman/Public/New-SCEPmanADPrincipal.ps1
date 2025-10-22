@@ -258,7 +258,7 @@ Function New-SCEPmanADPrincipal {
         } else {
             Write-Information "Keytab creation and encryption successful. Use the following Base64 encoded encrypted keytab data in your SCEPman AD endpoint configuration:"
             Write-Information "AppConfig:ActiveDirectory:KeyTab`n"
-            Write-Information $encryptedKeyTab
+            Write-Output $encryptedKeyTab
         }
 
         $ExecutionSuccessful = $true
