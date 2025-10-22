@@ -11,8 +11,13 @@ Function New-SCEPmanADObject {
         Get-AdComputer $Name | Out-Null
         Write-Error "$($MyInvocation.MyCommand): A computer account with the name '$Name' already exists. Please choose a different name."
         return
-    } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-        # Nothing to do here, account does not exist and we can continue
+    } catch {
+        if ($_.Exception.GetType().FullName -match 'ADIdentityNotFoundException') {
+            # Expected exception when the computer does not exist; proceed with creation
+        } else {
+            Write-Error "$($MyInvocation.MyCommand): An error occurred while checking for existing account: $_"
+            return
+        }
     }
 
     try {
