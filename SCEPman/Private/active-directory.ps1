@@ -76,6 +76,12 @@ Function New-SCEPmanADKeyTab {
     # Use for temporary keytab storage
     $tempFile = Get-TempFilePath
 
+    # Check if ktpass exists
+    if (-not (Test-Path -Path $ktpassPath)) {
+        Write-Error "$($MyInvocation.MyCommand): ktpass executable not found at path '$ktpassPath'. Please ensure ktpass is installed and the path is correct."
+        return
+    }
+
     try {
         $ktpassArgs = "/princ $ServicePrincipalName /mapuser `"$DownlevelLogonName`" /rndPass /out `"$tempFile`" /ptype $PrincipalType /crypto $Algorithm +Answer"
         Write-Verbose "$($MyInvocation.MyCommand): Running $ktpassPath with arguments: $ktpassArgs"
