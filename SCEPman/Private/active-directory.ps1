@@ -82,7 +82,7 @@ Function New-SCEPmanADKeyTab {
     $tempFile = Get-TempFilePath
 
     # Check if ktpass exists
-    if (-not (Test-Path -Path $ktpassPath)) {
+    if ($ktpassPath -ne 'ktpass.exe' -and -not (Test-Path -Path $ktpassPath)) {
         Write-Error "$($MyInvocation.MyCommand): ktpass executable not found at path '$ktpassPath'. Please ensure ktpass is installed and the path is correct."
         return
     }
