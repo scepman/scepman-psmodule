@@ -135,7 +135,7 @@ Function New-SCEPmanADPrincipal {
             Write-Verbose "No domain provided, getting information for current domain."
             $domainInfo = Get-ADDomain
         } Else {
-            Write-Verbose "Getting informationn for provided domain: $Domain"
+            Write-Verbose "Getting information for provided domain: $Domain"
             $domainInfo = Get-ADDomain $Domain
         }
 
