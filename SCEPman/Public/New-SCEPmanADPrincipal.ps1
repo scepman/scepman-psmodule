@@ -41,7 +41,7 @@
     .Parameter SearchAllSubscriptions
         If set, all subscriptions the user has access to are searched for the SCEPman App
 
-    .PARAMETER Quiet
+    .PARAMETER Force
         If set, suppresses interactive prompts.
 
     .Example
@@ -95,7 +95,7 @@ Function New-SCEPmanADPrincipal {
         [string]$SubscriptionId,
         [switch]$SearchAllSubscriptions,
 
-        [switch]$Quiet
+        [switch]$Force
 
     )
 
@@ -158,8 +158,8 @@ Function New-SCEPmanADPrincipal {
             # Take default Computers container if no OU provided
             $OU = $domainInfo.ComputersContainer
 
-            if ($Quiet) {
-                Write-Information "No OU provided and -Quiet specified. Please specify an OU or remove -Quiet to confirm default Computers container."
+            if ($Force) {
+                Write-Information "No OU provided and -Force specified. Please specify an OU or remove -Force to confirm default Computers container."
                 return
             }
 
@@ -271,7 +271,7 @@ Function New-SCEPmanADPrincipal {
         # Check if we need to clean up created object
         if ($SCEPmanADObject -and $ExecutionSuccessful -eq $false) {
             # Ask for confirmation as we are deleting an object that was just created
-            if(-not $Quiet -and $PSCmdlet.ShouldContinue("Computer account '$($SCEPmanADObject.Name)' in '$($SCEPmanADObject.DistinguishedName)'", "An error occurred during execution. Delete created computer account?") -eq $true) {
+            if(-not $Force -and $PSCmdlet.ShouldContinue("Computer account '$($SCEPmanADObject.Name)' in '$($SCEPmanADObject.DistinguishedName)'", "An error occurred during execution. Delete created computer account?") -eq $true) {
                 try {
                     Remove-ADComputer -Identity $SCEPmanADObject -Confirm:$false
                     Write-Information "Deleted computer account '$($SCEPmanADObject.Name)'."
