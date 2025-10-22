@@ -45,6 +45,17 @@ Function New-SCEPmanADObject {
     }
 }
 
+Function Read-FileBytes {
+    param(
+        [string]$Path
+    )
+    return [System.IO.File]::ReadAllBytes($Path)
+}
+
+Function Get-TempFilePath {
+    return [System.IO.Path]::GetTempFileName()
+}
+
 Function New-SCEPmanADKeyTab {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -63,7 +74,7 @@ Function New-SCEPmanADKeyTab {
     )
 
     # Use for temporary keytab storage
-    $tempFile = [System.IO.Path]::GetTempFileName()
+    $tempFile = Get-TempFilePath
 
     try {
         $ktpassArgs = "/princ $ServicePrincipalName /mapuser `"$DownlevelLogonName`" /rndPass /out `"$tempFile`" /ptype $PrincipalType /crypto $Algorithm +Answer"
@@ -96,7 +107,7 @@ Function New-SCEPmanADKeyTab {
 
         if ($Process.ExitCode -eq 0) {
                 Write-Verbose "$($MyInvocation.MyCommand): Keytab written to $tempFile"
-                [byte[]]$keyTabData = [System.IO.File]::ReadAllBytes($tempFile)
+                [byte[]]$keyTabData = Read-FileBytes -Path $tempFile
 
                 if ($ShowKtpassOutput) {
                     Write-Information "ktpass stdout:`n$stdout"
