@@ -128,26 +128,26 @@ Describe "New-SCEPmanADPrincipal Processing" {
     It "Handles failing AD computer account creation" {
         Mock New-SCEPmanADObject { return $null }
 
-        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Quiet
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force
         $result | Should -Be $null
     }
 
     It "Handles failing keytab creation" {
         Mock New-SCEPmanADKeyTab { return $null }
 
-        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Quiet
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force
         $result | Should -Be $null
     }
 
     It "Handles failing keytab encryption" {
         Mock Protect-SCEPmanKeyTab { return $null }
 
-        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Quiet
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force
         $result | Should -Be $null
     }
 
     It "Handles successful procedure" {
-        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Quiet
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force
 
         $result | Should -Not -Be $null
         $result | Should -BeOfType [string]
