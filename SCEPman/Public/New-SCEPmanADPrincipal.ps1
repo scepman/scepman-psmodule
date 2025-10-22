@@ -196,7 +196,8 @@ Function New-SCEPmanADPrincipal {
         } else {
             $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
             if($null -eq $SCEPmanADObject) {
-                throw "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
+                Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
+                return
             } else {
                 Write-Information "Successfully created computer account '$Name' in '$OU'."
             }
@@ -204,12 +205,14 @@ Function New-SCEPmanADPrincipal {
 
         $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN -ShowKtpassOutput:$ShowKtpassOutput
         if ($null -eq $keyTabData) {
-            throw "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+            Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+            return
         }
 
         $encryptedKeyTab = Protect-SCEPmanKeyTab -RecipientCert $RecipientCert -KeyTabData $keyTabData
         if ($null -eq $encryptedKeyTab) {
-            throw "Failed to encrypt keytab for recipient $($RecipientCert.Subject)"
+            Write-Error "Failed to encrypt keytab for recipient $($RecipientCert.Subject)"
+            return
         }
 
         if ($SCEPmanAppServiceName) {
