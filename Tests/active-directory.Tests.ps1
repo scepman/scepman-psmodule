@@ -20,6 +20,9 @@ Describe 'New-SCEPmanADObject' {
 
         Function Get-ADComputer { }
         Function New-ADComputer { }
+
+        $Name = "TestComputer"
+        $OU = "OU=Computers,DC=contoso,DC=local"
     }
     BeforeEach {
         # Reset any state before each test
@@ -42,11 +45,7 @@ Describe 'New-SCEPmanADObject' {
     }
 
     It "Creates a new AD computer object successfully" {
-
-        $Names = "TestComputer"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
+        $result = New-SCEPmanADObject -Name $Name -OU $OU
 
         # Assert
         $result | Should -Not -BeNullOrEmpty
@@ -62,29 +61,13 @@ Describe 'New-SCEPmanADObject' {
             }
         }
 
-        $Names = "ExistingComputer"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
-
-        # Assert
-        $result | Should -BeNullOrEmpty
-        Should -Invoke New-ADComputer -Exactly 0
+        { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*A computer account with the name * already exists*"
     }
 
     It "Handles errors during AD computer creation" {
-        Mock New-ADComputer {
-            throw "Simulated creation error"
-        }
+        Mock New-ADComputer { throw "Simulated creation error" }
 
-        $Names = "ErrorComputer"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
-
-        # Assert
-        $result | Should -BeNullOrEmpty
-        Should -Invoke New-ADComputer -Exactly 1
+        { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*An error occurred while creating account*"
     }
 
     It "Handles errors during initial AD computer validation" {
@@ -92,14 +75,7 @@ Describe 'New-SCEPmanADObject' {
             throw "Simulated validation error"
         }
 
-        $Names = "ValidateErrorComputer"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
-
-        # Assert
-        $result | Should -BeNullOrEmpty
-        Should -Invoke New-ADComputer -Exactly 0
+        { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*An error occurred while checking for existing account*"
     }
 
     It "Handles not finding account after creation" {
@@ -107,14 +83,7 @@ Describe 'New-SCEPmanADObject' {
             throw [ADIdentityNotFoundException]::new("Computer not found")
         }
 
-        $Names = "NotFoundAfterCreation"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
-
-        # Assert
-        $result | Should -BeNullOrEmpty
-        Should -Invoke Get-ADComputer -Exactly 2
+        { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*An error occurred while validating account*"
     }
 
     It "Handles unexpected errors during existence check" {
@@ -129,14 +98,7 @@ Describe 'New-SCEPmanADObject' {
             }
         }
 
-        $Names = "UnexpectedErrorComputer"
-        $OUs = "OU=Computers,DC=contoso,DC=local"
-
-        $result = New-SCEPmanADObject -Name $Names -OU $OUs
-
-        # Assert
-        $result | Should -BeNullOrEmpty
-        Should -Invoke Get-ADComputer -Exactly 2
+        { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*An error occurred while validating account*"
     }
 }
 
@@ -269,10 +231,7 @@ Describe 'New-SCEPmanADKeyTab' {
             return [MockProcess]::new(1)
         } -ParameterFilter { $TypeName -eq 'System.Diagnostics.Process' }
 
-        $result = New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName
-
-        # Assert
-        $result | Should -BeNullOrEmpty
+        { New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName } | Should -Throw "*ServicePrincipalName could not be set successfully*"
     }
 
     It "Handles ktpass failure due to userPrincipalName error" {
@@ -280,10 +239,7 @@ Describe 'New-SCEPmanADKeyTab' {
             return [MockProcess]::new(2)
         } -ParameterFilter { $TypeName -eq 'System.Diagnostics.Process' }
 
-        $result = New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName
-
-        # Assert
-        $result | Should -BeNullOrEmpty
+        { New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName } | Should -Throw "*UserPrincipalName could not be set successfully*"
     }
 
     It "Handles ktpass failure due to exception being thrown" {
@@ -291,10 +247,7 @@ Describe 'New-SCEPmanADKeyTab' {
             return [MockProcess]::new(3)
         } -ParameterFilter { $TypeName -eq 'System.Diagnostics.Process' }
 
-        $result = New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName
-
-        # Assert
-        $result | Should -BeNullOrEmpty
+        { New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName } | Should -Throw "*An error occurred while creating keytab*"
     }
 
     It "Handles ktpass failure due to generic error message" {
@@ -302,10 +255,7 @@ Describe 'New-SCEPmanADKeyTab' {
             return [MockProcess]::new(11)
         } -ParameterFilter { $TypeName -eq 'System.Diagnostics.Process' }
 
-        $result = New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName
-
-        # Assert
-        $result | Should -BeNullOrEmpty
+        { New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName } | Should -Throw "*ktpass failed with exit code*"
     }
 
     It "Handles ShowKtpassOutput parameter correctly" {

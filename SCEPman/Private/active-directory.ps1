@@ -9,14 +9,12 @@ Function New-SCEPmanADObject {
 
     try {
         Get-AdComputer $Name | Out-Null
-        Write-Error "$($MyInvocation.MyCommand): A computer account with the name '$Name' already exists. Please choose a different name."
-        return
+        throw "$($MyInvocation.MyCommand): A computer account with the name '$Name' already exists. Please choose a different name."
     } catch {
         if ($_.Exception.GetType().FullName -match 'ADIdentityNotFoundException') {
             # Expected exception when the computer does not exist; proceed with creation
         } else {
-            Write-Error "$($MyInvocation.MyCommand): An error occurred while checking for existing account: $_"
-            return
+            throw "$($MyInvocation.MyCommand): An error occurred while checking for existing account: $_"
         }
     }
 
@@ -29,8 +27,7 @@ Function New-SCEPmanADObject {
         }
 
     } catch {
-        Write-Error "$($MyInvocation.MyCommand): An error occurred while creating account: $_"
-        return
+        throw "$($MyInvocation.MyCommand): An error occurred while creating account: $_"
     }
 
     # Validate creation
@@ -38,15 +35,13 @@ Function New-SCEPmanADObject {
         $ADComputer = Get-AdComputer $Name
         if ($null -eq $ADComputer) {
             # Condition should not be hit, but might be implemented in a future version of Get-ADComputer
-            Write-Error "$($MyInvocation.MyCommand): Computer account '$Name' could not be found after creation."
-            return
+            throw "$($MyInvocation.MyCommand): Computer account '$Name' could not be found after creation."
         }
 
         return $ADComputer
     }
     catch {
-        Write-Error "$($MyInvocation.MyCommand): An error occurred while validating account: $_"
-        return
+        throw "$($MyInvocation.MyCommand): An error occurred while validating account: $_"
     }
 }
 
@@ -83,8 +78,7 @@ Function New-SCEPmanADKeyTab {
 
     # Check if ktpass exists
     if ($ktpassPath -ne 'ktpass.exe' -and -not (Test-Path -Path $ktpassPath)) {
-        Write-Error "$($MyInvocation.MyCommand): ktpass executable not found at path '$ktpassPath'. Please ensure ktpass is installed and the path is correct."
-        return
+        throw "$($MyInvocation.MyCommand): ktpass executable not found at path '$ktpassPath'. Please ensure ktpass is installed and the path is correct."
     }
 
     try {
@@ -107,13 +101,11 @@ Function New-SCEPmanADKeyTab {
         $stderr = $Process.StandardError.ReadToEnd()
 
         if ($stderr.Contains('Failed to set property ''servicePrincipalName''')) {
-            Write-Error "$($MyInvocation.MyCommand): ServicePrincipalName could not be set successfully`nstderr: `n $stderr"
-            return
+            throw "$($MyInvocation.MyCommand): ServicePrincipalName could not be set successfully`nstderr: `n $stderr"
         }
 
         if ($stderr.Contains('Failed to set property ''userPrincipalName''')) {
-            Write-Error "$($MyInvocation.MyCommand): UserPrincipalName could not be set successfully`nstderr: `n $stderr"
-            return
+            throw "$($MyInvocation.MyCommand): UserPrincipalName could not be set successfully`nstderr: `n $stderr"
         }
 
         if ($Process.ExitCode -eq 0) {
@@ -125,14 +117,10 @@ Function New-SCEPmanADKeyTab {
                     Write-Information "ktpass stderr:`n$stderr"
                 }
         } else {
-            Write-Warning "$($MyInvocation.MyCommand): ktpass returned exit code $($Process.ExitCode)"
-            Write-Warning "$($MyInvocation.MyCommand): ktpass stdout: `n $stdout"
-            Write-Warning "$($MyInvocation.MyCommand): ktpass stderr: `n $stderr"
-            return
+            throw "$($MyInvocation.MyCommand): ktpass failed with exit code $($Process.ExitCode)`nstdout: `n $stdout`nstderr: `n $stderr"
         }
     } catch {
-        Write-Error "$($MyInvocation.MyCommand): An error occurred while creating keytab: $_"
-        return
+        throw "$($MyInvocation.MyCommand): An error occurred while creating keytab: $_"
     } finally {
         Write-Verbose "$($MyInvocation.MyCommand): Cleaning up temporary keytab file: $tempFile"
         if (Test-Path -Path $tempFile) {

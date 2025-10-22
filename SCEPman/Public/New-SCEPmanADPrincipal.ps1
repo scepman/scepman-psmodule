@@ -213,15 +213,26 @@ Function New-SCEPmanADPrincipal {
             }
         }
 
-        $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN -ShowKtpassOutput:$ShowKtpassOutput
-        if ($null -eq $keyTabData) {
-            Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+        try {
+            $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN -ShowKtpassOutput:$ShowKtpassOutput
+            if ($null -eq $keyTabData) {
+                Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+                return
+            }
+        } catch {
+            Write-Error "Error creating keytab for principal '$SPN': $_"
             return
         }
 
-        $encryptedKeyTab = Protect-SCEPmanKeyTab -RecipientCert $RecipientCert -KeyTabData $keyTabData
-        if ($null -eq $encryptedKeyTab) {
-            Write-Error "Failed to encrypt keytab for recipient $($RecipientCert.Subject)"
+
+        try {
+            $encryptedKeyTab = Protect-SCEPmanKeyTab -RecipientCert $RecipientCert -KeyTabData $keyTabData
+            if ($null -eq $encryptedKeyTab) {
+                Write-Error "Failed to encrypt keytab for recipient $($RecipientCert.Subject)"
+                return
+            }
+        } catch {
+            Write-Error "Error encrypting keytab for recipient $($RecipientCert.Subject): $_"
             return
         }
 
