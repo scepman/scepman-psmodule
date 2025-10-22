@@ -41,6 +41,9 @@
     .Parameter SearchAllSubscriptions
         If set, all subscriptions the user has access to are searched for the SCEPman App
 
+    .PARAMETER Quiet
+        If set, suppresses interactive prompts.
+
     .Example
         New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
 
@@ -90,7 +93,9 @@ Function New-SCEPmanADPrincipal {
         [string]$SCEPmanResourceGroupName,
         [string]$DeploymentSlotName,
         [string]$SubscriptionId,
-        [switch]$SearchAllSubscriptions
+        [switch]$SearchAllSubscriptions,
+
+        [switch]$Quiet
 
     )
 
@@ -152,6 +157,11 @@ Function New-SCEPmanADPrincipal {
             Write-Verbose "No OU provided. Ask for confirmation to create in default Computers container."
             # Take default Computers container if no OU provided
             $OU = $domainInfo.ComputersContainer
+
+            if ($Quiet) {
+                Write-Information "No OU provided and -Quiet specified. Please specify an OU or remove -Quiet to confirm default Computers container."
+                return
+            }
 
             if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
                 Write-Information "Operation cancelled by user."
@@ -261,7 +271,7 @@ Function New-SCEPmanADPrincipal {
         # Check if we need to clean up created object
         if ($SCEPmanADObject -and $ExecutionSuccessful -eq $false) {
             # Ask for confirmation as we are deleting an object that was just created
-            if($PSCmdlet.ShouldContinue("Computer account '$($SCEPmanADObject.Name)' in '$($SCEPmanADObject.DistinguishedName)'", "An error occurred during execution. Delete created computer account?") -eq $true) {
+            if(-not $Quiet -and $PSCmdlet.ShouldContinue("Computer account '$($SCEPmanADObject.Name)' in '$($SCEPmanADObject.DistinguishedName)'", "An error occurred during execution. Delete created computer account?") -eq $true) {
                 try {
                     Remove-ADComputer -Identity $SCEPmanADObject -Confirm:$false
                     Write-Information "Deleted computer account '$($SCEPmanADObject.Name)'."
