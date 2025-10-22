@@ -141,7 +141,9 @@ Function New-SCEPmanADKeyTab {
 Function Protect-SCEPmanKeyTab {
     [CmdletBinding()]
     param(
+        [Parameter(Mandatory)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$RecipientCert,
+        [Parameter(Mandatory)]
         [byte[]]$KeyTabData
     )
 
