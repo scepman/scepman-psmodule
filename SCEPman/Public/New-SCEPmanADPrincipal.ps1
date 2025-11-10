@@ -148,7 +148,7 @@ Function New-SCEPmanADPrincipal {
 
         # Make sure we have a SPN
         if (-not $SPN) {
-            $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + "@$domainFQDN"
+            $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + '@' + $domainFQDN.ToUpper()
             Write-Verbose "No SPN provided. Using default: $SPN"
         }
 
