@@ -3,13 +3,15 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
         $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
     } else {
         $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
-        if($workspaces.count -eq 1) {
-            Write-Information "Found log analytics workspace $($workspaces.data[0].name)"
-            return $workspaces.data[0]
-        }
     }
-    if($workspaces.count -gt 0) {
-        $potentialWorkspaceName = Read-Host "We have found one or more existing log analytics workspaces in the resource group $ResourceGroup. Please hit enter now if you still want to create a workspace or enter the workspace you would like to use, and then hit enter"
+
+    if($workspaces.count -eq 1) {
+        Write-Information "Found log analytics workspace $($workspaces.data[0].name)"
+        return $workspaces.data[0]
+    } elseif($workspaces.count -gt 1) {
+        Write-Information "Found log analytics workspaces:"
+        $workspaces.data | ForEach-Object { Write-Information $_.name }
+        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please hit enter now if you still want to create a workspace or enter the workspace you would like to use, and then hit enter"
         if(!$potentialWorkspaceName) {
             Write-Information "User selected to create a log analytics workspace"
             return $null
