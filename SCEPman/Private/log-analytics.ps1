@@ -33,7 +33,15 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
 
 function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
     # Keep AzureOfferingDomain because it is used by the Log Ingestion API target as well
-    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", "AppConfig:LoggingConfig:WorkspaceId", "AppConfig:LoggingConfig:SharedKey")
+    $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+    if($isAppServiceLinux) {
+        $WorkspaceIdVariable = "AppConfig__LoggingConfig__WorkspaceId"
+        $SharedKeyVariable = "AppConfig__LoggingConfig__SharedKey"
+    } else {
+        $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceID"
+        $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
+    }
+    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $WorkspaceIdVariable, $SharedKeyVariable)
 }
 
 function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
