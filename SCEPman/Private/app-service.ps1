@@ -374,7 +374,9 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
 
     $command = @('webapp', 'config', 'appsettings', 'set', '--name', $AppServiceName, '--resource-group', $ResourceGroup)
     if ($AsSlotSettings) {
-      $command += @('--slot-settings', $settingAssignment)
+      # $command += @('--slot-settings', $settingAssignment)
+      Write-Verbose "Not marking setting $settingName as slot setting, as az cli 2.79 cannot create slot settings correctly. Using normal setting instead."
+      $command += @('--settings', $settingAssignment)
     } else {
       $command += @('--settings', $settingAssignment)
     }
