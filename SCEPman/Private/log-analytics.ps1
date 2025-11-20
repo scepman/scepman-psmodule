@@ -323,12 +323,12 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     }
 }
 
-function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails) {
+function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails, $Slot) {
     $settings = @(
         @{ name='AppConfig:LoggingConfig:DataCollectionEndpointUri'; value=$($DcrDetails.endpoints.logsIngestion) },
         @{ name='AppConfig:LoggingConfig:RuleId'; value=$($DcrDetails.immutableId) }
     )
-    SetAppSettings -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Settings $settings
+    SetAppSettings -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Settings $settings -Slot:$Slot
     Write-Information "Log ingestion API settings configured in the App Service $AppServiceName"
 }
 
@@ -361,11 +361,11 @@ function Set-LoggingConfigInScAndCmAppSettings {
         [switch]$SkipAppRoleAssignments
     )
 
-    $existingConfigSc = ReadAppSettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
+    $existingConfigSc = ReadAppSettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -Slot:$DeploymentSlotName
     $existingConfigCm = $null
 
     if($CertMasterResourceGroup -and $CertMasterAppServiceName) {
-        $existingConfigCm = ReadAppSettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
+        $existingConfigCm = ReadAppSettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -Slot:$DeploymentSlotName
     }
 
     # Ensure resources exist
@@ -379,12 +379,12 @@ function Set-LoggingConfigInScAndCmAppSettings {
 
     if($shouldConfigureLoggingInSc) {
         AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails
+        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot:$DeploymentSlotName
         RemoveDataCollectorAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     }
     if($shouldConfigureLoggingConfigInCm) {
         AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails
+        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -Slot:$DeploymentSlotName
         RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
     }
 }
