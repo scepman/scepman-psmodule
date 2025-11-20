@@ -71,8 +71,7 @@ function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
 }
 
 function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId, $tableName) {
-    #Don't use Invoke-Az here to avoid unnecessary retries
-    $table = az monitor log-analytics workspace table show --resource-group $ResourceGroup --workspace-name $($WorkspaceAccount.name) --name $tableName | Convert-LinesToObject
+    $table = Invoke-Az -MaxRetries 0 -azCommand @("monitor", "log-analytics", "workspace", "table", "show", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $tableName) | Convert-LinesToObject
     return $table
 }
 
@@ -155,8 +154,7 @@ function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
 }
 
 function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
-
-    $existingDcrDetails = az monitor data-collection rule show --resource-group $ResourceGroup --name $DCRName | Convert-LinesToObject
+    $existingDcrDetails = Invoke-Az -MaxRetries 0 -azCommand @("monitor", "data-collection", "rule", "show", "--resource-group", $ResourceGroup, "--name", $DCRName) | Convert-LinesToObject
     if ($null -ne $existingDcrDetails) {
         Write-Information "Data Collection Rule $DCRName already exists. Skipping the creation of the DCR"
         return $existingDcrDetails
