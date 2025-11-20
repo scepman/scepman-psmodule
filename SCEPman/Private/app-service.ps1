@@ -378,7 +378,7 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
     } else {
       $command += @('--settings', $settingAssignment)
     }
-    if ($null -ne $Slot) {
+    if (-not [String]::IsNullOrEmpty($Slot)) {
       $command += @('--slot', $Slot)
     }
 
