@@ -78,6 +78,19 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     Write-Debug "Ignoring package warning line: $outputElement"
                     $expectPackageWarning = $false
                 }
+                elseif($outputElement.ToString().Contains("The specified table: 'SCEPman_CL' does not exist.")) {
+                    # Ignore, the table does not exist yet
+                    Write-Debug "Ignoring expected warning about missing table"
+                    $expectResourceNotFound = $true
+                }
+                elseif($outputElement.ToString().Contains("The Resource 'Microsoft.Insights/dataCollectionRules/dcr-scepmanlogs'") -and $outputElement.ToString().Contains("was not found.")) {
+                    # Ignore, the table does not exist yet
+                    Write-Debug "Ignoring expected warning about missing DCR"
+                    $expectResourceNotFound = $true
+                }
+                elseif ($expectResourceNotFound -and ($outputElement.ToString().Contains('Code: ResourceNotFound'))) {
+                    Write-Debug "Ignoring expected error: ResourceNotFound"
+                }
                 elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\ '")) {
                     # Ignore, this is a harmless issue of az graph extension 2.10 with more recent python versions (?)
                     # See https://github.com/Azure/azure-cli-extensions/issues/8369
