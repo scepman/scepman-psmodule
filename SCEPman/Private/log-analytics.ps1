@@ -77,7 +77,7 @@ function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId
 
 function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
     $LogsTableColumnDefinitions = @(
-        @{ name="TimeGenerated"; type="datetime" },
+        # @{ name="TimeGenerated"; type="datetime" }, # TimeGenerated is an Azure column and does not need to be created manually
         @{ name="Timestamp"; type="string" },
         @{ name="Level"; type="string" },
         @{ name="Message"; type="string" },
