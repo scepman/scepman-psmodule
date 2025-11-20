@@ -126,7 +126,7 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
         }
 
         # We have a table of the correct type, check if all columns are present
-        $existingColumnNames = $tableDetails.schema.columns | ForEach-Object { $_.name } + $tableDetails.schema.standardColumns | ForEach-Object { $_.name }
+        $existingColumnNames = ($tableDetails.schema.columns | ForEach-Object { $_.name }) + ($tableDetails.schema.standardColumns | ForEach-Object { $_.name })
         $missingColumns = @()
         foreach ($columnDefinition in $LogsTableColumnDefinitions) {
             if (-not ($existingColumnNames -contains $columnDefinition.name)) {
