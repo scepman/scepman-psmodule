@@ -79,12 +79,12 @@ function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId
 function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
     $oldTableExists = $false
 
-     # Try to get the new table details
-     $newTableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName_New
-     if ($null -ne $newTableDetails) {
-         Write-Information "Table $LogsTableName_New already exists in the workspace $($WorkspaceAccount.name). Skipping the creation of the table"
-         return
-     }
+    # Try to get the new table details
+    $newTableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName_New
+    if ($null -ne $newTableDetails) {
+        Write-Information "Table $LogsTableName_New already exists in the workspace $($WorkspaceAccount.name). Skipping the creation of the table"
+        return
+    }
 
     # Try to get the old table details to retain the retention time and plan
     $oldTableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName_Old
