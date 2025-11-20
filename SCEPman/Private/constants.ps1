@@ -236,6 +236,5 @@ New-Variable -Name "Artifacts_Scepman" -Scope "Script" -Option ReadOnly -Value @
 
 New-Variable -Name "DCRName" -Value "dcr-scepmanlogs" -Scope "Script" -Option ReadOnly
 New-Variable -Name "DCRAssociationName" -Value "dcr-association-scepmanlogs" -Scope "Script" -Option ReadOnly
-New-Variable -Name "LogsTableName_New" -Value "SC_CL" -Scope "Script" -Option ReadOnly
-New-Variable -Name "LogsTableName_Old" -Value "SCEPman_CL" -Scope "Script" -Option ReadOnly
+New-Variable -Name "LogsTableName" -Value "SCEPman_CL" -Scope "Script" -Option ReadOnly
 New-Variable -Name "LogsDestinationName" -Value "SCEPmanLogAnalyticsDestination" -Scope "Script" -Option ReadOnly

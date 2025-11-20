@@ -77,23 +77,8 @@ function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId
 }
 
 function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
-    $oldTableExists = $false
-
-    # Try to get the new table details
-    $newTableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName_New
-    if ($null -ne $newTableDetails) {
-        Write-Information "Table $LogsTableName_New already exists in the workspace $($WorkspaceAccount.name). Skipping the creation of the table"
-        return
-    }
-
-    # Try to get the old table details to retain the retention time and plan
-    $oldTableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName_Old
-    if ($null -ne $oldTableDetails) {
-        $oldTableExists = $true
-    }
-
-    # Create the new table based on whether the old table exists
-    $columns = @(
+    # Column definitions
+    $LogsTableColumns = @(
         "TimeGenerated=datetime",
         "Timestamp=string",
         "Level=string",
@@ -112,19 +97,36 @@ function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscriptio
         "TraceIdentifier=string"
     ) -split " "
 
-    $azCommandToCreateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "create", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName_New)
+    # Try to find table
+    $tableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName
+    if ($null -eq $tableDetails) {
+        Write-Verbose "Table $LogsTableName does not exist in the workspace $($WorkspaceAccount.name). Creating it now."
 
-    if ($oldTableExists) {
-        $azCommandToCreateWorkspaceTable += @("--total-retention-time", $oldTableDetails.totalRetentionInDays, "--plan", $oldTableDetails.plan)
-        if (-not $oldTableDetails.retentionInDaysAsDefault) {
-            $azCommandToCreateWorkspaceTable += @("--retention-time", $oldTableDetails.retentionInDays)
+        $azCommandToCreateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "create", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName)
+        # We add the columns seperately as they would end up as a single string in the command otherwise which would fail
+        $azCommandToCreateWorkspaceTable += "--columns"
+        $azCommandToCreateWorkspaceTable += $LogsTableColumns
+        $null = Invoke-Az $azCommandToCreateWorkspaceTable
+
+        Write-Information "Table $LogsTableName successfully created in the workspace $($WorkspaceAccount.name)"
+    } else {
+        if ($tableDetails.schema.tableSubType -ne 'DataCollectionRuleBased') {
+            Write-Information "Table $LogsTableName exists but is not of type DataCollectionRuleBased. Found subType: $($tableDetails.schema.tableSubType)"
+            Write-Information "Migrating to DataCollectionRuleBased table."
+
+            $azCommandToMigrateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "migrate", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--table-name", $LogsTableName)
+            $null = Invoke-Az $azCommandToMigrateWorkspaceTable
+
+            Write-Information "Updating table schema."
+            $azCommandToUpdateWorkspaceTableSchema = @("monitor", "log-analytics", "workspace", "table", "update", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName)
+            # We add the columns seperately as they would end up as a single string in the command otherwise which would fail
+            $azCommandToUpdateWorkspaceTableSchema += "--columns"
+            $azCommandToUpdateWorkspaceTableSchema += $LogsTableColumns
+            $null = Invoke-Az $azCommandToUpdateWorkspaceTableSchema
+        } else {
+            Write-Verbose "Table $LogsTableName already exists in the workspace $($WorkspaceAccount.name) with the correct subtype. Skipping the creation of the table"
         }
     }
-
-    $azCommandToCreateWorkspaceTable += "--columns"
-    $azCommandToCreateWorkspaceTable += $columns
-    $null = Invoke-Az $azCommandToCreateWorkspaceTable
-    Write-Information "Table $LogsTableName_New successfully created in the workspace $($WorkspaceAccount.name)"
 }
 
 function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
@@ -184,7 +186,7 @@ function CreateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
         @{
             "streams" = @("Custom-SCEPmanLogs");
             "destinations" = @("$LogsDestinationName");
-            "outputStream" = "Custom-$LogsTableName_New"
+            "outputStream" = "Custom-$LogsTableName"
         }
     )
 
