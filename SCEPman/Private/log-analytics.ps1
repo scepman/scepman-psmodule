@@ -76,26 +76,27 @@ function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId
     return $table
 }
 
-function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
-    # Column definitions
-    $LogsTableColumns = @(
-        "TimeGenerated=datetime",
-        "Timestamp=string",
-        "Level=string",
-        "Message=string",
-        "Exception=string",
-        "TenantIdentifier=string",
-        "RequestUrl=string",
-        "UserAgent=string",
-        "LogCategory=string",
-        "EventId=string",
-        "Hostname=string",
-        "WebsiteHostname=string",
-        "WebsiteSiteName=string",
-        "WebsiteSlotName=string",
-        "BaseUrl=string",
-        "TraceIdentifier=string"
-    ) -split " "
+function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
+    $LogsTableColumnDefinitions = @(
+        @{ name="TimeGenerated"; type="datetime" },
+        @{ name="Timestamp"; type="string" },
+        @{ name="Level"; type="string" },
+        @{ name="Message"; type="string" },
+        @{ name="Exception"; type="string" },
+        @{ name="TenantIdentifier"; type="string" },
+        @{ name="RequestUrl"; type="string" },
+        @{ name="UserAgent"; type="string" },
+        @{ name="LogCategory"; type="string" },
+        @{ name="EventId"; type="string" },
+        @{ name="Hostname"; type="string" },
+        @{ name="WebsiteHostname"; type="string" },
+        @{ name="WebsiteSiteName"; type="string" },
+        @{ name="WebsiteSlotName"; type="string" },
+        @{ name="BaseUrl"; type="string" },
+        @{ name="TraceIdentifier"; type="string" }
+    )
+    # Generate column definition strings for the az command
+    $LogsTableColumns = $LogsTableColumnDefinitions | ForEach-Object { "$($_.name)=$($_.type)" }
 
     # Try to find table
     $tableDetails = GetLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId -tableName $LogsTableName
@@ -110,21 +111,35 @@ function CreateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscriptio
 
         Write-Information "Table $LogsTableName successfully created in the workspace $($WorkspaceAccount.name)"
     } else {
+        # We have a table already, check if it is of the correct type
         if ($tableDetails.schema.tableSubType -ne 'DataCollectionRuleBased') {
             Write-Information "Table $LogsTableName exists but is not of type DataCollectionRuleBased. Found subType: $($tableDetails.schema.tableSubType)"
             Write-Information "Migrating to DataCollectionRuleBased table."
 
             $azCommandToMigrateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "migrate", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--table-name", $LogsTableName)
             $null = Invoke-Az $azCommandToMigrateWorkspaceTable
+        } else {
+            Write-Verbose "Table $LogsTableName already exists in the workspace $($WorkspaceAccount.name) with the correct subtype"
+        }
 
+        # We have a table of the correct type, check if all columns are present
+        $existingColumnNames = $tableDetails.schema.columns | ForEach-Object { $_.name }
+        $missingColumns = @()
+        foreach ($columnDefinition in $LogsTableColumnDefinitions) {
+            if (-not ($existingColumnNames -contains $columnDefinition.name)) {
+                $missingColumns += $columnDefinition
+            }
+        }
+
+        if ($missingColumns.Count -gt 0) {
+            Write-Verbose "Could not find $($missingColumns.Count) columns in table $LogsTableName"
+            Write-Verbose "Missing columns: $($missingColumns | ForEach-Object { $_.name } | Join-String -Separator ', ')"
             Write-Information "Updating table schema."
             $azCommandToUpdateWorkspaceTableSchema = @("monitor", "log-analytics", "workspace", "table", "update", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName)
             # We add the columns seperately as they would end up as a single string in the command otherwise which would fail
             $azCommandToUpdateWorkspaceTableSchema += "--columns"
             $azCommandToUpdateWorkspaceTableSchema += $LogsTableColumns
             $null = Invoke-Az $azCommandToUpdateWorkspaceTableSchema
-        } else {
-            Write-Verbose "Table $LogsTableName already exists in the workspace $($WorkspaceAccount.name) with the correct subtype. Skipping the creation of the table"
         }
     }
 }
@@ -139,7 +154,7 @@ function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
     Write-Information "Data Collection Rule association $DCRAssociationName successfully created"
 }
 
-function CreateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
+function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
 
     $existingDcrDetails = az monitor data-collection rule show --resource-group $ResourceGroup --name $DCRName | Convert-LinesToObject
     if ($null -ne $existingDcrDetails) {
@@ -211,11 +226,11 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     az extension add --name monitor-control-service --only-show-errors
 
     # Create the new table
-    CreateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
+    ValidateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
 
      # Create and associate the DCR
     $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
-    $dcrDetails = CreateDCR -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
+    $dcrDetails = ValidateDCR -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
 
     $ruleIdName = GetRuleIdName -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup
     AssociateDCR -RuleIdName $ruleIdName -WorkspaceResourceId $workspaceResourceId
@@ -238,7 +253,7 @@ function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $ResourceGr
     $ruleId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
 
     if($null -ne $dataCollectionEndpointUri -and $null -ne $ruleId) {
-        Write-Information "Log ingestion API settings already configured in the App Service $AppServiceName. Deleting the data collector API settings, if present"
+        Write-Verbose "Log ingestion API settings already configured in the App Service $AppServiceName. Deleting the data collector API settings, if present"
         RemoveDataCollectorAPISettings -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName
         return $false;
     }
@@ -344,24 +359,23 @@ function Set-LoggingConfigInScAndCmAppSettings {
         $existingConfigCm = ReadAppSettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
     }
 
+    # Ensure resources exist
+    $existingWorkspaceId = GetExistingWorkspaceId -ExistingConfigSc $existingConfigSc -ExistingConfigCm $existingConfigCm -SCEPmanAppServiceName $SCEPmanAppServiceName -CertMasterAppServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $SubscriptionId
+    $workspaceAccount = CreateLogAnalyticsWorkspace -ResourceGroup $SCEPmanResourceGroup -WorkspaceId $existingWorkspaceId
+    $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+
+    # Check if we need to configure Log Ingestion API settings in the App Services
     $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
 
-    if($shouldConfigureLoggingInSc -or $shouldConfigureLoggingConfigInCm) {
-        $existingWorkspaceId = GetExistingWorkspaceId -ExistingConfigSc $existingConfigSc -ExistingConfigCm $existingConfigCm -SCEPmanAppServiceName $SCEPmanAppServiceName -CertMasterAppServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $SubscriptionId
-        $workspaceAccount = CreateLogAnalyticsWorkspace -ResourceGroup $SCEPmanResourceGroup -WorkspaceId $existingWorkspaceId
-        $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
-
-        if($shouldConfigureLoggingInSc) {
-            AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-            AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails
-            RemoveDataCollectorAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
-        }
-        if($shouldConfigureLoggingConfigInCm) {
-            AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-            AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails
-            RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
-        }
+    if($shouldConfigureLoggingInSc) {
+        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
+        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails
+        RemoveDataCollectorAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     }
-
+    if($shouldConfigureLoggingConfigInCm) {
+        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
+        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails
+        RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
+    }
 }
