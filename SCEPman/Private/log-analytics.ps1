@@ -236,7 +236,7 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     return $dcrDetails
 }
 
-function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $ResourceGroup, $AppServiceName) {
+function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails, $ResourceGroup, $AppServiceName) {
 
     if(!$ResourceGroup -or !$AppServiceName) {
         return $false
@@ -246,16 +246,27 @@ function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $ResourceGr
         throw "No existing configuration found in the App Service $AppServiceName. Skipping the configuration of Log ingestion API settings"
     }
 
+    $shouldConfigure = $true
+
     #Check if the Log ingestion API settings(DataCollectionEndpointUri, RuleId) exist; If they do, delete the data collector API settings else configure the Log ingestion API settings and then delete the data collector API settings
     $dataCollectionEndpointUri = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:DataCollectionEndpointUri" }
     $ruleId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
 
-    if($null -ne $dataCollectionEndpointUri -and $null -ne $ruleId) {
-        Write-Verbose "Log ingestion API settings already configured in the App Service $AppServiceName. Deleting the data collector API settings, if present"
+    $intendedDCEUri = $dcrDetails.endpoints.logsIngestion
+    $intendedDCRId = $dcrDetails.immutableId
+
+    if($dataCollectionEndpointUri -ne $intendedDCEUri -or $ruleId -ne $intendedDCRId) {
+        Write-Information "Log ingestion API settings not configured correctly in the App Service $AppServiceName. They will be configured"
+        Write-Verbose "Existing DataCollectionEndpointUri: $($dataCollectionEndpointUri.value), Intended DataCollectionEndpointUri: $intendedDCEUri"
+        Write-Verbose "Existing RuleId: $($ruleId.value), Intended RuleId: $intendedDCRId"
+        $shouldConfigure = $true;
+    } elseif($dataCollectionEndpointUri -eq $intendedDCEUri -or $ruleId -eq $intendedDCRId) {
+        Write-Information "Log ingestion API settings already configured correctly in the App Service $AppServiceName. Skipping the configuration and ensure data collector API settings are removed"
         RemoveDataCollectorAPISettings -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName
-        return $false;
+        $shouldConfigure = $false;
     }
-    return $true;
+
+    return $shouldConfigure;
 }
 
 function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup,  $SubscriptionId) {
@@ -363,8 +374,8 @@ function Set-LoggingConfigInScAndCmAppSettings {
     $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
 
     # Check if we need to configure Log Ingestion API settings in the App Services
-    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
-    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
+    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails
+    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails
 
     if($shouldConfigureLoggingInSc) {
         AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
