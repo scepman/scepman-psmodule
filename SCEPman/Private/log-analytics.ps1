@@ -77,7 +77,7 @@ function GetLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId
 
 function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
     $LogsTableColumnDefinitions = @(
-        # @{ name="TimeGenerated"; type="datetime" }, # TimeGenerated is an Azure column and does not need to be created manually
+        @{ name="TimeGenerated"; type="datetime" },
         @{ name="Timestamp"; type="string" },
         @{ name="Level"; type="string" },
         @{ name="Message"; type="string" },
@@ -122,7 +122,7 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
         }
 
         # We have a table of the correct type, check if all columns are present
-        $existingColumnNames = $tableDetails.schema.columns | ForEach-Object { $_.name }
+        $existingColumnNames = $tableDetails.schema.columns | ForEach-Object { $_.name } + $tableDetails.schema.standardColumns | ForEach-Object { $_.name }
         $missingColumns = @()
         foreach ($columnDefinition in $LogsTableColumnDefinitions) {
             if (-not ($existingColumnNames -contains $columnDefinition.name)) {
