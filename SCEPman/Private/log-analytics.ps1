@@ -1,8 +1,12 @@
 function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
-    if($null -eq $WorkspaceId) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
-    } else {
+    # Try to find by workspace id
+    if($null -ne $WorkspaceId) {
         $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
+    }
+
+    # Try to find by resource group
+    if($null -eq $workspaces -or $workspaces.count -eq 0) {
+        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
     }
 
     if($workspaces.count -eq 1) {
