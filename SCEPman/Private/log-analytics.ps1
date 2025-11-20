@@ -255,12 +255,12 @@ function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails
     $intendedDCEUri = $dcrDetails.endpoints.logsIngestion
     $intendedDCRId = $dcrDetails.immutableId
 
-    if($dataCollectionEndpointUri -ne $intendedDCEUri -or $ruleId -ne $intendedDCRId) {
+    if(($dataCollectionEndpointUri.value -ne $intendedDCEUri) -or ($ruleId.value -ne $intendedDCRId)) {
         Write-Information "Log ingestion API settings not configured correctly in the App Service $AppServiceName. They will be configured"
         Write-Verbose "Existing DataCollectionEndpointUri: $($dataCollectionEndpointUri.value), Intended DataCollectionEndpointUri: $intendedDCEUri"
         Write-Verbose "Existing RuleId: $($ruleId.value), Intended RuleId: $intendedDCRId"
         $shouldConfigure = $true;
-    } elseif($dataCollectionEndpointUri -eq $intendedDCEUri -or $ruleId -eq $intendedDCRId) {
+    } elseif(($dataCollectionEndpointUri.value -eq $intendedDCEUri) -and ($ruleId.value -eq $intendedDCRId)) {
         Write-Information "Log ingestion API settings already configured correctly in the App Service $AppServiceName. Skipping the configuration and ensure data collector API settings are removed"
         RemoveDataCollectorAPISettings -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName
         $shouldConfigure = $false;
