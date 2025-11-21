@@ -14,6 +14,11 @@ function Sync-IntuneCertificate
     $CertificateSearchString
     )
 
+    if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+      Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+      $InformationPreference = 'Continue'
+    }
+
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand)"
     Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
