@@ -254,7 +254,7 @@ function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
         $streamDeclarations.'Custom-SCEPmanLogs'.columns | ForEach-Object {
             $columnName = $_.name
             $existingColumn = $existingDcrDetails.streamDeclarations.'Custom-SCEPmanLogs'.columns | Where-Object { $_.name -eq $columnName }
-            if($existingColumn -eq $null) {
+            if($null -eq $existingColumn) {
                 $missingColumns++
             }
         }
