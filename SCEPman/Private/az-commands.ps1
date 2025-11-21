@@ -102,6 +102,14 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     Write-Debug "Ignoring line for syntax warning: $outputElement"
                     $expectIntervalWarning = $false
                 }
+                elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\s'")) {
+                    # See https://github.com/HandBrake/HandBrake/issues/5454
+                    Write-Debug "Ignoring expected warning about wrong escape seqences: $outputElement"
+                    $expectAzSuggestionWarning = $true
+                }
+                elseif ($expectAzSuggestionWarning -and ($outputElement.ToString().Trim(' ').StartsWith('az monitor'))) {
+                    Write-Debug "Ignoring expected AI suggestion about some other az module: $outputElement"
+                }
                 elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
                             -or $outputElement.ToString().StartsWith("WARNING: This command or command group has been migrated to Microsoft Graph API.")) {
