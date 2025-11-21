@@ -240,7 +240,7 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     return $dcrDetails
 }
 
-function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails, $ResourceGroup, $AppServiceName) {
+function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails, $ResourceGroup, $AppServiceName, $WorkspaceAccount) {
 
     if(!$ResourceGroup -or !$AppServiceName) {
         return $false
@@ -255,16 +255,19 @@ function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails
     #Check if the Log ingestion API settings(DataCollectionEndpointUri, RuleId) exist; If they do, delete the data collector API settings else configure the Log ingestion API settings and then delete the data collector API settings
     $dataCollectionEndpointUri = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:DataCollectionEndpointUri" }
     $ruleId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
+    $workspaceId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
 
     $intendedDCEUri = $dcrDetails.endpoints.logsIngestion
     $intendedDCRId = $dcrDetails.immutableId
+    $intendedWorkspaceId = $WorkspaceAccount.workspaceId
 
-    if(($dataCollectionEndpointUri.value -ne $intendedDCEUri) -or ($ruleId.value -ne $intendedDCRId)) {
+    if(($dataCollectionEndpointUri.value -ne $intendedDCEUri) -or ($ruleId.value -ne $intendedDCRId) -or ($workspaceId.value -ne $intendedWorkspaceId)) {
         Write-Information "Log ingestion API settings not configured correctly in the App Service $AppServiceName. They will be configured"
         Write-Verbose "Existing DataCollectionEndpointUri: $($dataCollectionEndpointUri.value), Intended DataCollectionEndpointUri: $intendedDCEUri"
         Write-Verbose "Existing RuleId: $($ruleId.value), Intended RuleId: $intendedDCRId"
+        Write-Verbose "Existing WorkspaceId: $($workspaceId.value), Intended WorkspaceId: $intendedWorkspaceId"
         $shouldConfigure = $true;
-    } elseif(($dataCollectionEndpointUri.value -eq $intendedDCEUri) -and ($ruleId.value -eq $intendedDCRId)) {
+    } elseif(($dataCollectionEndpointUri.value -eq $intendedDCEUri) -and ($ruleId.value -eq $intendedDCRId) -and ($workspaceId.value -eq $intendedWorkspaceId)) {
         Write-Information "Log ingestion API settings already configured correctly in the App Service $AppServiceName. Skipping the configuration and ensure data collector API settings are removed"
         RemoveDataCollectorAPISettings -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName
         $shouldConfigure = $false;
@@ -327,10 +330,11 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     }
 }
 
-function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails, $Slot) {
+function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails, $Slot, $WorkspaceAccount) {
     $settings = @(
         @{ name='AppConfig:LoggingConfig:DataCollectionEndpointUri'; value=$($DcrDetails.endpoints.logsIngestion) },
         @{ name='AppConfig:LoggingConfig:RuleId'; value=$($DcrDetails.immutableId) }
+        @{ name='AppConfig:LoggingConfig:WorkspaceId'; value=$($WorkspaceAccount.workspaceId) }
     )
     SetAppSettings -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Settings $settings -Slot $Slot
     Write-Information "Log ingestion API settings configured in the App Service $AppServiceName"
@@ -378,17 +382,17 @@ function Set-LoggingConfigInScAndCmAppSettings {
     $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
 
     # Check if we need to configure Log Ingestion API settings in the App Services
-    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails
-    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails
+    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
+    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
 
     if($shouldConfigureLoggingInSc) {
         AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName
+        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName -WorkspaceAccount $workspaceAccount
         RemoveDataCollectorAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     }
     if($shouldConfigureLoggingConfigInCm) {
         AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName
+        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName -WorkspaceAccount $workspaceAccount
         RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
     }
 }
