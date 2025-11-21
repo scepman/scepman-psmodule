@@ -113,7 +113,7 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
         Write-Verbose "Table $LogsTableName does not exist in the workspace $($WorkspaceAccount.name). Creating it now."
 
         $azCommandToCreateWorkspaceTable = @("monitor", "log-analytics", "workspace", "table", "create", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName)
-        # We add the columns seperately as they would end up as a single string in the command otherwise which would fail
+        # We add the columns separately as they would end up as a single string in the command otherwise which would fail
         $azCommandToCreateWorkspaceTable += "--columns"
         $azCommandToCreateWorkspaceTable += $LogsTableColumns
         $null = Invoke-Az $azCommandToCreateWorkspaceTable
