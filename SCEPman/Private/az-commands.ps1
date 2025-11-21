@@ -40,7 +40,7 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
     foreach ($outputElement in $azOutput) {
         if ($null -ne $outputElement) {
             if ($outputElement.GetType() -eq [System.Management.Automation.ErrorRecord]) {
-                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object")) {
+                if ($outputElement.ToString().Contains("Permission being assigned already exists on the object") -or $outputElement.ToString().Contains("RoleAssignmentExists") -or $outputElement.ToString().Contains("Permission already assigned") -or $outputElement.ToString() -match 'A role assignment with ID.*already exists') {
                     Write-Information "Permission is already assigned when executing $azCommand"
                     Write-Output $PERMISSION_ALREADY_ASSIGNED
                 }
@@ -78,6 +78,19 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     Write-Debug "Ignoring package warning line: $outputElement"
                     $expectPackageWarning = $false
                 }
+                elseif($outputElement.ToString().Contains("The specified table: 'SCEPman_CL' does not exist.")) {
+                    # Ignore, the table does not exist yet
+                    Write-Debug "Ignoring expected warning about missing table"
+                    $expectResourceNotFound = $true
+                }
+                elseif($outputElement.ToString().Contains("The Resource 'Microsoft.Insights/dataCollectionRules/dcr-scepmanlogs'") -and $outputElement.ToString().Contains("was not found.")) {
+                    # Ignore, the table does not exist yet
+                    Write-Debug "Ignoring expected warning about missing DCR"
+                    $expectResourceNotFound = $true
+                }
+                elseif ($expectResourceNotFound -and ($outputElement.ToString().Contains('Code: ResourceNotFound'))) {
+                    Write-Debug "Ignoring expected error: ResourceNotFound"
+                }
                 elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\ '")) {
                     # Ignore, this is a harmless issue of az graph extension 2.10 with more recent python versions (?)
                     # See https://github.com/Azure/azure-cli-extensions/issues/8369
@@ -88,6 +101,14 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     # Ignore, this is the next line of the previous issue
                     Write-Debug "Ignoring line for syntax warning: $outputElement"
                     $expectIntervalWarning = $false
+                }
+                elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\s'")) {
+                    # See https://github.com/HandBrake/HandBrake/issues/5454
+                    Write-Debug "Ignoring expected warning about wrong escape seqences: $outputElement"
+                    $expectAzSuggestionWarning = $true
+                }
+                elseif ($expectAzSuggestionWarning -and ($outputElement.ToString().Trim(' ').StartsWith('az monitor'))) {
+                    Write-Debug "Ignoring expected AI suggestion about some other az module: $outputElement"
                 }
                 elseif ($outputElement.ToString().StartsWith("WARNING") -or $outputElement.ToString().Contains("UserWarning: ")) {
                     if ($outputElement.ToString().StartsWith("WARNING: The underlying Active Directory Graph API will be replaced by Microsoft Graph API") `
@@ -163,7 +184,7 @@ function AzLogin {
     catch {
         $errorMessage = $_.Exception.Message
         if (($errorMessage.Contains("az login")) -or ($errorMessage.Contains("az account set"))) {
-            Write-Host "Not logged in to az yet. Please log in."
+            Write-Warning "Not logged in with az yet. Trying to log in ... if this doesn't work, please log in manually."
             $null = az login # TODO: Check whether the login worked
             return AzLogin
         }

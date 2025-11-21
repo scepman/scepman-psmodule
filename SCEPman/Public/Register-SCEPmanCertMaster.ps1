@@ -20,13 +20,21 @@ function Register-SCEPmanCertMaster
 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]$CertMasterBaseURL,
+        [Parameter(Mandatory=$true)]
+        [string]$CertMasterBaseURL,
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster'
       )
+      
+      # Ensure CertMasterBaseURL has a protocol prefix
+      if ($CertMasterBaseURL -notmatch '^https?://') {
+        $CertMasterBaseURL = "https://$CertMasterBaseURL"
+        Write-Information "Added https:// prefix to CertMasterBaseURL: $CertMasterBaseURL"
+      }
+      
       Write-Information "Logging in to az"
       $CurrentAccount = AzLogin
 
-      $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURL $CertMasterBaseURL
+      $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs @($CertMasterBaseURL)
       if($null -eq $appregcm) {
         Write-Error "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"
         throw "We are unable to register the CertMaster app with the URL '$CertMasterBaseURL'"
