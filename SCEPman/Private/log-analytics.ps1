@@ -164,12 +164,6 @@ function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
 }
 
 function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
-    $existingDcrDetails = Invoke-Az -MaxRetries 0 -azCommand @("monitor", "data-collection", "rule", "show", "--resource-group", $ResourceGroup, "--name", $DCRName) | Convert-LinesToObject
-    if ($null -ne $existingDcrDetails) {
-        Write-Information "Data Collection Rule $DCRName already exists. Skipping the creation of the DCR"
-        return $existingDcrDetails
-    }
-
     # Define the destinations JSON in a variable
     $destinations = @{
         "logAnalytics" = @(
@@ -217,10 +211,70 @@ function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
     $streamDeclarationsJson = HashTable2AzJson -psHashTable $streamDeclarations
     $dataFlowsJson = HashTable2AzJson -psHashTable $dataFlows
 
-    # Create DCR
-    $newDcrDetails = Invoke-Az @("monitor", "data-collection", "rule", "create", "--resource-group", $ResourceGroup, "--name", $DCRName, "--description", "Data Collection Rule for SCEPman logs", "--stream-declarations", $streamDeclarationsJson, "--destinations", $destinationsJson, "--data-flows", $dataFlowsJson, "--kind", "Direct", "--location", $($WorkspaceAccount.location), "--only-show-errors") | Convert-LinesToObject
-    Write-Information "Data Collection Rule $DCRName successfully created"
-    return $newDcrDetails
+    $existingDcrDetails = Invoke-Az -MaxRetries 0 -azCommand @("monitor", "data-collection", "rule", "show", "--resource-group", $ResourceGroup, "--name", $DCRName) | Convert-LinesToObject
+
+    # Check if we need to create the DCR
+    if($null -eq $existingDcrDetails) {
+        Write-Verbose "Data Collection Rule $DCRName does not exist in the resource group $ResourceGroup. Creating it now."
+
+        # Create DCR
+        $newDcrDetails = Invoke-Az @("monitor", "data-collection", "rule", "create", "--resource-group", $ResourceGroup, "--name", $DCRName, "--description", "Data Collection Rule for SCEPman logs", "--stream-declarations", $streamDeclarationsJson, "--destinations", $destinationsJson, "--data-flows", $dataFlowsJson, "--kind", "Direct", "--location", $($WorkspaceAccount.location), "--only-show-errors") | Convert-LinesToObject
+        Write-Information "Data Collection Rule $DCRName successfully created"
+        return $newDcrDetails
+    }
+
+    # Verify existing DCR configuration
+    $DCRNeedsUpdate = $false
+
+    # Verify destinations
+    if($existingDcrDetails.destinations.logAnalytics.count -eq 0 -or $existingDcrDetails.destinations.logAnalytics[0].name -ne $LogsDestinationName -or $existingDcrDetails.destinations.logAnalytics[0].workspaceResourceId -ne $WorkspaceResourceId) {
+        Write-Information "Data Collection Rule $DCRName exists but does not have the correct Log Analytics destination configured. Updating it now."
+        $DCRNeedsUpdate = $true
+    }
+
+    # Verify streamDeclaration
+    if($null -eq $existingDcrDetails.streamDeclarations.'Custom-SCEPmanLogs') {
+        Write-Information "Data Collection Rule $DCRName exists but does not have the correct stream declarations configured. Updating it now."
+        $DCRNeedsUpdate = $true
+    }
+
+    # Verify streamDeclarations columns
+    if($null -ne $existingDcrDetails.streamDeclarations.'Custom-SCEPmanLogs') {
+        $missingColumns = 0
+        $streamDeclarations.'Custom-SCEPmanLogs'.columns | ForEach-Object {
+            $columnName = $_.name
+            $existingColumn = $existingDcrDetails.streamDeclarations.'Custom-SCEPmanLogs'.columns | Where-Object { $_.name -eq $columnName }
+            if($existingColumn -eq $null) {
+                $missingColumns++
+            }
+        }
+
+        if($missingColumns -gt 0) {
+            Write-Verbose "Data Collection Rule $DCRName is missing $missingColumns columns in the stream declaration Custom-SCEPmanLogs. Updating it now."
+            $DCRNeedsUpdate = $true
+        }
+    }
+
+    # Verify dataFlows
+    if($existingDcrDetails.dataFlows.count -eq 0 -or $existingDcrDetails.dataFlows[0].outputStream -ne $dataFlows[0].outputStream) {
+        Write-Verbose "Data Collection Rule $DCRName exists but does not have the correct data flows configured. Updating it now."
+        $DCRNeedsUpdate = $true
+    }
+
+    if($existingDcrDetails.dataFlows[0].streams -ne $dataFlows[0].streams) {
+        Write-Verbose "Data Collection Rule $DCRName exists but does not have the correct data flows streams configured. Updating it now."
+        $DCRNeedsUpdate = $true
+    }
+
+    if($DCRNeedsUpdate) {
+        # Update DCR
+        $updatedDcrDetails = Invoke-Az @("monitor", "data-collection", "rule", "update", "--resource-group", $ResourceGroup, "--name", $DCRName, "--description", "Data Collection Rule for SCEPman logs", "--stream-declarations", $streamDeclarationsJson, "--destinations", $destinationsJson, "--data-flows-raw", $dataFlowsJson, "--kind", "Direct", "--only-show-errors") | Convert-LinesToObject
+        Write-Information "Data Collection Rule $DCRName successfully updated"
+        return $updatedDcrDetails
+    } else {
+        Write-Information "Data Collection Rule $DCRName already exists with the correct configuration. Skipping the creation/update of the DCR"
+        return $existingDcrDetails
+    }
 }
 
 
