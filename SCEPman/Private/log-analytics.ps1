@@ -70,6 +70,12 @@ function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
                 throw 'Log analytics workspace not found and we are unable to create one. Please check logs for more details before re-running the script'
             }
             Write-Information "Log analytics workspace $workspaceName created"
+            $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $ResourceGroup
+
+            if($null -eq $workspaceAccount) {
+                Write-Error 'Log analytics workspace not found after creation'
+                throw 'Log analytics workspace not found after creation'
+            }
         }
     return $workspaceAccount
 }
