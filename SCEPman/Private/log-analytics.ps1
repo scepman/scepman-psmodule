@@ -297,7 +297,7 @@ function GetRuleIdName($SubscriptionId, $ResourceGroup) {
 
 function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
     Write-Information "Installing az monitor control service extension"
-    az extension add --name monitor-control-service --only-show-errors
+    Invoke-Az @("extension", "add", "--name", "monitor-control-service", "--only-show-errors")
 
     # Create the new table
     ValidateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
