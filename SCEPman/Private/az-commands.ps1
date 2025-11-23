@@ -91,6 +91,9 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                 elseif ($expectResourceNotFound -and ($outputElement.ToString().Contains('Code: ResourceNotFound'))) {
                     Write-Debug "Ignoring expected error: ResourceNotFound"
                 }
+                elseif ($outputElement.ToString().Trim(' ') -in @("ERROR: (ResourceNotFound) None", "Code: ResourceNotFound", "Message: None")) {
+                    Write-Debug "Ignoring expected generic error: $outputElement"
+                }
                 elseif ($outputElement.ToString().Contains("SyntaxWarning: invalid escape sequence '\ '")) {
                     # Ignore, this is a harmless issue of az graph extension 2.10 with more recent python versions (?)
                     # See https://github.com/Azure/azure-cli-extensions/issues/8369

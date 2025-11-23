@@ -154,7 +154,7 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
 }
 
 function DisassociateDCR($RuleIdName, $WorkspaceResourceId) {
-    $dcrAssociationDetails = az monitor data-collection rule association show --name $DCRAssociationName --resource $WorkspaceResourceId | Convert-LinesToObject
+    $dcrAssociationDetails = Invoke-Az @("monitor", "data-collection", "rule", "association", "show", "--name", $DCRAssociationName, "--resource", $WorkspaceResourceId) | Convert-LinesToObject
     if ($null -eq $dcrAssociationDetails) {
         Write-Information "Data Collection Rule association $DCRAssociationName does not exist. Skipping the disassociation of the DCR"
         return
@@ -164,7 +164,7 @@ function DisassociateDCR($RuleIdName, $WorkspaceResourceId) {
 }
 
 function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
-    $dcrAssociationDetails = az monitor data-collection rule association show --name $DCRAssociationName --resource $WorkspaceResourceId | Convert-LinesToObject
+    $dcrAssociationDetails = Invoke-Az @("monitor", "data-collection", "rule", "association", "show", "--name", $DCRAssociationName, "--resource", $WorkspaceResourceId) | Convert-LinesToObject
     if ($null -ne $dcrAssociationDetails) {
         Write-Information "Data Collection Rule association $DCRAssociationName already exists. Skipping the association of the DCR"
         return
