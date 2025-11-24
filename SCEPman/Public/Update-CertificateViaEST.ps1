@@ -56,6 +56,10 @@ Function Update-CertificateViaEST {
         [switch]$AllowInvalid
     )
     BEGIN {
+        if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+            Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+            $InformationPreference = 'Continue'
+        }
 
         if([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
             throw "EST Renewal with this CMDlet is only supported on Windows. For Linux, use EST with another tool like this sample script: https://github.com/scepman/csr-request/blob/main/enroll-certificate/renewcertificate.sh"
