@@ -74,6 +74,7 @@ Function New-SCEPmanADPrincipal {
         [string]$AppServiceUrl,
         [string]$Domain,
         [string]$OU,
+        [string]$Description = "",
 
         [ValidateScript({
             if (Test-Path -Path $_ -PathType Leaf) {
@@ -204,7 +205,11 @@ Function New-SCEPmanADPrincipal {
         if($SkipObjectCreation) {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
-            $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
+            if($Description -eq [string]::Empty) {
+                Write-Verbose "DO NOT DELETE. Created by New-SCEPmanADPrincipal on $(Get-Date -Format o) for certificate deployment with $($AppServiceUrl)"
+            }
+
+            $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU -Description $Description
             if($null -eq $SCEPmanADObject) {
                 Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
                 return
