@@ -16,7 +16,7 @@ on:
 jobs:
   code-sign-scepman:
     name: Code Sign SCEPMan PowerShell Module
-    runs-on: windows-latest
+    runs-on: windows-latest # azuresigntool.exe requires Windows
     environment: AzureC4A8CodeSigning
     permissions:
       id-token: write # This is required for requesting the JWT
