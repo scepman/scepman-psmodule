@@ -45,22 +45,22 @@
         If set, suppresses interactive prompts.
 
     .Example
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com"
 
-        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        Creates a computer account named "SCEPmanAD" in the default Computers container of the current domain,
         with a SPN based on the provided AppServiceUrl. The keytab is will be encrypted and output in base 64 format.
 
     .EXAMPLE
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/stepman.contoso.com@CONTOSO"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/scepman.contoso.com@CONTOSO"
 
-        Creates a computer account named "STEPman" in the specified OU of the specified domain,
+        Creates a computer account named "SCEPmanAD" in the specified OU of the specified domain,
         with a SPN based on the provided AppServiceUrl. The keytab is encrypted using the provided
         CA certificate.
 
     .EXAMPLE
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -AppServiceName "app-scepman-contoso"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com" -AppServiceName "app-scepman-contoso"
 
-        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        Creates a computer account named "SCEPmanAD" in the default Computers container of the current domain,
         with a SPN based on the provided AppServiceUrl. The keytab is encrypted and configured on the specified SCEPman App Service.
 #>
 
