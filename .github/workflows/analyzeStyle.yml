@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Run PSScriptAnalyzer
       uses: microsoft/psscriptanalyzer-action@main
