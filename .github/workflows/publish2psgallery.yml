@@ -26,8 +26,8 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.channel == 'none' && 'main' || github.event.inputs.channel }}  # Use the main branch if no channel is specified
-      - name: Install AzureSignTool
-        run: dotnet tool install --no-cache --global AzureSignTool
+      - name: Install AzureSignTool # Update to v7 when GitHub Actions supports .NET 10
+        run: dotnet tool install --no-cache --global AzureSignTool --version 6.0.1
 
       - name: Azure CLI login
         uses: azure/login@v2
