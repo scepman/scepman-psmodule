@@ -141,6 +141,7 @@ Function New-SCEPmanADPrincipal {
 
         $domainFQDN = $domainInfo.DNSRoot
         $domainNetBIOS = $domainInfo.NetBIOSName
+        Write-Information "Using domain FQDN: $domainFQDN"
 
         if ($null -eq $domainFQDN -or $null -eq $domainNetBIOS) {
             throw "Could not retrieve domain information for domain '$Domain'. Please check the domain name and your connectivity to the domain."
@@ -149,7 +150,7 @@ Function New-SCEPmanADPrincipal {
         # Make sure we have a SPN
         if (-not $SPN) {
             $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + '@' + $domainFQDN.ToUpper()
-            Write-Verbose "No SPN provided. Using default: $SPN"
+            Write-Information "No SPN provided. Using default: $SPN"
         }
 
         # Make sure we have an OU to create the principal in
