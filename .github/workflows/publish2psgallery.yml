@@ -29,7 +29,7 @@ jobs:
       CODE_SIGN_CERTIFICATE_NAME: scepman # name of Azure Key Vault HSM certificate to use for signing      
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.channel == 'none' && 'main' || github.event.inputs.channel }}  # Use the main branch if no channel is specified
       - name: Install AzureSignTool # Update to v7 when GitHub Actions supports .NET 10
