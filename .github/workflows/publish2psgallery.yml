@@ -39,7 +39,7 @@ jobs:
         uses: azure/login@v2
         with:
           tenant-id: ${{ env.CODE_SIGN_TENANT_ID }}
-          client-id: ${{ env.CODE_SIGN_CLIENT_ID }}          
+          client-id: ${{ env.CODE_SIGN_CLIENT_ID }}
           allow-no-subscriptions: true
 
       - name: Azure CLI get token
