@@ -68,6 +68,11 @@ function Complete-SCEPmanInstallation
         $GraphBaseUri = 'https://graph.microsoft.com'
         )
 
+    if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+        Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+        $InformationPreference = 'Continue'
+    }
+
     $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
     Write-Verbose "Invoked $($MyInvocation.MyCommand)"
     Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
@@ -197,6 +202,9 @@ function Complete-SCEPmanInstallation
 
     Write-Information "Connecting Web Apps to Storage Account"
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+
+    Write-Information "Connecting Web Apps to Log Analytics"
+    Set-LoggingConfigInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -DeploymentSlots $deploymentSlotsSc
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
     $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName

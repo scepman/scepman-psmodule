@@ -20,9 +20,22 @@ function Register-SCEPmanCertMaster
 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]$CertMasterBaseURL,
+        [Parameter(Mandatory=$true)]
+        [string]$CertMasterBaseURL,
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster'
       )
+
+      if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+        Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+        $InformationPreference = 'Continue'
+      }
+
+      # Ensure CertMasterBaseURL has a protocol prefix
+      if ($CertMasterBaseURL -notmatch '^https?://') {
+        $CertMasterBaseURL = "https://$CertMasterBaseURL"
+        Write-Information "Added https:// prefix to CertMasterBaseURL: $CertMasterBaseURL"
+      }
+
       Write-Information "Logging in to az"
       $CurrentAccount = AzLogin
 
