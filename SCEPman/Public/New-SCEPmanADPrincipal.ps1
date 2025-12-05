@@ -206,7 +206,7 @@ Function New-SCEPmanADPrincipal {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
             if($Description -eq [string]::Empty) {
-                Write-Verbose "DO NOT DELETE. Created by New-SCEPmanADPrincipal on $(Get-Date -Format o) for certificate deployment with $($AppServiceUrl)"
+                $Description = "DO NOT DELETE. Created by New-SCEPmanADPrincipal on $(Get-Date -Format o) for certificate deployment with $($AppServiceUrl)"
             }
 
             $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU -Description $Description
