@@ -45,22 +45,22 @@
         If set, suppresses interactive prompts.
 
     .Example
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com"
 
-        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        Creates a computer account named "SCEPmanAD" in the default Computers container of the current domain,
         with a SPN based on the provided AppServiceUrl. The keytab is will be encrypted and output in base 64 format.
 
     .EXAMPLE
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/stepman.contoso.com@CONTOSO"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com" -Domain "contoso.com" -OU "OU=ServiceAccounts,DC=contoso,DC=com" -CaCertificate "C:\path\to\ca.der" -SPN "HTTP/scepman.contoso.com@CONTOSO"
 
-        Creates a computer account named "STEPman" in the specified OU of the specified domain,
+        Creates a computer account named "SCEPmanAD" in the specified OU of the specified domain,
         with a SPN based on the provided AppServiceUrl. The keytab is encrypted using the provided
         CA certificate.
 
     .EXAMPLE
-        New-SCEPmanADPrincipal -Name "STEPman" -AppServiceUrl "scepman.contoso.com" -AppServiceName "app-scepman-contoso"
+        New-SCEPmanADPrincipal -Name "SCEPmanAD" -AppServiceUrl "scepman.contoso.com" -AppServiceName "app-scepman-contoso"
 
-        Creates a computer account named "STEPman" in the default Computers container of the current domain,
+        Creates a computer account named "SCEPmanAD" in the default Computers container of the current domain,
         with a SPN based on the provided AppServiceUrl. The keytab is encrypted and configured on the specified SCEPman App Service.
 #>
 
@@ -74,6 +74,7 @@ Function New-SCEPmanADPrincipal {
         [string]$AppServiceUrl,
         [string]$Domain,
         [string]$OU,
+        [string]$Description = "",
 
         [ValidateScript({
             if (Test-Path -Path $_ -PathType Leaf) {
@@ -205,7 +206,11 @@ Function New-SCEPmanADPrincipal {
         if($SkipObjectCreation) {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
-            $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU
+            if($Description -eq [string]::Empty) {
+                $Description = "DO NOT DELETE. Created by New-SCEPmanADPrincipal on $(Get-Date -Format o) for certificate deployment with $($AppServiceUrl)"
+            }
+
+            $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU -Description $Description
             if($null -eq $SCEPmanADObject) {
                 Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
                 return
