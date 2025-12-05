@@ -1,8 +1,6 @@
 ﻿#
 # Module manifest for module 'SCEPman'
 #
-# Date: 2025-02-25
-#
 
 @{
 

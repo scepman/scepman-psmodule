@@ -4,7 +4,8 @@ Function New-SCEPmanADObject {
         [Parameter(Mandatory)]
         [string]$Name,
         [Parameter(Mandatory)]
-        [string]$OU
+        [string]$OU,
+        [string]$Description = ""
     )
 
     try {
@@ -20,7 +21,7 @@ Function New-SCEPmanADObject {
 
     try {
         if ($PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU'")) {
-            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true
+            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true -Description $Description
         } else {
             # Shorter version for WhatIf
             New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
