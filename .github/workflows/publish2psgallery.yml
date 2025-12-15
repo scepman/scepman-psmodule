@@ -62,7 +62,7 @@ jobs:
             -ifl .\input.txt
 
       - name: Upload signed module to artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: Signed Module
           path: ./SCEPman
