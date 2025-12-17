@@ -8,30 +8,30 @@ BeforeAll {
 }
 
 Describe "Register-SCEPmanCertMaster" {
-    
+
     Context "Protocol Prefix Handling" {
         BeforeAll {
             # Mock the Azure CLI and authentication functions
             Mock az {
                 return '{"azure-cli": "2.60.0"}'
             } -ParameterFilter { $args[0] -eq 'version' }
-            
+
             Mock AzLogin {
                 return @{ homeTenantId = "test-tenant-id" }
             }
-            
+
             Mock CreateCertMasterAppRegistration {
                 return @{ appId = "12345678-aad6-4711-82a9-0123456789ab" }
             }
         }
-        
+
         It "Preserves URLs with https:// prefix" {
             # Act
             Register-SCEPmanCertMaster -CertMasterBaseURL "https://scepman-cm.azurewebsites.net"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net"
             }
         }
 
@@ -40,8 +40,8 @@ Describe "Register-SCEPmanCertMaster" {
             Register-SCEPmanCertMaster -CertMasterBaseURL "http://scepman-cm.azurewebsites.net"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $CertMasterBaseURLs[0] -eq "http://scepman-cm.azurewebsites.net" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $CertMasterBaseURLs[0] -eq "http://scepman-cm.azurewebsites.net"
             }
         }
 
@@ -50,8 +50,8 @@ Describe "Register-SCEPmanCertMaster" {
             Register-SCEPmanCertMaster -CertMasterBaseURL "scepman-cm.azurewebsites.net"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net"
             }
         }
 
@@ -60,8 +60,8 @@ Describe "Register-SCEPmanCertMaster" {
             Register-SCEPmanCertMaster -CertMasterBaseURL "localhost:8080"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $CertMasterBaseURLs[0] -eq "https://localhost:8080" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $CertMasterBaseURLs[0] -eq "https://localhost:8080"
             }
         }
 
@@ -70,8 +70,8 @@ Describe "Register-SCEPmanCertMaster" {
             Register-SCEPmanCertMaster -CertMasterBaseURL "example.com"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $CertMasterBaseURLs[0] -eq "https://example.com" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $CertMasterBaseURLs[0] -eq "https://example.com"
             }
         }
     }
@@ -82,11 +82,11 @@ Describe "Register-SCEPmanCertMaster" {
             Mock az {
                 return '{"azure-cli": "2.60.0"}'
             } -ParameterFilter { $args[0] -eq 'version' }
-            
+
             Mock AzLogin {
                 return @{ homeTenantId = "test-tenant-id" }
             }
-            
+
             Mock CreateCertMasterAppRegistration {
                 return @{ appId = "12345678-aad6-4711-82a9-0123456789ab" }
             }
@@ -97,9 +97,9 @@ Describe "Register-SCEPmanCertMaster" {
             Register-SCEPmanCertMaster -CertMasterBaseURL "https://scepman-cm.azurewebsites.net" -AzureADAppNameForCertMaster "CustomCertMaster"
 
             # Assert
-            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter { 
-                $AzureADAppNameForCertMaster -eq "CustomCertMaster" -and 
-                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net" 
+            Should -Invoke CreateCertMasterAppRegistration -Exactly 1 -ParameterFilter {
+                $AzureADAppNameForCertMaster -eq "CustomCertMaster" -and
+                $CertMasterBaseURLs[0] -eq "https://scepman-cm.azurewebsites.net"
             }
         }
 

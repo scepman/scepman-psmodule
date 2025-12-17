@@ -1,8 +1,6 @@
 ﻿#
 # Module manifest for module 'SCEPman'
 #
-# Date: 2024-02-13
-#
 
 @{
 
@@ -25,7 +23,7 @@ Author = 'glueckkanja-gab'
 CompanyName = 'glueckkanja-gab'
 
 # Copyright statement for this module
-Copyright = '(c) 2024 glueckkanja-gab AG. All rights reserved.'
+Copyright = '(c) 2025 glueckkanja-gab AG. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'

@@ -16,14 +16,20 @@ on:
 jobs:
   code-sign-scepman:
     name: Code Sign SCEPMan PowerShell Module
-    runs-on: windows-latest
+    runs-on: windows-latest # azuresigntool.exe requires Windows
     environment: AzureC4A8CodeSigning
     permissions:
       id-token: write # This is required for requesting the JWT
       contents: read  # This is required for actions/checkout (as using 'permissions:' will reset the default rights to 'none')
+    env:
+      CODE_SIGN_TENANT_ID: a53834b7-42bc-46a3-b004-369735c3acf9 # c4a8.onmicrosoft.com
+      CODE_SIGN_KEY_VAULT_URL: https://kv-c4a8-code-signing-prd.vault.azure.net
+      CODE_SIGN_TIMESTAMP_URL: http://timestamp.acs.microsoft.com
+      CODE_SIGN_CLIENT_ID: e9310a4f-a6b0-4374-a623-1333cbc62f96 # from Entra ID app registration
+      CODE_SIGN_CERTIFICATE_NAME: scepman # name of Azure Key Vault HSM certificate to use for signing      
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.channel == 'none' && 'main' || github.event.inputs.channel }}  # Use the main branch if no channel is specified
       - name: Install AzureSignTool
@@ -32,8 +38,8 @@ jobs:
       - name: Azure CLI login
         uses: azure/login@v2
         with:
-          tenant-id: a53834b7-42bc-46a3-b004-369735c3acf9 # c4a8.onmicrosoft.com
-          client-id: e9310a4f-a6b0-4374-a623-1333cbc62f96 # from Entra ID app registration
+          tenant-id: ${{ env.CODE_SIGN_TENANT_ID }}
+          client-id: ${{ env.CODE_SIGN_CLIENT_ID }}
           allow-no-subscriptions: true
 
       - name: Azure CLI get token
@@ -49,14 +55,14 @@ jobs:
       - name: Sign all PowerShell files
         run: |
           azuresigntool.exe sign --verbose `
-            --azure-key-vault-url "https://kv-c4a8-code-signing-prd.vault.azure.net" `
+            --azure-key-vault-url "${{ env.CODE_SIGN_KEY_VAULT_URL }}" `
             --azure-key-vault-accesstoken ${{ env.CODE_SIGN_AKV_ACCESS_TOKEN }} `
-            --azure-key-vault-certificate "glueckkanja-ag-202311" `
-            --timestamp-rfc3161 "http://timestamp.digicert.com" `
+            --azure-key-vault-certificate "${{ env.CODE_SIGN_CERTIFICATE_NAME }}" `
+            --timestamp-rfc3161 "${{ env.CODE_SIGN_TIMESTAMP_URL }}" `
             -ifl .\input.txt
 
       - name: Upload signed module to artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: Signed Module
           path: ./SCEPman
@@ -75,7 +81,7 @@ jobs:
     needs: code-sign-scepman
     steps:
       - name: Checkout
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: Signed Module
           path: ./SCEPman
@@ -83,4 +89,5 @@ jobs:
       - name: Publish
         run: |
           Publish-Module -Path ./SCEPman -NuGetApiKey ${{secrets.PSGalleryAPIKey}}
+
         shell: pwsh
