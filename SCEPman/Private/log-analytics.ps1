@@ -153,26 +153,6 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
     }
 }
 
-function DisassociateDCR($RuleIdName, $WorkspaceResourceId) {
-    $dcrAssociationDetails = Invoke-Az @("monitor", "data-collection", "rule", "association", "show", "--name", $DCRAssociationName, "--resource", $WorkspaceResourceId) | Convert-LinesToObject
-    if ($null -eq $dcrAssociationDetails) {
-        Write-Information "Data Collection Rule association $DCRAssociationName does not exist. Skipping the disassociation of the DCR"
-        return
-    }
-    $null = Invoke-Az @("monitor", "data-collection", "rule", "association", "delete", "--name", $DCRAssociationName, "--resource", $WorkspaceResourceId, "--yes", "--only-show-errors")
-    Write-Information "Data Collection Rule association $DCRAssociationName successfully deleted"
-}
-
-function AssociateDCR($RuleIdName, $WorkspaceResourceId) {
-    $dcrAssociationDetails = Invoke-Az @("monitor", "data-collection", "rule", "association", "show", "--name", $DCRAssociationName, "--resource", $WorkspaceResourceId) | Convert-LinesToObject
-    if ($null -ne $dcrAssociationDetails) {
-        Write-Information "Data Collection Rule association $DCRAssociationName already exists. Skipping the association of the DCR"
-        return
-    }
-    $null = Invoke-Az @("monitor", "data-collection", "rule", "association", "create", "--name", $DCRAssociationName, "--rule-id", $RuleIdName, "--resource", $WorkspaceResourceId, "--only-show-errors")
-    Write-Information "Data Collection Rule association $DCRAssociationName successfully created"
-}
-
 function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
     # Define the destinations JSON in a variable
     $destinations = @{
@@ -280,8 +260,6 @@ function ValidateDCR($ResourceGroup, $WorkspaceAccount, $WorkspaceResourceId) {
         # Update DCR
         $updatedDcrDetails = Invoke-Az @("monitor", "data-collection", "rule", "update", "--resource-group", $ResourceGroup, "--name", $DCRName, "--description", "Data Collection Rule for SCEPman logs", "--stream-declarations", $streamDeclarationsJson, "--destinations", $destinationsJson, "--data-flows-raw", $dataFlowsJson, "--kind", "Direct", "--only-show-errors") | Convert-LinesToObject
         Write-Information "Data Collection Rule $DCRName successfully updated"
-        Write-Verbose "Disassociating existing DCR association to force re-association with updated DCR"
-        DisassociateDCR -RuleIdName $updatedDcrDetails.id -WorkspaceResourceId $WorkspaceResourceId
         return $updatedDcrDetails
     } else {
         Write-Information "Data Collection Rule $DCRName already exists with the correct configuration. Skipping the creation/update of the DCR"
@@ -302,12 +280,9 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     # Create the new table
     ValidateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
 
-     # Create and associate the DCR
+     # Create the DCR
     $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
     $dcrDetails = ValidateDCR -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
-
-    $ruleIdName = GetRuleIdName -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup
-    AssociateDCR -RuleIdName $ruleIdName -WorkspaceResourceId $workspaceResourceId
 
     return $dcrDetails
 }
