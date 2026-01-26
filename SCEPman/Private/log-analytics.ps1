@@ -1,12 +1,12 @@
 function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     # Try to find by workspace id
     if($null -ne $WorkspaceId) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     # Try to find by resource group
     if($null -eq $workspaces -or $workspaces.count -eq 0) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     if($workspaces.count -eq 1) {
@@ -39,13 +39,11 @@ function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
     # Keep AzureOfferingDomain because it is used by the Log Ingestion API target as well
     $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
     if($isAppServiceLinux) {
-        $WorkspaceIdVariable = "AppConfig__LoggingConfig__WorkspaceId"
         $SharedKeyVariable = "AppConfig__LoggingConfig__SharedKey"
     } else {
-        $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceID"
         $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
     }
-    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $WorkspaceIdVariable, $SharedKeyVariable)
+    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $SharedKeyVariable)
 }
 
 function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
@@ -281,8 +279,8 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     ValidateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
 
      # Create the DCR
-    $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
-    $dcrDetails = ValidateDCR -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
+    $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$($WorkspaceAccount.resourceGroup)/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
+    $dcrDetails = ValidateDCR -ResourceGroup $WorkspaceAccount.resourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
 
     return $dcrDetails
 }
