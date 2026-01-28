@@ -35,6 +35,40 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     }
 }
 
+function GetDataCollectionRule($ResourceGroup, $DcrId) {
+    # Try to find by dcr id
+    if($null -ne $DcrId) {
+        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup") | Convert-LinesToObject
+    }
+
+    # Try to find by resource group
+    if($null -ne $ResourceGroup) {
+        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup") | Convert-LinesToObject
+    }
+
+    if($dataCollectionRule.count -eq 1) {
+        Write-Information "Found data collection rule $($dataCollectionRule.data[0].name)"
+        return $dataCollectionRule.data[0]
+    } elseif($dataCollectionRule.count -gt 1) {
+        Write-Information "Found data collection rules:"
+        $dataCollectionRule.data | ForEach-Object { Write-Information $_.name }
+        $potentialDcrName = Read-Host "We have found more than one existing data collection rule in the resource group $ResourceGroup. Please enter the data collection rule you would like to use"
+
+        # Check if the selected DCR is in our results
+        $potentialDcr = $dataCollectionRule.data | Where-Object { $_.name -eq $potentialDcrName }
+        if($null -eq $potentialDcr) {
+            Write-Error "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+            throw "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+        } else {
+            return $potentialDcr
+        }
+    }
+    else {
+        Write-Warning "Unable to determine the data collection rule"
+        return $null
+    }
+}
+
 function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
     # Keep AzureOfferingDomain because it is used by the Log Ingestion API target as well
     $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
@@ -385,10 +419,14 @@ function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails
     Write-Information "Log ingestion API settings configured in the App Service $AppServiceName"
 }
 
-function AddAppRoleAssignmentsForLogIngestionAPI($ResourceGroup, $AppServiceName, $DcrDetails, $SkipAppRoleAssignments = $false) {
+function AddAppRoleAssignmentsForLogIngestionAPI($ResourceGroup, $AppServiceName, $DcrDetails, $DcrId, $SkipAppRoleAssignments = $false) {
+    if($DcrDetails -and -not $DcrId) {
+        $DcrId = $DcrDetails.id
+    }
+
     $servicePrincipal = GetServicePrincipal -appServiceNameParam $AppServiceName -resourceGroupParam $ResourceGroup
     if($null -ne $servicePrincipal.principalId) {
-        $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($servicePrincipal.principalId) --assignee-principal-type ServicePrincipal --scope $($DcrDetails.id)"
+        $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($servicePrincipal.principalId) --assignee-principal-type ServicePrincipal --scope $DcrId"
         if($SkipAppRoleAssignments) {
             Write-Warning "Skipping app role assignment (please execute manually): $azCommandToAssignRole"
             return
