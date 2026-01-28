@@ -32,6 +32,9 @@
  .PARAMETER SkipCertificateMaster
   Set this flag to skip configuration of the Certificate Master App Service. This is useful for SCEPman clones, where the Certificate Master App Service already exists next to the main instance.
 
+  .PARAMETER SkipLoggingConfig
+  Set this flag to skip configuration of Log Analytics integration.
+
  .Parameter AzureADAppNameForSCEPman
   Name of the Azure AD app registration for SCEPman
 
@@ -63,6 +66,7 @@ function Complete-SCEPmanInstallation
         [switch]$AddAdditionalCertMasterAppRoles,
         [switch]$SkipAppRoleAssignments,
         [switch]$SkipCertificateMaster,
+        [switch]$SkipLoggingConfig,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster',
         $GraphBaseUri = 'https://graph.microsoft.com'
@@ -203,8 +207,12 @@ function Complete-SCEPmanInstallation
     Write-Information "Connecting Web Apps to Storage Account"
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
-    Write-Information "Connecting Web Apps to Log Analytics"
-    Set-LoggingConfigInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -DeploymentSlots $deploymentSlotsSc
+    if (-not $SkipLoggingConfig.IsPresent) {
+        Write-Information "Connecting Web Apps to Log Analytics"
+        Set-LoggingConfigInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -DeploymentSlots $deploymentSlotsSc
+    } else {
+        Write-Information "Skipping Log Analytics configuration as -SkipLoggingConfig is set"
+    }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
     $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
