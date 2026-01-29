@@ -32,7 +32,7 @@
  .PARAMETER SkipCertificateMaster
   Set this flag to skip configuration of the Certificate Master App Service. This is useful for SCEPman clones, where the Certificate Master App Service already exists next to the main instance.
 
-  .PARAMETER SkipLoggingConfig
+ .PARAMETER SkipLoggingConfig
   Set this flag to skip configuration of Log Analytics integration.
 
  .Parameter AzureADAppNameForSCEPman
