@@ -69,11 +69,11 @@ function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
     # Keep AzureOfferingDomain because it is used by the Log Ingestion API target as well
     $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
     if($isAppServiceLinux) {
-        $SharedKeyVariable = "AppConfig__LoggingConfig__WorkspaceId"
-        $WorkspaceIdVariable = "AppConfig__LoggingConfig__SharedKey"
+        $WorkspaceIdVariable = "AppConfig__LoggingConfig__WorkspaceId"
+        $SharedKeyVariable = "AppConfig__LoggingConfig__SharedKey"
     } else {
-        $SharedKeyVariable = "AppConfig:LoggingConfig:WorkspaceId"
-        $WorkspaceIdVariable = "AppConfig:LoggingConfig:SharedKey"
+        $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceId"
+        $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
     }
     $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $SharedKeyVariable, $WorkspaceIdVariable)
 }
