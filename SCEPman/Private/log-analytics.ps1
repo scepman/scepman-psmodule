@@ -354,7 +354,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     $workspaceIdSc = $null;
     $workspaceIdCm = $null;
 
-    $workspaceId = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
+    $workspaceId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)WorkspaceId" }
 
     if($null -ne $workspaceId) {
         Write-Information "Found workspace ID $workspaceId in the App Service $SCEPmanAppServiceName"
@@ -362,7 +362,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     }
 
     if($null -ne $ExistingConfigCm -and $null -ne $ExistingConfigCm.settings) {
-        $workspaceId = $ExistingConfigCm.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
+        $workspaceId = $ExistingConfigCm.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)WorkspaceId" }
 
         if($null -ne $workspaceId) {
             Write-Information "Found workspace ID $workspaceId in the App Service $CertMasterAppServiceName"
@@ -376,8 +376,8 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
 
     # If workspace id is still null; Check if DataCollectionEndpointUri and RuleId are present in the SCEPman app service settings. If they are, fetch the workspace ID from the DCR
     if($null -eq $workspaceIdSc -and $null -eq $workspaceIdCm) {
-        $dataCollectionEndpointUri = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:DataCollectionEndpointUri" }
-        $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
+        $dataCollectionEndpointUri = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)DataCollectionEndpointUri" }
+        $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
 
         if($null -ne $dataCollectionEndpointUri -and $null -ne $ruleId -and $dataCollectionEndpointUri.value -and $ruleId.value) {
             $ruleIdName = GetRuleIdName -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup
