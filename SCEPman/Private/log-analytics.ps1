@@ -411,7 +411,7 @@ function GetExistingLogIngestionConfig($ExistingConfigSc, $ExistingConfigCm, $SC
     $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
 
     if($null -ne $ruleId) {
-        Write-Information "Found data collector rule id $ruleId in the App Service $SCEPmanAppServiceName"
+        Write-Information "Found data collection rule id $ruleId in the App Service $SCEPmanAppServiceName"
         $ruleIdSc = $ruleId.value
     }
 
@@ -419,13 +419,13 @@ function GetExistingLogIngestionConfig($ExistingConfigSc, $ExistingConfigCm, $SC
         $ruleId = $ExistingConfigCm.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
 
         if($null -ne $ruleId) {
-            Write-Information "Found data collector rule id $ruleId in the App Service $CertMasterAppServiceName"
+            Write-Information "Found data collection rule id $ruleId in the App Service $CertMasterAppServiceName"
             $ruleIdCm = $ruleId.value
         }
     }
 
     if($null -ne $ruleIdCm -and $null -ne $ruleIdSc -and $ruleIdSc -ne $ruleIdCm) {
-        throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different data collector rules configured"
+        throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different data collection rules configured"
     }
 
     if ($null -ne $ruleIdSc) {

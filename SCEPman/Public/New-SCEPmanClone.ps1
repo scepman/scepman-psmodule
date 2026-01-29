@@ -136,7 +136,7 @@ function New-SCEPmanClone
 
         $DcrId = $SCEPmanSourceSettings.settings | Where-Object name -match 'AppConfig(:|__)LoggingConfig(:|__)RuleId' | Select-Object -ExpandProperty value
         if ($DcrId) {
-            Write-Information "Found configured data collection rule. Confirm Data Collection rule and find resource id"
+            Write-Information "Found configured data collection rule. Confirm resource and add permission."
             $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId
 
             AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $TargetResourceGroup -AppServiceName $TargetAppServiceName -DcrResourceId $DataCollectionRule.id
