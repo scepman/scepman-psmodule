@@ -518,8 +518,8 @@ function Set-LoggingConfigInScAndCmAppSettings {
     }
 
     # Check if we need to configure Log Ingestion API settings in the App Services
-    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
-    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
+    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails
+    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails
 
     if($shouldConfigureLoggingInSc) {
         AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName
