@@ -75,7 +75,7 @@ function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
         $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceId"
         $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
     }
-    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $SharedKeyVariable, $WorkspaceIdVariable)
+    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $WorkspaceIdVariable, $SharedKeyVariable)
 }
 
 function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
@@ -532,5 +532,7 @@ function Set-LoggingConfigInScAndCmAppSettings {
 
     # Assign permissions to app services
     AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
-    AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
+    if (-not [string]::IsNullOrEmpty($CertMasterResourceGroup) -and -not [string]::IsNullOrEmpty($CertMasterAppServiceName)) {
+        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
+    }
 }
