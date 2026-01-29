@@ -532,5 +532,7 @@ function Set-LoggingConfigInScAndCmAppSettings {
 
     # Assign permissions to app services
     AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
-    AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
+    if (-not [string]::IsNullOrEmpty($CertMasterResourceGroup) -and -not [string]::IsNullOrEmpty($CertMasterAppServiceName)) {
+        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
+    }
 }
