@@ -75,7 +75,7 @@ function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
         $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceId"
         $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
     }
-    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $SharedKeyVariable, $WorkspaceIdVariable)
+    $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $WorkspaceIdVariable, $SharedKeyVariable)
 }
 
 function CreateLogAnalyticsWorkspace($ResourceGroup, $WorkspaceId) {
