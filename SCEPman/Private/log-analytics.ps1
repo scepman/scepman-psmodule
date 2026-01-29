@@ -15,18 +15,14 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     } elseif($workspaces.count -gt 1) {
         Write-Information "Found log analytics workspaces:"
         $workspaces.data | ForEach-Object { Write-Information $_.name }
-        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please hit enter now if you still want to create a workspace or enter the workspace you would like to use, and then hit enter"
-        if(!$potentialWorkspaceName) {
-            Write-Information "User selected to create a log analytics workspace"
-            return $null
+        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please hit enter the name of the workspace you want to use."
+
+        $potentialWorkspace = $workspaces.data | Where-Object { $_.name -eq $potentialWorkspaceName }
+        if($null -eq $potentialWorkspace) {
+            Write-Error "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
+            throw "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
         } else {
-            $potentialWorkspace = $workspaces.data | Where-Object { $_.name -eq $potentialWorkspaceName }
-            if($null -eq $potentialWorkspace) {
-                Write-Error "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
-                throw "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
-            } else {
-                return $potentialWorkspace
-            }
+            return $potentialWorkspace
         }
     }
     else {
