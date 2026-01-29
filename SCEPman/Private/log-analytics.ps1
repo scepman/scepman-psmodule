@@ -15,7 +15,7 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     } elseif($workspaces.count -gt 1) {
         Write-Information "Found log analytics workspaces:"
         $workspaces.data | ForEach-Object { Write-Information $_.name }
-        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please hit enter the name of the workspace you want to use."
+        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please enter the name of the workspace you want to use"
 
         $potentialWorkspace = $workspaces.data | Where-Object { $_.name -eq $potentialWorkspaceName }
         if($null -eq $potentialWorkspace) {
