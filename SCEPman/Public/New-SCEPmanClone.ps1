@@ -139,7 +139,7 @@ function New-SCEPmanClone
             Write-Information "Found configured data collection rule. Confirm Data Collection rule and find resource id"
             $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId
 
-            AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $TargetResourceGroup -AppServiceName $TargetAppServiceName -DcrId $DataCollectionRule.id
+            AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $TargetResourceGroup -AppServiceName $TargetAppServiceName -DcrResourceId $DataCollectionRule.id
         }
     }
 
