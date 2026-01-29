@@ -37,8 +37,8 @@ function GetDataCollectionRule($ResourceGroup, $DcrId) {
         $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
     }
 
-    # Try to find by resource group
-    if($null -ne $ResourceGroup) {
+    # Try to find by resource group if not found by dcr id and we have a resource group
+    if(($null -eq $DcrId -or $null -eq $dataCollectionRule -or $dataCollectionRule.count -eq 0) -and $null -ne $ResourceGroup) {
         $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
     }
 
