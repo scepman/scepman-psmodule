@@ -112,18 +112,10 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false, $AddAdditionalAppRoles = $false) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
-
-  if ($AddAdditionalAppRoles) {
-    Write-Verbose "Adding additional app roles to CertMaster App Registration"
-    $AppRoleAssignments = $CertmasterManifest + $CertmasterAdditionalManifest
-  } else {
-    $AppRoleAssignments = $CertmasterManifest
-  }
-
   $signInUrlArray = $CertMasterBaseURLs | ForEach-Object { "$_/signin-oidc" }
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
