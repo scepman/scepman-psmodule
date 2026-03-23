@@ -31,35 +31,43 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     }
 }
 
-function GetDataCollectionRule($ResourceGroup, $DcrId) {
-    # Try to find by dcr id
-    if($null -ne $DcrId) {
+function GetDataCollectionRule {
+    param(
+        [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
+        [string]$ResourceGroup,
+        [Parameter(Mandatory, ParameterSetName = "ByDcrId")]
+        [string]$DcrId
+    )
+
+    if($PSCmdlet.ParameterSetName -eq 'ByDcrId') {
+        Write-Verbose "Looking for data collection rule with id $DcrId"
         $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
     }
 
-    # Try to find by resource group if not found by dcr id and we have a resource group
-    if(($null -eq $DcrId -or $null -eq $dataCollectionRule -or $dataCollectionRule.count -eq 0) -and $null -ne $ResourceGroup) {
+    if($PSCmdlet.ParameterSetName -eq 'ByResourceGroup') {
+        Write-Verbose "Looking for data collection rules in the resource group $ResourceGroup"
         $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
+
+        if($dataCollectionRule.count -gt 1) {
+            Write-Information "Found data collection rules:"
+            $dataCollectionRule.data | ForEach-Object { Write-Information $_.name }
+            $potentialDcrName = Read-Host "We have found more than one existing data collection rule in the resource group $ResourceGroup. Please enter the data collection rule you would like to use"
+
+            # Check if the selected DCR is in our results
+            $potentialDcr = $dataCollectionRule.data | Where-Object { $_.name -eq $potentialDcrName }
+            if($null -eq $potentialDcr) {
+                Write-Error "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+                throw "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+            } else {
+                $dataCollectionRule = $potentialDcr
+            }
+        }
     }
 
     if($dataCollectionRule.count -eq 1) {
         Write-Information "Found data collection rule $($dataCollectionRule.data[0].name)"
         return $dataCollectionRule.data[0]
-    } elseif($dataCollectionRule.count -gt 1) {
-        Write-Information "Found data collection rules:"
-        $dataCollectionRule.data | ForEach-Object { Write-Information $_.name }
-        $potentialDcrName = Read-Host "We have found more than one existing data collection rule in the resource group $ResourceGroup. Please enter the data collection rule you would like to use"
-
-        # Check if the selected DCR is in our results
-        $potentialDcr = $dataCollectionRule.data | Where-Object { $_.name -eq $potentialDcrName }
-        if($null -eq $potentialDcr) {
-            Write-Error "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
-            throw "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
-        } else {
-            return $potentialDcr
-        }
-    }
-    else {
+    } else {
         Write-Warning "Unable to determine the data collection rule"
         return $null
     }
