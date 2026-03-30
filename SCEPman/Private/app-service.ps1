@@ -97,6 +97,7 @@ function New-CertMasterAppService {
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
     $isLinuxAppService = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    $platform = if ($isLinuxAppService){ "linux" } else { "windows" }
 
     $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
     if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, ("Creating Certificate Master App Service with .NET Runtime {0}" -f $runtime))) {
@@ -110,7 +111,7 @@ function New-CertMasterAppService {
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{
-        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
+        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$platform][$UpdateChannel];
         "AppConfig:AuthConfig:TenantId" = $TenantId;
         "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
       }
