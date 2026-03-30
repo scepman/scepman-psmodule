@@ -331,9 +331,11 @@ function Update-ToConfiguredChannel {
   $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
+  $platform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
-    $ArtifactsUrl = $ChannelArtifacts[$intendedChannel]
+    $ArtifactsUrl = $ChannelArtifacts[$platform][$intendedChannel]
     if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
       Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
     } else {
