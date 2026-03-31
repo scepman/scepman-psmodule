@@ -36,7 +36,7 @@ jobs:
         run: dotnet tool install --no-cache --global AzureSignTool
 
       - name: Azure CLI login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           tenant-id: ${{ env.CODE_SIGN_TENANT_ID }}
           client-id: ${{ env.CODE_SIGN_CLIENT_ID }}
@@ -62,7 +62,7 @@ jobs:
             -ifl .\input.txt
 
       - name: Upload signed module to artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: Signed Module
           path: ./SCEPman
@@ -81,7 +81,7 @@ jobs:
     needs: code-sign-scepman
     steps:
       - name: Checkout
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: Signed Module
           path: ./SCEPman

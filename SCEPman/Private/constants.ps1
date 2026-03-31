@@ -223,15 +223,29 @@ New-Variable -Name "CertmasterAdditionalManifest" -Scope "Script" -Option ReadOn
 })
 
 New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
-  prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"
-  beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Beta.zip"
-  internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Intern.zip"
+  windows = @{
+    prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts.zip"
+    beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Beta.zip"
+    internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Intern.zip"
+  }
+  linux = @{
+    prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux.zip"
+    beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux-Beta.zip"
+    internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux-Internal.zip"
+  }
 }
 
 New-Variable -Name "Artifacts_Scepman" -Scope "Script" -Option ReadOnly -Value @{
-  prod =  "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts.zip"
-  beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Beta.zip"
-  internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Intern.zip"
+  windows = @{
+    prod =  "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts.zip"
+    beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Beta.zip"
+    internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Intern.zip"
+  }
+  linux = @{
+    prod =  "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux.zip"
+    beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux-Beta.zip"
+    internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux-Internal.zip"
+  }
 }
 
 New-Variable -Name "DCRName" -Value "dcr-scepmanlogs" -Scope "Script" -Option ReadOnly
