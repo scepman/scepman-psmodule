@@ -70,30 +70,15 @@ Describe 'App Service' {
     }
 
     Describe 'App Service Plan' {
-        It 'Detects Linux App Service Plans' {
-            # Arrange
-            Mock az {
-                return "linux"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "appservice plan show" }
+        It 'Detects <Platform> App Service Plans' -ForEach @(
+            @{ Platform = 'Linux';   Kind = 'linux'; Expected = $true }
+            @{ Platform = 'Windows'; Kind = 'app';   Expected = $false }
+        ) {
+            Mock az { return $Kind } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "appservice plan show" }
 
-            # Act
-            $isAspLinux = IsAppServicePlanLinux -AppServicePlanId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverfarms/asp-linux"
+            $isAspLinux = IsAppServicePlanLinux -AppServicePlanId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverfarms/asp-test"
 
-            # Assert
-            $isAspLinux | Should -Be $true
-        }
-
-        It 'Detects Windows App Service Plans' {
-            # Arrange
-            Mock az {
-                return "app"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "appservice plan show" }
-
-            # Act
-            $isAspLinux = IsAppServicePlanLinux -AppServicePlanId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverfarms/asp-windows"
-
-            # Assert
-            $isAspLinux | Should -Be $false
+            $isAspLinux | Should -Be $Expected
         }
     }
 
@@ -111,116 +96,39 @@ Describe 'App Service' {
                             }
                         }"
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query -q "Resources' -azCommandMidfix "'as-scepman'"}
-
-            # Mock check that the App Service is Windows
-            Mock az {
-                return 'app'    # this is the output for a Windows App Service; it would be 'app,linux' for a Linux App Service
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
-        }
-
-        It 'Works when CertMaster is already installed' {
-            #Arrange
-            Mock GetCertMasterAppServiceName {
-                return "as-scepman-cm"
-            }
-
-            # Act
-            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
-
-            # Assert
-            $certMaster | Should -Be "as-scepman-cm"
-        }
-
-        It 'Installs CertMaster when it is not there yet' {
-            #Arrange
-            Mock GetCertMasterAppServiceName {
-                return $null
-            }
-
-            Mock Read-Host {
-                return "as-scepman-cm"
-            } -ParameterFilter { ($Prompt -join '').Contains("enter the name") }
-
-                # Mock creating the CertMaster App Service
-            Mock az {
-                return "excellent!" # the script ignores the output, although actually there would be output
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
-
-            # Act
-            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
-
-            # Assert
-            $certMaster | Should -Be "as-scepman-cm"
-
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
-        }
-    }
-
-    Context 'New-CertMasterAppService on Linux' {
-        BeforeAll {
-            # Mock finding the SCEPman App Service
-            Mock az {
-                return "{
-                            'data' : {
-                                'name' : 'as-scepman',
-                                'properties' : {
-                                    'serverFarmId' : 'subscriptionid/asp-scepman',
-                                    'defaultHostName' : 'as-scepman'
-                                }
-                            }
-                        }"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query -q "Resources' -azCommandMidfix "'as-scepman'"}
-
-            # Mock check that the App Service is Linux
-            Mock az {
-                return 'app,linux'
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
         }
 
         BeforeEach {
             $CacheAppServiceKinds.Clear()
         }
 
-        It 'Installs CertMaster with Linux artifacts when SCEPman runs on Linux' {
-            # Arrange
-            Mock GetCertMasterAppServiceName {
-                return $null
-            }
+        It 'Works when CertMaster is already installed' {
+            Mock az { return 'app' } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
+            Mock GetCertMasterAppServiceName { return "as-scepman-cm" }
 
-            Mock Read-Host {
-                return "as-scepman-cm"
-            } -ParameterFilter { ($Prompt -join '').Contains("enter the name") }
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
 
-            Mock az {
-                return "excellent!"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
+            $certMaster | Should -Be "as-scepman-cm"
+        }
 
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
+        It 'Installs CertMaster on <Platform>' -ForEach @(
+            @{ Platform = 'Windows'; Kind = 'app';       ArtifactFragment = 'CertMaster-Artifacts.zip' }
+            @{ Platform = 'Linux';   Kind = 'app,linux';  ArtifactFragment = 'CertMaster-Artifacts-Linux.zip' }
+        ) {
+            Mock az { return $Kind } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
+            Mock GetCertMasterAppServiceName { return $null }
+            Mock Read-Host { return "as-scepman-cm" } -ParameterFilter { ($Prompt -join '').Contains("enter the name") }
+            Mock az { return "excellent!" } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
+            Mock az { return $null } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "--name as-scepman-cm" }
+            Mock az { return $null } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
 
             # Act
             $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
 
             # Assert
             $certMaster | Should -Be "as-scepman-cm"
-
             Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp create' -azCommandMidfix "--name as-scepman-cm" }
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "CertMaster-Artifacts-Linux.zip" }
+            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix $ArtifactFragment }
             Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
         }
     }
@@ -230,54 +138,18 @@ Describe 'App Service' {
             $CacheAppServiceKinds.Clear()
         }
 
-        It 'Switches to the correct Windows artifact URL' {
-            # Arrange
-            Mock az {
-                return "beta"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings list' -azCommandMidfix "Update_Channel" }
+        It 'Switches to correct <Platform> artifact URL' -ForEach @(
+            @{ Platform = 'Windows'; Kind = 'app';       ArtifactFragment = 'Artifacts-Beta.zip' }
+            @{ Platform = 'Linux';   Kind = 'app,linux';  ArtifactFragment = 'Artifacts-Linux-Beta.zip' }
+        ) {
+            Mock az { return "beta" } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings list' -azCommandMidfix "Update_Channel" }
+            Mock az { return $Kind } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
+            Mock az { return $null } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' }
+            Mock az { return $null } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings delete' }
 
-            Mock az {
-                return 'app'
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings delete' }
-
-            # Act
             Update-ToConfiguredChannel -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
 
-            # Assert
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "Artifacts-Beta.zip" }
-        }
-
-        It 'Switches to the correct Linux artifact URL' {
-            # Arrange
-            Mock az {
-                return "beta"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings list' -azCommandMidfix "Update_Channel" }
-
-            Mock az {
-                return 'app,linux'
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' }
-
-            Mock az {
-                return $null
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings delete' }
-
-                # Act
-            Update-ToConfiguredChannel -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
-
-            # Assert
-            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "Artifacts-Linux-Beta.zip" }
+            Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix $ArtifactFragment }
         }
     }
 }
