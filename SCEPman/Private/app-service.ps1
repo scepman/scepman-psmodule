@@ -97,6 +97,7 @@ function New-CertMasterAppService {
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
     $isLinuxAppService = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    $platform = if ($isLinuxAppService){ "linux" } else { "windows" }
 
     $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
     if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, ("Creating Certificate Master App Service with .NET Runtime {0}" -f $runtime))) {
@@ -110,7 +111,7 @@ function New-CertMasterAppService {
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{
-        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
+        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$platform][$UpdateChannel];
         "AppConfig:AuthConfig:TenantId" = $TenantId;
         "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
       }
@@ -331,11 +332,13 @@ function Update-ToConfiguredChannel {
   $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
+  $platform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
-    $ArtifactsUrl = $ChannelArtifacts[$intendedChannel]
+    $ArtifactsUrl = $ChannelArtifacts[$platform][$intendedChannel]
     if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
-      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
+      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $(Join-String -Separator ',' -InputObject $ChannelArtifacts[$platform].Keys)"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
       if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
