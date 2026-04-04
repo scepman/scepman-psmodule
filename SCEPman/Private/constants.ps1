@@ -134,10 +134,8 @@ New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value 
   'displayName' = 'Request Server'
   'isEnabled' = $true
   'value' = 'Request.Server'
-})
-
-# To-be JSON defining additional, non-default, App Roles that User can have when authenticating against CertMaster
-New-Variable -Name "CertmasterAdditionalManifest" -Scope "Script" -Option ReadOnly -Value @(@{
+},
+@{
   'allowedMemberTypes' = @( 'User' )
   'description' = "Request certificates of all types using CSR"
   'displayName' = 'Request All (CSR)'
