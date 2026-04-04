@@ -133,6 +133,14 @@ function New-SCEPmanClone
 
         Write-Information "Adding permissions to Key Vault"
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
+
+        $DcrId = $SCEPmanSourceSettings.settings | Where-Object name -match 'AppConfig(:|__)LoggingConfig(:|__)RuleId' | Select-Object -ExpandProperty value
+        if ($DcrId) {
+            Write-Information "Found configured data collection rule. Confirm resource and add permission."
+            $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId
+
+            AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $TargetResourceGroup -AppServiceName $TargetAppServiceName -DcrResourceId $DataCollectionRule.id
+        }
     }
 
     if ($null -ne $scepManVnetId) {
