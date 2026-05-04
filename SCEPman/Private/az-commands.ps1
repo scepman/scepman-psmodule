@@ -48,7 +48,7 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     Write-Information "Could not assign permission, as it does not exist for this application, when executing $azCommand"
                     Write-Output $PERMISSION_DOES_NOT_EXIST
                 }
-                elseif ($outputElement.ToString().EndsWith("does not exist or one of its queried reference-property objects are not present.")) {
+                elseif ($outputElement.ToString().Contains("does not exist or one of its queried reference-property objects are not present.")) {
                     # This indicates we are in a tenant with especially long delays between creation of an object and when it becomes available via Graph (this happens and it seems to be tenant-specific).
                     # Let's go into snail mode and thereby grant Graph more time
                     Write-Warning "Created object is not yet available via MS Graph. Reducing executing speed to give Graph more time."
