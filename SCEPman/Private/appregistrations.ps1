@@ -6,29 +6,29 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
       Write-Information "Creating app registration $name, as it does not exist yet"
 
       $appRoleManifestJson = HashTable2AzJson -psHashTable $appRoleAssignments
-      $azAppRegistrationCommand = "az ad app create --display-name '$name' --app-roles '$appRoleManifestJson'"
+      $azAppRegistrationCommand = @("ad", "app", "create", "--display-name", "$name", "--app-roles", $appRoleManifestJson)
       if ($null -ne $replyUrls) {
         if (AzUsesAADGraph) {
-          $azAppRegistrationCommand += " --reply-urls '$replyUrls'"
+          $azAppRegistrationCommand += @("--reply-urls", $replyUrls)
         } else {
-          $azAppRegistrationCommand += " --web-redirect-uris '$replyUrls'"
+          $azAppRegistrationCommand += @("--web-redirect-uris", $replyUrls)
         }
       }
       if ($null -ne $homepage) {
         if (AzUsesAADGraph) {
-          $azAppRegistrationCommand += " --homepage '$homepage'"
+          $azAppRegistrationCommand += @("--homepage", $homepage)
         } else {
-          $azAppRegistrationCommand += " --web-home-page-url '$homepage'"
+          $azAppRegistrationCommand += @("--web-home-page-url", $homepage)
         }
       }
       if (-not (AzUsesAADGraph)) {
-        $azAppRegistrationCommand += " --sign-in-audience AzureADMyOrg"
+        $azAppRegistrationCommand += @("--sign-in-audience", "AzureADMyOrg")
         if ($EnableIdToken) {
-          $azAppRegistrationCommand += " --enable-id-token-issuance"
+          $azAppRegistrationCommand += "--enable-id-token-issuance"
         }
       }
 
-      $azureAdAppReg = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand)
+      $azureAdAppReg = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -callAzNatively -azCommand $azAppRegistrationCommand)
       Write-Verbose "Created app registration $name (App ID $($azureAdAppReg.appId))"
 
         # Check whether the AppRoles were added correctly
@@ -60,7 +60,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
     if ($anything2Update) {
       Write-Information "Adding new roles to app registration $name"
       $appRolesJson = HashTable2AzJson -psHashTable $updatedAppRoles
-      ExecuteAzCommandRobustly "az ad app update --id $($azureAdAppReg.appId) --app-roles '$appRolesJson'"
+      ExecuteAzCommandRobustly -callAzNatively -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", $appRolesJson)
 
         # Reload app registration with new roles
       $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
