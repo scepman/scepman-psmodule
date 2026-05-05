@@ -250,7 +250,7 @@ function Invoke-Az ($azCommand, $maxRetries = $MAX_RETRY_COUNT) {
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 # $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $maxRetries = $MAX_RETRY_COUNT, [switch]$callAzNatively, [switch]$noSecretLeakageWarning) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $maxRetries = $MAX_RETRY_COUNT, [switch]$callAzNatively, [switch]$noSecretLeakageWarning, $stdinInput = $null) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
@@ -263,7 +263,11 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             $PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             $LASTEXITCODE = 0   # Required for unit tests when mocking az
-            if ($callAzNatively) {
+            if ($null -ne $stdinInput) {
+                Write-Debug "Calling az natively with stdin: az $azCommand"
+                $lastAzOutput = $stdinInput | az $azCommand 2>&1
+            }
+            elseif ($callAzNatively) {
                 Write-Debug "Calling az natively: az $azCommand"
                 $lastAzOutput = az $azCommand 2>&1
             }

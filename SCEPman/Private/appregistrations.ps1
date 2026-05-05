@@ -5,8 +5,8 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
     if ($createIfNotExists) {
       Write-Information "Creating app registration $name, as it does not exist yet"
 
-      $appRoleManifestJson = HashTable2AzJson -psHashTable $appRoleAssignments
-      $azAppRegistrationCommand = @("ad", "app", "create", "--display-name", "$name", "--app-roles", $appRoleManifestJson)
+      $appRolesJson = ConvertTo-Json -Compress -InputObject $appRoleAssignments -Depth 10
+      $azAppRegistrationCommand = @("ad", "app", "create", "--display-name", "$name", "--app-roles", "@-")
       if ($null -ne $replyUrls) {
         if (AzUsesAADGraph) {
           $azAppRegistrationCommand += @("--reply-urls", $replyUrls)
@@ -28,7 +28,10 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
         }
       }
 
-      $azureAdAppReg = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -callAzNatively -azCommand $azAppRegistrationCommand)
+      $azureAdAppReg = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand $azAppRegistrationCommand -stdinInput $appRolesJson)
+      if ($null -eq $azureAdAppReg) {
+        throw "Failed to create app registration $name. The az command returned no output."
+      }
       Write-Verbose "Created app registration $name (App ID $($azureAdAppReg.appId))"
 
         # Check whether the AppRoles were added correctly
@@ -59,8 +62,8 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
 
     if ($anything2Update) {
       Write-Information "Adding new roles to app registration $name"
-      $appRolesJson = HashTable2AzJson -psHashTable $updatedAppRoles
-      ExecuteAzCommandRobustly -callAzNatively -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", $appRolesJson)
+      $appRolesJson = ConvertTo-Json -Compress -InputObject $updatedAppRoles -Depth 10
+      ExecuteAzCommandRobustly -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", "@-") -stdinInput $appRolesJson
 
         # Reload app registration with new roles
       $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
