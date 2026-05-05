@@ -208,10 +208,15 @@ function Complete-SCEPmanInstallation
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
     if (-not $SkipLoggingConfig.IsPresent) {
-        Write-Information "Connecting Web Apps to Log Analytics"
-        Set-LoggingConfigInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -DeploymentSlots $deploymentSlotsSc
+        Write-Information "Connecting SCEPman to Log Analytics"
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments
     } else {
         Write-Information "Skipping Log Analytics configuration as -SkipLoggingConfig is set"
+    }
+
+    if (-not $SkipLoggingConfig.IsPresent -and -not $SkipCertificateMaster) {
+        Write-Information "Connecting Certificate Master to Log Analytics"
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments
     }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
