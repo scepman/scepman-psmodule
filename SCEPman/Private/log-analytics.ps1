@@ -1,12 +1,12 @@
 function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     # Try to find by workspace id
     if($null -ne $WorkspaceId) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     # Try to find by resource group
     if($null -eq $workspaces -or $workspaces.count -eq 0) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     if($workspaces.count -eq 1) {
@@ -15,22 +15,60 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
     } elseif($workspaces.count -gt 1) {
         Write-Information "Found log analytics workspaces:"
         $workspaces.data | ForEach-Object { Write-Information $_.name }
-        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please hit enter now if you still want to create a workspace or enter the workspace you would like to use, and then hit enter"
-        if(!$potentialWorkspaceName) {
-            Write-Information "User selected to create a log analytics workspace"
-            return $null
+        $potentialWorkspaceName = Read-Host "We have found more than one existing log analytics workspace in the resource group $ResourceGroup. Please enter the name of the workspace you want to use"
+
+        $potentialWorkspace = $workspaces.data | Where-Object { $_.name -eq $potentialWorkspaceName }
+        if($null -eq $potentialWorkspace) {
+            Write-Error "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
+            throw "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
         } else {
-            $potentialWorkspace = $workspaces.data | Where-Object { $_.name -eq $potentialWorkspaceName }
-            if($null -eq $potentialWorkspace) {
-                Write-Error "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
-                throw "We couldn't find a log analytics workspace with name $potentialWorkspaceName in resource group $ResourceGroup. Please try to re-run the script"
-            } else {
-                return $potentialWorkspace
-            }
+            return $potentialWorkspace
         }
     }
     else {
         Write-Warning "Unable to determine the log analytics workspace"
+        return $null
+    }
+}
+
+function GetDataCollectionRule {
+    param(
+        [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
+        [string]$ResourceGroup,
+        [Parameter(Mandatory, ParameterSetName = "ByDcrId")]
+        [string]$DcrId
+    )
+
+    if($PSCmdlet.ParameterSetName -eq 'ByDcrId') {
+        Write-Verbose "Looking for data collection rule with id $DcrId"
+        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
+    }
+
+    if($PSCmdlet.ParameterSetName -eq 'ByResourceGroup') {
+        Write-Verbose "Looking for data collection rules in the resource group $ResourceGroup"
+        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
+
+        if($dataCollectionRule.count -gt 1) {
+            Write-Information "Found data collection rules:"
+            $dataCollectionRule.data | ForEach-Object { Write-Information $_.name }
+            $potentialDcrName = Read-Host "We have found more than one existing data collection rule in the resource group $ResourceGroup. Please enter the data collection rule you would like to use"
+
+            # Check if the selected DCR is in our results
+            $potentialDcr = $dataCollectionRule.data | Where-Object { $_.name -eq $potentialDcrName }
+            if($null -eq $potentialDcr) {
+                Write-Error "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+                throw "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
+            } else {
+                $dataCollectionRule = $potentialDcr
+            }
+        }
+    }
+
+    if($dataCollectionRule.count -eq 1) {
+        Write-Information "Found data collection rule $($dataCollectionRule.data[0].name)"
+        return $dataCollectionRule.data[0]
+    } else {
+        Write-Warning "Unable to determine the data collection rule"
         return $null
     }
 }
@@ -42,7 +80,7 @@ function RemoveDataCollectorAPISettings ($ResourceGroup, $AppServiceName) {
         $WorkspaceIdVariable = "AppConfig__LoggingConfig__WorkspaceId"
         $SharedKeyVariable = "AppConfig__LoggingConfig__SharedKey"
     } else {
-        $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceID"
+        $WorkspaceIdVariable = "AppConfig:LoggingConfig:WorkspaceId"
         $SharedKeyVariable = "AppConfig:LoggingConfig:SharedKey"
     }
     $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", $WorkspaceIdVariable, $SharedKeyVariable)
@@ -278,16 +316,16 @@ function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $S
     Invoke-Az @("extension", "add", "--name", "monitor-control-service", "--only-show-errors")
 
     # Create the new table
-    ValidateLogAnalyticsTable -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
+    ValidateLogAnalyticsTable -ResourceGroup $WorkspaceAccount.resourceGroup -WorkspaceAccount $WorkspaceAccount -SubscriptionId $SubscriptionId
 
      # Create the DCR
-    $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
-    $dcrDetails = ValidateDCR -ResourceGroup $ResourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
+    $workspaceResourceId = "/subscriptions/$SubscriptionId/resourceGroups/$($WorkspaceAccount.resourceGroup)/providers/microsoft.operationalinsights/workspaces/$($WorkspaceAccount.name)"
+    $dcrDetails = ValidateDCR -ResourceGroup $WorkspaceAccount.resourceGroup -WorkspaceAccount $WorkspaceAccount -WorkspaceResourceId $workspaceResourceId
 
     return $dcrDetails
 }
 
-function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails, $ResourceGroup, $AppServiceName, $WorkspaceAccount) {
+function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails, $ResourceGroup, $AppServiceName) {
 
     if(!$ResourceGroup -or !$AppServiceName) {
         return $false
@@ -300,21 +338,18 @@ function ShouldConfigureLogIngestionAPIInAppService($ExistingConfig, $dcrDetails
     $shouldConfigure = $true
 
     #Check if the Log ingestion API settings(DataCollectionEndpointUri, RuleId) exist; If they do, delete the data collector API settings else configure the Log ingestion API settings and then delete the data collector API settings
-    $dataCollectionEndpointUri = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:DataCollectionEndpointUri" }
-    $ruleId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
-    $workspaceId = $ExistingConfig.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
+    $dataCollectionEndpointUri = $ExistingConfig.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)DataCollectionEndpointUri" }
+    $ruleId = $ExistingConfig.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
 
     $intendedDCEUri = $dcrDetails.endpoints.logsIngestion
     $intendedDCRId = $dcrDetails.immutableId
-    $intendedWorkspaceId = $WorkspaceAccount.workspaceId
 
-    if(($dataCollectionEndpointUri.value -ne $intendedDCEUri) -or ($ruleId.value -ne $intendedDCRId) -or ($workspaceId.value -ne $intendedWorkspaceId)) {
+    if(($dataCollectionEndpointUri.value -ne $intendedDCEUri) -or ($ruleId.value -ne $intendedDCRId)) {
         Write-Information "Log ingestion API settings not configured correctly in the App Service $AppServiceName. They will be configured"
         Write-Verbose "Existing DataCollectionEndpointUri: $($dataCollectionEndpointUri.value), Intended DataCollectionEndpointUri: $intendedDCEUri"
         Write-Verbose "Existing RuleId: $($ruleId.value), Intended RuleId: $intendedDCRId"
-        Write-Verbose "Existing WorkspaceId: $($workspaceId.value), Intended WorkspaceId: $intendedWorkspaceId"
         $shouldConfigure = $true;
-    } elseif(($dataCollectionEndpointUri.value -eq $intendedDCEUri) -and ($ruleId.value -eq $intendedDCRId) -and ($workspaceId.value -eq $intendedWorkspaceId)) {
+    } elseif(($dataCollectionEndpointUri.value -eq $intendedDCEUri) -and ($ruleId.value -eq $intendedDCRId)) {
         Write-Information "Log ingestion API settings already configured correctly in the App Service $AppServiceName. Skipping the configuration and ensure data collector API settings are removed"
         RemoveDataCollectorAPISettings -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName
         $shouldConfigure = $false;
@@ -327,7 +362,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     $workspaceIdSc = $null;
     $workspaceIdCm = $null;
 
-    $workspaceId = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
+    $workspaceId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)WorkspaceId" }
 
     if($null -ne $workspaceId) {
         Write-Information "Found workspace ID $workspaceId in the App Service $SCEPmanAppServiceName"
@@ -335,7 +370,7 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     }
 
     if($null -ne $ExistingConfigCm -and $null -ne $ExistingConfigCm.settings) {
-        $workspaceId = $ExistingConfigCm.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:WorkspaceId" }
+        $workspaceId = $ExistingConfigCm.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)WorkspaceId" }
 
         if($null -ne $workspaceId) {
             Write-Information "Found workspace ID $workspaceId in the App Service $CertMasterAppServiceName"
@@ -349,8 +384,8 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
 
     # If workspace id is still null; Check if DataCollectionEndpointUri and RuleId are present in the SCEPman app service settings. If they are, fetch the workspace ID from the DCR
     if($null -eq $workspaceIdSc -and $null -eq $workspaceIdCm) {
-        $dataCollectionEndpointUri = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:DataCollectionEndpointUri" }
-        $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -eq "AppConfig:LoggingConfig:RuleId" }
+        $dataCollectionEndpointUri = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)DataCollectionEndpointUri" }
+        $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
 
         if($null -ne $dataCollectionEndpointUri -and $null -ne $ruleId -and $dataCollectionEndpointUri.value -and $ruleId.value) {
             $ruleIdName = GetRuleIdName -SubscriptionId $SubscriptionId -ResourceGroup $SCEPmanResourceGroup
@@ -377,20 +412,52 @@ function GetExistingWorkspaceId($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAp
     }
 }
 
-function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails, $Slot, $WorkspaceAccount) {
+function GetExistingLogIngestionConfig($ExistingConfigSc, $ExistingConfigCm, $SCEPmanAppServiceName, $CertMasterAppServiceName, $SCEPmanResourceGroup,  $SubscriptionId) {
+    $ruleIdSc = $null;
+    $ruleIdCm = $null;
+
+    $ruleId = $ExistingConfigSc.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
+
+    if($null -ne $ruleId) {
+        Write-Information "Found data collection rule id $ruleId in the App Service $SCEPmanAppServiceName"
+        $ruleIdSc = $ruleId.value
+    }
+
+    if($null -ne $ExistingConfigCm -and $null -ne $ExistingConfigCm.settings) {
+        $ruleId = $ExistingConfigCm.settings | Where-Object { $_.name -match "AppConfig(:|__)LoggingConfig(:|__)RuleId" }
+
+        if($null -ne $ruleId) {
+            Write-Information "Found data collection rule id $ruleId in the App Service $CertMasterAppServiceName"
+            $ruleIdCm = $ruleId.value
+        }
+    }
+
+    if($null -ne $ruleIdCm -and $null -ne $ruleIdSc -and $ruleIdSc -ne $ruleIdCm) {
+        throw "Inconsistency: SCEPman($SCEPmanAppServiceName) and CertMaster($CertMasterAppServiceName) have different data collection rules configured"
+    }
+
+    if ($null -ne $ruleIdSc) {
+        return $ruleIdSc
+    } elseif ($null -ne $ruleIdCm) {
+        return $ruleIdCm
+    } else {
+        return $null
+    }
+}
+
+function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails, $Slot) {
     $settings = @(
         @{ name='AppConfig:LoggingConfig:DataCollectionEndpointUri'; value=$($DcrDetails.endpoints.logsIngestion) },
         @{ name='AppConfig:LoggingConfig:RuleId'; value=$($DcrDetails.immutableId) }
-        @{ name='AppConfig:LoggingConfig:WorkspaceId'; value=$($WorkspaceAccount.workspaceId) }
     )
     SetAppSettings -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Settings $settings -Slot $Slot
     Write-Information "Log ingestion API settings configured in the App Service $AppServiceName"
 }
 
-function AddAppRoleAssignmentsForLogIngestionAPI($ResourceGroup, $AppServiceName, $DcrDetails, $SkipAppRoleAssignments = $false) {
+function AddAppRoleAssignmentsForLogIngestionAPI($ResourceGroup, $AppServiceName, $DcrResourceId, $SkipAppRoleAssignments = $false) {
     $servicePrincipal = GetServicePrincipal -appServiceNameParam $AppServiceName -resourceGroupParam $ResourceGroup
     if($null -ne $servicePrincipal.principalId) {
-        $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($servicePrincipal.principalId) --assignee-principal-type ServicePrincipal --scope $($DcrDetails.id)"
+        $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($servicePrincipal.principalId) --assignee-principal-type ServicePrincipal --scope $DcrResourceId"
         if($SkipAppRoleAssignments) {
             Write-Warning "Skipping app role assignment (please execute manually): $azCommandToAssignRole"
             return
@@ -423,23 +490,57 @@ function Set-LoggingConfigInScAndCmAppSettings {
         $existingConfigCm = ReadAppSettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -Slot $DeploymentSlotName
     }
 
-    # Ensure resources exist
+    # Check if we have an existing logging configuration
     $existingWorkspaceId = GetExistingWorkspaceId -ExistingConfigSc $existingConfigSc -ExistingConfigCm $existingConfigCm -SCEPmanAppServiceName $SCEPmanAppServiceName -CertMasterAppServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $SubscriptionId
-    $workspaceAccount = CreateLogAnalyticsWorkspace -ResourceGroup $SCEPmanResourceGroup -WorkspaceId $existingWorkspaceId
-    $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+    $existingDcrRuleId = GetExistingLogIngestionConfig -ExistingConfigSc $existingConfigSc -ExistingConfigCm $existingConfigCm -SCEPmanAppServiceName $SCEPmanAppServiceName -CertMasterAppServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $SubscriptionId
+
+    # Decide whether we create a DCR or not based on existing logging configuration
+    if ($null -ne $existingWorkspaceId -and $null -eq $existingDcrRuleId) {
+        Write-Information "Missing Log Ingestion API configuration detected while using existing log analytics workspace. Proceeding to configure Log Ingestion API resources."
+        # Get LAW resource details
+        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $SCEPmanResourceGroup -WorkspaceId $existingWorkspaceId
+        # Validate the log table and create or validate the DCR in the workspace resource group
+        $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+    } elseif (-not [string]::IsNullOrEmpty($existingDcrRuleId)) {
+        Write-Information "Existing Log Ingestion API configuration detected. Validate permissions"
+        # Get DCR details
+        $dcrDetails = GetDataCollectionRule -DcrId $existingDcrRuleId
+
+        if ($null -eq $dcrDetails) {
+            Write-Warning "Unable to find existing Data Collection Rule with id $existingDcrRuleId"
+            return
+        }
+    } else {
+        Write-Information "Neither existing log analytics workspace nor existing Log Ingestion API configuration detected. Check if we have a log analytics workspace in the resource group."
+
+        # Try to find LAW in our resource group
+        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $SCEPmanResourceGroup
+
+        if ($null -eq $workspaceAccount) {
+            Write-Information "No existing log analytics workspace found. Skipping logging configuration."
+            return
+        }
+
+        # Validate the log table and create or validate the DCR in the workspace resource group
+        $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $SCEPmanResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+    }
 
     # Check if we need to configure Log Ingestion API settings in the App Services
-    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
-    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails -WorkspaceAccount $workspaceAccount
+    $shouldConfigureLoggingInSc = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigSc -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -dcrDetails $dcrDetails
+    $shouldConfigureLoggingConfigInCm = ShouldConfigureLogIngestionAPIInAppService -ExistingConfig $existingConfigCm -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -dcrDetails $dcrDetails
 
     if($shouldConfigureLoggingInSc) {
-        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName -WorkspaceAccount $workspaceAccount
+        AddLogIngestionAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName
         RemoveDataCollectorAPISettings -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName
     }
     if($shouldConfigureLoggingConfigInCm) {
-        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -SkipAppRoleAssignments $SkipAppRoleAssignments
-        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName -WorkspaceAccount $workspaceAccount
+        AddLogIngestionAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrDetails $dcrDetails -Slot $DeploymentSlotName
         RemoveDataCollectorAPISettings -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName
+    }
+
+    # Assign permissions to app services
+    AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $SCEPmanResourceGroup -AppServiceName $SCEPmanAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
+    if (-not [string]::IsNullOrEmpty($CertMasterResourceGroup) -and -not [string]::IsNullOrEmpty($CertMasterAppServiceName)) {
+        AddAppRoleAssignmentsForLogIngestionAPI -ResourceGroup $CertMasterResourceGroup -AppServiceName $CertMasterAppServiceName -DcrResourceId $dcrDetails.id -SkipAppRoleAssignments $SkipAppRoleAssignments
     }
 }
