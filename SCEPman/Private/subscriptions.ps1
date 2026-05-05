@@ -85,7 +85,7 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
         $potentialSubscription = $subscriptions[0]
       }
   }
-  $null = az account set --subscription $($potentialSubscription.id)
+  $null = Invoke-Az @("account", "set", "--subscription", $potentialSubscription.id)
   return $potentialSubscription
 }
 

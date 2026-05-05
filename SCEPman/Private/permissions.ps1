@@ -1,9 +1,9 @@
 function GetServicePrincipal($appServiceNameParam, $resourceGroupParam, $slotNameParam = $null) {
-    $identityShowParams = "";
+    $command = @("webapp", "identity", "show", "--name", $appServiceNameParam, "--resource-group", $resourceGroupParam)
     if($null -ne $slotNameParam) {
-        $identityShowParams = "--slot '$slotNameParam'"
+        $command += @("--slot", $slotNameParam)
     }
-    return ExecuteAzCommandRobustly -azCommand "az webapp identity show --name $appServiceNameParam --resource-group $resourceGroupParam $identityShowParams" | Convert-LinesToObject
+    return Invoke-Az -azCommand $command | Convert-LinesToObject
 }
 
 function GetUserAssignedPrincipalIdsFromServicePrincipal($servicePrincipal) {
@@ -23,7 +23,7 @@ function GetAzureResourceAppId($appId) {
         $queryParam = '[0].id'
     }
 
-    return $(az ad sp list --filter "appId eq '$appId'" --query $queryParam --out tsv --only-show-errors)
+    return $(Invoke-Az @("ad", "sp", "list", "--filter", "appId eq '$appId'", "--query", $queryParam, "--out", "tsv", "--only-show-errors"))
 }
 
 function SetManagedIdentityPermissions($principalId, $resourcePermissions, $GraphBaseUri, $SkipAppRoleAssignments = $false) {
@@ -31,7 +31,7 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
     $permissionLevelReached = -1
 
     $graphEndpointForAppRoleAssignments = "$GraphBaseUri/v1.0/servicePrincipals/$principalId/appRoleAssignments"
-    $alreadyAssignedPermissions = ExecuteAzCommandRobustly -azCommand "az rest --method get --uri '$graphEndpointForAppRoleAssignments' --headers 'Content-Type=application/json' --query 'value[].appRoleId' --output tsv"
+    $alreadyAssignedPermissions = Invoke-Az @("rest", "--method", "get", "--uri", $graphEndpointForAppRoleAssignments, "--headers", "Content-Type=application/json", "--query", "value[].appRoleId", "--output", "tsv")
 
     ForEach($resourcePermission in $resourcePermissions) {
         if($alreadyAssignedPermissions -contains $resourcePermission.appRoleId) {
@@ -42,15 +42,15 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
         } else {
             Write-Verbose "Assigning new permission (ResourceID $($resourcePermission.resourceId), AppRoleId $($resourcePermission.appRoleId))"
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
-            $azCommand = "az rest --method post --uri '$graphEndpointForAppRoleAssignments' --body `"$bodyToAddPermission`" --headers 'Content-Type=application/json'"
+            $azCommand = @("rest", "--method", "post", "--uri", $graphEndpointForAppRoleAssignments, "--body", $bodyToAddPermission, "--headers", "Content-Type=application/json")
             if ($SkipAppRoleAssignments) {
-                Write-Warning "Skipping app role assignment (please execute manually): $azCommand"
+                Write-Warning "Skipping app role assignment (please execute manually): az $($azCommand -join ' ')"
                 if ($resourcePermission.permissionLevel -lt $permissionLevelFail) {
                     $permissionLevelFail = $resourcePermission.permissionLevel
                 }
             } else {
                 try {
-                    $null = ExecuteAzCommandRobustly -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
+                    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand -principalId $principalId -appRoleId $resourcePermission.appRoleId -GraphBaseUri $GraphBaseUri
                     if ($resourcePermission.permissionLevel -gt $permissionLevelReached) {
                         $permissionLevelReached = $resourcePermission.permissionLevel
                     }
@@ -112,22 +112,22 @@ function GetCertMasterResourcePermissions() {
 }
 
 function GetAzureADApp($name) {
-    return Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]")
+    return Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "list", "--filter", "displayname eq '$name'", "--query", "[0]"))
 }
 
 function CreateServicePrincipal($appId, [bool]$hideApp) {
-    $azOutput = az ad sp list --filter "appId eq '$appId'" --query "[0]" --only-show-errors
+    $azOutput = Invoke-Az @("ad", "sp", "list", "--filter", "appId eq '$appId'", "--query", "[0]", "--only-show-errors")
     $sp = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
     if($null -eq $sp) {
         #App Registration SP doesn't exist.
-        $sp = Convert-LinesToObject -lines $(ExecuteAzCommandRobustly -azCommand "az ad sp create --id $appId")
+        $sp = Convert-LinesToObject -lines $(Invoke-Az @("ad", "sp", "create", "--id", $appId))
         if ($hideApp) {
-            $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --add tags HideApp"
+            $null = Invoke-Az @("ad", "sp", "update", "--id", $appId, "--add", "tags", "HideApp")
         }
     }
     if ($sp.appRoleAssignmentRequired -eq $false) {
         Write-Verbose "Updating appRoleAssignmentRequired to true for application $appId"
-        $null = ExecuteAzCommandRobustly -azCommand "az ad sp update --id $appId --set appRoleAssignmentRequired=true"
+        $null = Invoke-Az @("ad", "sp", "update", "--id", $appId, "--set", "appRoleAssignmentRequired=true")
     }
 
     if (AzUsesAADGraph) {
@@ -140,7 +140,7 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
 function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
     $certMasterPermissions = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "permission", "list", "--id", $appId, "--query", "[0]"))
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
-        $null = ExecuteAzCommandRobustly -azCommand "az ad app permission add --id $appId --api $MSGraphAppId --api-permissions `"$MSGraphUserReadPermission=Scope`" --only-show-errors"
+        $null = Invoke-Az @("ad", "app", "permission", "add", "--id", $appId, "--api", $MSGraphAppId, "--api-permissions", "$MSGraphUserReadPermission=Scope", "--only-show-errors")
     }
     $certMasterPermissionsGrantsString = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "permission", "list-grants", "--id", $appId, "--query", "[0].scope"))
     if ($null -eq $certMasterPermissionsGrantsString) {
@@ -155,19 +155,19 @@ function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
         }
     }
     if($true -eq $requiresPermissionGrant) {
-        $azGrantPermissionCommand = "az ad app permission grant --id $appId --api $MSGraphAppId --scope `"User.Read`""
+        $azGrantPermissionCommand = @("ad", "app", "permission", "grant", "--id", $appId, "--api", $MSGraphAppId, "--scope", "User.Read")
         if (AzUsesAADGraph) {
-            $azGrantPermissionCommand += ' --expires "never"'
+            $azGrantPermissionCommand += @('--expires', 'never')
         }
         if ($SkipAutoGrant) {
-            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: $azGrantPermissionCommand"
+            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: az $($azGrantPermissionCommand -join ' ')"
         } else {
-            $null = ExecuteAzCommandRobustly -azCommand $azGrantPermissionCommand
+            $null = Invoke-Az -azCommand $azGrantPermissionCommand
         }
     }
 }
 
 function Get-AccessTokenForApp($scope) {
     Write-Warning "Acquiring token for scope $scope. This can expose unencrypted token information in memory or verbose logs. Please use with caution."
-    return ExecuteAzCommandRobustly -callAzNatively -azCommand $('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
+    return Invoke-Az -azCommand @('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
 }

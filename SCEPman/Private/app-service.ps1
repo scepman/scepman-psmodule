@@ -143,7 +143,7 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
-  $asp = ExecuteAzCommandRobustly -azCommand "az appservice plan list -g $ResourceGroup --query `"[?name=='$AppServicePlanName']`" --subscription $SubscriptionId" | Convert-LinesToObject
+  $asp = Invoke-Az @("appservice", "plan", "list", "-g", $ResourceGroup, "--query", "[?name=='$AppServicePlanName']", "--subscription", $SubscriptionId) | Convert-LinesToObject
   return $asp
 }
 
@@ -166,11 +166,11 @@ function IsAppServicePlanLinux ($AppServicePlanId) {
 }
 
 function GetAppServiceHostNames ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
-  if ($null -eq $DeploymentSlotName) {
-    return ExecuteAzCommandRobustly -azCommand "az webapp config hostname list --webapp-name $AppServiceName --resource-group $SCEPmanResourceGroup --query `"[].name`" --output tsv"
-  } else {
-    return ExecuteAzCommandRobustly -azCommand "az webapp config hostname list --webapp-name $AppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --query `"[].name`" --output tsv"
+  $command = @("webapp", "config", "hostname", "list", "--webapp-name", $AppServiceName, "--resource-group", $SCEPmanResourceGroup, "--query", "[].name", "--output", "tsv")
+  if ($null -ne $DeploymentSlotName) {
+    $command += @("--slot", $DeploymentSlotName)
   }
+  return Invoke-Az -azCommand $command
 }
 
 function GetPrimaryAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $DeploymentSlotName = $null) {
@@ -183,7 +183,7 @@ function GetPrimaryAppServiceHostName ($SCEPmanResourceGroup, $AppServiceName, $
 }
 
 function GetAppServiceVnetId ($AppServiceName, $ResourceGroup) {
-  $vnetId = ExecuteAzCommandRobustly -callAzNatively -azCommand @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'virtualNetworkSubnetId', "--output", "tsv")
+  $vnetId = Invoke-Az @("webapp", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", 'virtualNetworkSubnetId', "--output", "tsv")
   return $vnetId
 }
 
@@ -192,7 +192,7 @@ function SetAppServiceVnetId ($AppServiceName, $ResourceGroup, $vnetId, $Deploym
   if ($null -ne $DeploymentSlotName) {
     $command += @("--slot", $DeploymentSlotName)
   }
-  $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+  $null = Invoke-Az -azCommand $command
 }
 
 function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $DeploymentSlotName) {
@@ -204,15 +204,14 @@ function CreateSCEPmanDeploymentSlot ($SCEPmanResourceGroup, $SCEPmanAppServiceN
     Write-Information "Specified Production Slot Activation as such via AppConfig:AuthConfig:ManagedIdentityEnabledForWebsiteHostname"
   }
 
-  $azOutput = az webapp deployment slot create --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --configuration-source $SCEPmanAppServiceName
-  $null = CheckAzOutput -azOutput $azOutput -fThrowOnError $true
+  $null = Invoke-Az @("webapp", "deployment", "slot", "create", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--slot", $DeploymentSlotName, "--configuration-source", $SCEPmanAppServiceName)
   Write-Information "Created SCEPman Deployment Slot $DeploymentSlotName"
 
-  return Convert-LinesToObject -lines $(az webapp identity assign --name $SCEPmanAppServiceName --resource-group $SCEPmanResourceGroup --slot $DeploymentSlotName --identities [system])
+  return Convert-LinesToObject -lines $(Invoke-Az @("webapp", "identity", "assign", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--slot", $DeploymentSlotName, "--identities", "[system]"))
 }
 
 function GetDeploymentSlots($appServiceName, $resourceGroup) {
-  $deploymentSlots = ExecuteAzCommandRobustly -azCommand "az webapp deployment slot list --name $appServiceName --resource-group $resourceGroup --query '[].name'" | Convert-LinesToObject
+  $deploymentSlots = Invoke-Az @("webapp", "deployment", "slot", "list", "--name", $appServiceName, "--resource-group", $resourceGroup, "--query", "[].name") | Convert-LinesToObject
   if ($null -eq $deploymentSlots) {
     return @()
   } else {
@@ -276,7 +275,7 @@ function ConfigureSCEPmanInstance ($SCEPmanResourceGroup, $SCEPmanAppServiceName
     if ($null -ne $DeploymentSlotName) {
       $azCommand += @("--slot", $DeploymentSlotName)
     }
-    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommand
+    $null = Invoke-Az -azCommand $azCommand
     Write-Verbose "[$SCEPmanAppServiceName-$DeploymentSlotName] Backed up ApplicationKey"
   }
 
@@ -318,7 +317,7 @@ function ConfigureCertMasterAppService($CertMasterResourceGroup, $CertMasterAppS
   $isCertMasterLinux = IsAppServiceLinux -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
   $CertmasterAppSettingsJson = AppSettingsHashTable2AzJson -psHashTable $CertmasterAppSettings -convertForLinux $isCertMasterLinux
 
-  $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings set --name $CertMasterAppServiceName --resource-group $CertMasterResourceGroup --settings '$CertmasterAppSettingsJson'"
+  $null = Invoke-Az @("webapp", "config", "appsettings", "set", "--name", $CertMasterAppServiceName, "--resource-group", $CertMasterResourceGroup, "--settings", $CertmasterAppSettingsJson)
 }
 
 function Update-ToConfiguredChannel {
@@ -342,8 +341,8 @@ function Update-ToConfiguredChannel {
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
       if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
-        $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl") -callAzNatively
-        $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
+        $null = Invoke-Az -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$ArtifactsUrl")
+        $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", "Update_Channel")
       }
     }
   }
@@ -387,7 +386,7 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
       $command += @('--slot', $Slot)
     }
 
-    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand $command
+    $null = Invoke-Az -azCommand $command
     $processedSettingsCount++
     Write-Progress -Activity "Setting app settings" -Status "Processed $processedSettingsCount of $totalSettingsCount settings" -PercentComplete (($processedSettingsCount / $totalSettingsCount) * 100)
   }
@@ -397,8 +396,8 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
 }
 
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
-  $slotSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?slotSetting]`"" | Convert-LinesToObject
-  $unboundSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?!slotSetting]`"" | Convert-LinesToObject
+  $slotSettings = Invoke-Az @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", "[?slotSetting]") | Convert-LinesToObject
+  $unboundSettings = Invoke-Az @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", "[?!slotSetting]") | Convert-LinesToObject
 
   Write-Information "Read $($slotSettings.Count) slot settings and $($unboundSettings.Count) other settings from app $AppServiceName"
 
