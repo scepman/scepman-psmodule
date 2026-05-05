@@ -265,7 +265,13 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             $LASTEXITCODE = 0   # Required for unit tests when mocking az
             if ($null -ne $stdinInput) {
                 Write-Debug "Calling az natively with stdin: az $azCommand"
-                $lastAzOutput = $stdinInput | az $azCommand 2>&1
+                $previousOutputEncoding = $OutputEncoding
+                $OutputEncoding = [System.Text.UTF8Encoding]::new($false) # UTF-8 without BOM, required for Windows PowerShell 5.1
+                try {
+                    $lastAzOutput = $stdinInput | az $azCommand 2>&1
+                } finally {
+                    $OutputEncoding = $previousOutputEncoding
+                }
             }
             elseif ($callAzNatively) {
                 Write-Debug "Calling az natively: az $azCommand"
