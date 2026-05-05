@@ -50,6 +50,9 @@ Describe 'Intermediate CA' {
                 return '{ "val": "x", "request_id": "123", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}'
             } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "rest --method post" -azCommandMidfix "$testKeyVaultUrl/certificates/$certificateName/create" }
             Mock az {
+                return # Installing the resource graph extension is not relevant for this test, so we mock it to do nothing
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "extension add --name resource-graph" }
+            Mock az {
                 throw "Unexpected parameter for az: $args (with array values $($args[0]) [$($args[0].GetType())], $($args[1]), ... -- #$($args.Count) in total)"
             }
 
