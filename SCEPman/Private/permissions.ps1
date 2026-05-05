@@ -138,12 +138,11 @@ function CreateServicePrincipal($appId, [bool]$hideApp) {
 }
 
 function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
-    $azOutput = az ad app permission list --id $appId --query "[0]" 2>&1
-    $certMasterPermissions = Convert-LinesToObject -lines $(CheckAzOutput -azOutput $azOutput -fThrowOnError $true)
+    $certMasterPermissions = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "permission", "list", "--id", $appId, "--query", "[0]"))
     if($null -eq ($certMasterPermissions.resourceAccess | Where-Object { $_.id -eq $MSGraphUserReadPermission })) {
         $null = ExecuteAzCommandRobustly -azCommand "az ad app permission add --id $appId --api $MSGraphAppId --api-permissions `"$MSGraphUserReadPermission=Scope`" --only-show-errors"
     }
-    $certMasterPermissionsGrantsString = Convert-LinesToObject -lines $(CheckAzOutput(az ad app permission list-grants --id $appId --query "[0].scope" 2>&1))
+    $certMasterPermissionsGrantsString = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "permission", "list-grants", "--id", $appId, "--query", "[0].scope"))
     if ($null -eq $certMasterPermissionsGrantsString) {
         $requiresPermissionGrant = $true
     } else {
