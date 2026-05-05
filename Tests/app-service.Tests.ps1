@@ -63,7 +63,7 @@ Describe 'App Service' {
             return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
 
-        $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
+        $slots = GetDeploymentSlots -appServiceName "as-scepman" -resourceGroup "rg-scepman-test"
 
         $slots.Count | Should -Be 1
         $slots[0].Name | Should -Be "ds1"

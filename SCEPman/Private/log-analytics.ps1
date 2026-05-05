@@ -390,12 +390,12 @@ function AddLogIngestionAPISettings($ResourceGroup, $AppServiceName, $DcrDetails
 function AddAppRoleAssignmentsForLogIngestionAPI($ResourceGroup, $AppServiceName, $DcrDetails, $SkipAppRoleAssignments = $false) {
     $servicePrincipal = GetServicePrincipal -appServiceNameParam $AppServiceName -resourceGroupParam $ResourceGroup
     if($null -ne $servicePrincipal.principalId) {
-        $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($servicePrincipal.principalId) --assignee-principal-type ServicePrincipal --scope $($DcrDetails.id)"
+        $azCommandToAssignRole = @("role", "assignment", "create", "--role", "Monitoring Metrics Publisher", "--assignee-object-id", $servicePrincipal.principalId, "--assignee-principal-type", "ServicePrincipal", "--scope", $DcrDetails.id)
         if($SkipAppRoleAssignments) {
-            Write-Warning "Skipping app role assignment (please execute manually): $azCommandToAssignRole"
+            Write-Warning "Skipping app role assignment (please execute manually): az $($azCommandToAssignRole -join ' ')"
             return
         }
-        $null = ExecuteAzCommandRobustly -azCommand $azCommandToAssignRole
+        $null = Invoke-Az -azCommand $azCommandToAssignRole
         Write-Information "Role 'Monitoring Metrics Publisher' assigned to the App Service $AppServiceName service principal"
     } else {
         Write-Information "$AppServiceName does not have a System-assigned Managed Identity turned on"
