@@ -247,6 +247,75 @@ function Invoke-Az ($azCommand, $maxRetries = $MAX_RETRY_COUNT) {
     return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively -maxRetries $maxRetries
 }
 
+function WriteToAzStdin($azCommand, [string]$stdinInput) {
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        # PowerShell 7+ handles stdin piping correctly without BOM
+        $previousOutputEncoding = $OutputEncoding
+        $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        try {
+            return $stdinInput | az $azCommand 2>&1
+        } finally {
+            $OutputEncoding = $previousOutputEncoding
+        }
+    }
+
+    # Windows PowerShell 5.1: Use System.Diagnostics.Process for BOM-free stdin
+    $azCmd = Get-Command az -CommandType Application -ErrorAction SilentlyContinue
+    $azPath = $azCmd.Source
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    if ($azPath.EndsWith('.cmd') -or $azPath.EndsWith('.bat')) {
+        $psi.FileName = $env:ComSpec
+        $azArgs = ($azCommand | ForEach-Object {
+            if ($_.Contains(' ')) { "`"$_`"" } else { $_ }
+        }) -join ' '
+        $psi.Arguments = "/c `"`"$azPath`" $azArgs`""
+    } else {
+        $psi.FileName = $azPath
+        $psi.Arguments = ($azCommand | ForEach-Object {
+            if ($_.Contains(' ')) { "`"$_`"" } else { $_ }
+        }) -join ' '
+    }
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $psi
+    $null = $process.Start()
+
+    # Write stdin without BOM
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    $writer = New-Object System.IO.StreamWriter($process.StandardInput.BaseStream, $utf8NoBom)
+    $writer.Write($stdinInput)
+    $writer.Close()
+
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    $LASTEXITCODE = $process.ExitCode
+
+    # Combine output similar to 2>&1 behavior
+    $combinedOutput = @()
+    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+        $combinedOutput += $stdout -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ -ne '' }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+        $stderrLines = $stderr -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ -ne '' }
+        foreach ($line in $stderrLines) {
+            $combinedOutput += [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new($line),
+                "NativeCommandError",
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+        }
+    }
+    return $combinedOutput
+}
+
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 # $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.
@@ -265,13 +334,7 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             $LASTEXITCODE = 0   # Required for unit tests when mocking az
             if ($null -ne $stdinInput) {
                 Write-Debug "Calling az natively with stdin: az $azCommand"
-                $previousOutputEncoding = $OutputEncoding
-                $OutputEncoding = [System.Text.UTF8Encoding]::new($false) # UTF-8 without BOM, required for Windows PowerShell 5.1
-                try {
-                    $lastAzOutput = $stdinInput | az $azCommand 2>&1
-                } finally {
-                    $OutputEncoding = $previousOutputEncoding
-                }
+                $lastAzOutput = WriteToAzStdin -azCommand $azCommand -stdinInput $stdinInput
             }
             elseif ($callAzNatively) {
                 Write-Debug "Calling az natively: az $azCommand"
