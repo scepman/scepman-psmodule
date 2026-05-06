@@ -209,14 +209,14 @@ function Complete-SCEPmanInstallation
 
     if (-not $SkipLoggingConfig.IsPresent) {
         Write-Information "Connecting SCEPman to Log Analytics"
-        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -ServicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
     } else {
         Write-Information "Skipping Log Analytics configuration as -SkipLoggingConfig is set"
     }
 
     if (-not $SkipLoggingConfig.IsPresent -and -not $SkipCertificateMaster) {
         Write-Information "Connecting Certificate Master to Log Analytics"
-        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ServicePrincipals @($serviceprincipalcm.principalId) -SkipAppRoleAssignments:$SkipAppRoleAssignments
     }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
