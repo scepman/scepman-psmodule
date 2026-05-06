@@ -442,7 +442,7 @@ function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $
 
   $azCommand = @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup,
   "--query", "[?name=='$SettingName'].value | [0]")
-  if ($null -ne $Slot) {
+  if (-not [string]::IsNullOrEmpty($Slot)) {
     $azCommand += @("--slot", $Slot)
   }
 
