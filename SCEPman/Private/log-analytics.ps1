@@ -59,7 +59,7 @@ function GetDataCollectionRule {
                 Write-Error "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
                 throw "We couldn't find a data collection rule with name $potentialDcrName in resource group $ResourceGroup. Please try to re-run the script"
             } else {
-                $dataCollectionRule = $potentialDcr
+                return $potentialDcr
             }
         }
     }
