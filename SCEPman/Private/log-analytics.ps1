@@ -302,6 +302,8 @@ function AddAppRoleAssignmentsForLogIngestionAPI($DcrResourceId, $ServicePrincip
 
 function Set-LoggingConfigInAppSettings {
     [CmdletBinding(SupportsShouldProcess=$true)]
+    # No settings are passed but a group of defined settings is applied/removed, so plural noun is appropriate here
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "")]
     param (
         [Parameter(Mandatory=$true)]        [string]$SubscriptionId,
         [Parameter(Mandatory=$true)]        [string]$ResourceGroup,
