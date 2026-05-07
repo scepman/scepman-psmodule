@@ -354,6 +354,11 @@ function Set-LoggingConfigInAppSettings {
         $dcrDetails = ConfigureLogIngestionAPIResources -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
     }
 
+    if($null -eq $dcrDetails -or [string]::IsNullOrEmpty($dcrDetails.immutableId) -or [string]::IsNullOrEmpty($dcrDetails.endpoints.logsIngestion)) {
+        Write-Warning "Unable to configure Log Ingestion API due to missing Data Collection Rule details. Skipping Log Ingestion API configuration."
+        return
+    }
+
     $SettingsToRemove = @("AppConfig:LoggingConfig:WorkspaceId", "AppConfig:LoggingConfig:SharedKey")
     $SettingsToAdd = @(
         @{ name='AppConfig:LoggingConfig:DataCollectionEndpointUri'; value=$($DcrDetails.endpoints.logsIngestion) },
