@@ -266,7 +266,12 @@ function GetRuleIdName($SubscriptionId, $ResourceGroup) {
     return $ruleIdName
 }
 
-function ConfigureLogIngestionAPIResources($ResourceGroup, $WorkspaceAccount, $SubscriptionId) {
+function ConfigureLogIngestionAPIResources() {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param (
+        [Parameter(Mandatory=$true)]        [PSCustomObject]$WorkspaceAccount,
+        [Parameter(Mandatory=$true)]        [string]$SubscriptionId
+    )
     Write-Information "Installing az monitor control service extension"
     Invoke-Az @("extension", "add", "--name", "monitor-control-service", "--only-show-errors")
 
@@ -322,7 +327,7 @@ function Set-LoggingConfigInAppSettings {
         }
 
         # Validate the log table and create or validate the DCR in the workspace resource group
-        $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $ResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+        $dcrDetails = ConfigureLogIngestionAPIResources -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
     } elseif (-not [string]::IsNullOrEmpty($existingDcrRuleId)) {
         Write-Information "Existing Log Ingestion API configuration detected. Validate permissions"
         # Get DCR details
@@ -344,7 +349,7 @@ function Set-LoggingConfigInAppSettings {
         }
 
         # Validate the log table and create or validate the DCR in the workspace resource group
-        $dcrDetails = ConfigureLogIngestionAPIResources -ResourceGroup $ResourceGroup -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
+        $dcrDetails = ConfigureLogIngestionAPIResources -WorkspaceAccount $workspaceAccount -SubscriptionId $SubscriptionId
     }
 
     $SettingsToRemove = @("AppConfig:LoggingConfig:WorkspaceId", "AppConfig:LoggingConfig:SharedKey")
