@@ -41,6 +41,13 @@ New-Variable -Name "ScepmanManifest" -Scope "Script" -Option ReadOnly -Value @(@
   'displayName' = 'CSR Self Service'
   'isEnabled' = $true
   'value' = 'CSR.SelfService'
+},
+@{
+  'allowedMemberTypes' = @( 'User', 'Application' )
+  'description' = "Search and revoke all issued certificates"
+  'displayName' = 'Manage All'
+  'isEnabled' = $true
+  'value' = 'Manage.All'
 })
 
 # To-be JSON defining App Roles that User can have when authenticating against CertMaster
