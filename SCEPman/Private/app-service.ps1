@@ -349,6 +349,69 @@ function Update-ToConfiguredChannel {
   }
 }
 
+function Confirm-ArtifactPlatform {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  param (
+    [Parameter(Mandatory=$true)]    [string]$AppServiceName,
+    [Parameter(Mandatory=$true)]    [string]$ResourceGroup,
+    [Parameter(Mandatory=$true)]    [hashtable]$ChannelArtifacts
+  )
+
+  $currentArtifactUrl = ReadAppSetting -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -SettingName "WEBSITE_RUN_FROM_PACKAGE"
+
+  $appPlatform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
+  $knownChannel = $false
+  $artifactPlatform = $null
+  $artifactChannel = $null
+
+  foreach ($platform in $ChannelArtifacts.GetEnumerator()) {
+    foreach ($channel in $platform.Value.GetEnumerator()) {
+        if ($channel.Value -eq $currentArtifactUrl) {
+          # We found the channel that corresponds to the currently set artifact URL
+          # This means that the app is on a known channel
+          $knownChannel = $true
+          $artifactPlatform = $platform.Key
+          $artifactChannel = $channel.Key
+        }
+    }
+  }
+
+  if (-not $knownChannel) {
+    Write-Verbose "Current artifact URL $currentArtifactUrl does not correspond to any known channel. Assume manual update"
+    return $false
+  }
+
+  if ($artifactPlatform -match $appPlatform) {
+    # We are on the right platform on a known channel, nothing to do
+    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"""
+    Write-Verbose "Which matches the actual platform $appPlatform. No need to switch the artifact URL."
+
+    return $true
+  } else {
+    Write-Information "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which does not match the actual platform ""$appPlatform"""
+
+    $intendedPlatformKey = if ($artifactPlatform -match '_alternative') {
+      $appPlatform + "_alternative"
+    } else {
+      $appPlatform
+    }
+
+    $intendedArtifactUrl = $ChannelArtifacts[$intendedPlatformKey][$artifactChannel]
+
+    # Accessing the hashtable on wrong keys should throw already, but we check for null or whitespace just to be sure
+    if ([string]::IsNullOrWhiteSpace($intendedArtifactUrl)) {
+      Write-Warning "Could not determine correct artifact URL for platform ""$artifactPlatform"" and channel ""$artifactChannel"". Expected to find it in ChannelArtifacts with key ""$intendedPlatformKey"" and channel key ""$artifactChannel"". Please check the configuration of ChannelArtifacts."
+      return $false
+    }
+
+    Write-Information "Switching artifact URL to $intendedArtifactUrl to match the platform ""$appPlatform"" of the ""$artifactChannel"" channel"
+    if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching artifact URL to match the platform {0}" -f $appPlatform))) {
+      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
+    }
+  }
+}
+
 function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $null, $AsSlotSettings = $false) {
   $totalSettingsCount = $Settings.Count
   $processedSettingsCount = 0

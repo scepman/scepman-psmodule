@@ -152,4 +152,44 @@ Describe 'App Service' {
             Should -Invoke az -Exactly 1 -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix $ArtifactFragment }
         }
     }
+
+    Context 'Confirm-ArtifactPlatform' {
+        It 'Returns true for known channel and matching <Platform> artifact URL' -ForEach @(
+            @{ Platform = 'Windows'; LinuxFlag = $false; ArtifactPlatform = 'windows' }
+            @{ Platform = 'Linux'; LinuxFlag = $true; ArtifactPlatform = 'linux' }
+        ) {
+            $artifactUrl = $Artifacts_Scepman[$ArtifactPlatform].beta
+            Mock ReadAppSetting { return $ArtifactUrl }
+            Mock IsAppServiceLinux { return $LinuxFlag }
+
+            $result = Confirm-ArtifactPlatform -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
+
+            $result | Should -Be $true
+            Should -Invoke ReadAppSetting -Exactly 1
+            Should -Invoke IsAppServiceLinux -Exactly 1
+        }
+
+        It 'Returns false for unknown artifact URL' {
+            Mock ReadAppSetting { return 'https://example.invalid/manual-package.zip' }
+            Mock IsAppServiceLinux { return $false }
+
+            $result = Confirm-ArtifactPlatform -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
+
+            $result | Should -Be $false
+        }
+
+        It 'Switches artifact URL when known channel does not match platform' {
+            Mock ReadAppSetting { return $Artifacts_Scepman.windows.beta }
+            Mock IsAppServiceLinux { return $true }
+            Mock ExecuteAzCommandRobustly { return $null } -ParameterFilter {
+                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            }
+
+            Confirm-ArtifactPlatform -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
+
+            Should -Invoke ExecuteAzCommandRobustly -Exactly 1 -ParameterFilter {
+                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            }
+        }
+    }
 }
