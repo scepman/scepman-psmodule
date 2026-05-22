@@ -52,7 +52,7 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   try {
     $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
 
-    $dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    [String []]$dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
     if ($dotnetRuntimes.Count -gt 0) {
       Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
       return $dotnetRuntimes[0]
@@ -168,7 +168,7 @@ function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
 
   $actualStack = Invoke-Az @("webapp", "config", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", $query, "--output", "tsv")
 
-  if ($null -eq $actualStack) {
+  if ([string]::IsNullOrWhiteSpace($actualStack)) {
     Write-Information "App Service $AppServiceName in resource group $ResourceGroup does not have a stack configured"
     Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
     return
@@ -488,6 +488,7 @@ function Confirm-ArtifactPlatform {
     Write-Information "Switching artifact URL to $intendedArtifactUrl to match the platform ""$appPlatform"" of the ""$artifactChannel"" channel"
     if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching artifact URL to match the platform {0}" -f $appPlatform))) {
       $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
+      return $true
     }
   }
 }
