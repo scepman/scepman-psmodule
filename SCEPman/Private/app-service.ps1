@@ -207,9 +207,18 @@ function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
   }
 }
 
-function Set-AppServiceStack ($AppServiceName, $ResourceGroup, $Stack) {
+function Set-AppServiceStack {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  param(
+    [Parameter(Mandatory=$true)][string]$AppServiceName,
+    [Parameter(Mandatory=$true)][string]$ResourceGroup,
+    [Parameter(Mandatory=$true)][string]$Stack
+  )
+
   Write-Information "Setting App Service $AppServiceName in resource group $ResourceGroup to stack $Stack"
-  $null = Invoke-Az @("webapp", "config", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--runtime", $Stack)
+  if ($PSCmdlet.ShouldProcess($AppServiceName, ("Setting stack to {0}" -f $Stack))) {
+    $null = Invoke-Az @("webapp", "config", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--runtime", $Stack)
+  }
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -421,6 +430,7 @@ function Update-ToConfiguredChannel {
 
 function Confirm-ArtifactPlatform {
   [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([bool])]
   param (
     [Parameter(Mandatory=$true)]    [string]$AppServiceName,
     [Parameter(Mandatory=$true)]    [string]$ResourceGroup,
