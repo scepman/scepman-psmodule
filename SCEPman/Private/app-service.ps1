@@ -40,17 +40,29 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
 function SelectBestDotNetRuntime ($ForLinux = $false) {
   if ($ForLinux) {
-    return "DOTNETCORE:8.0" # Linux does not include auto-updating inbuilt runtimes. Therefore this should be a self-contained package, but we must still select some dotnet runtime.
+    $runtimePrefix = "DOTNETCORE"
+    $os = "linux"
+  } else {
+    $runtimePrefix = "dotnet"
+    $os = "windows"
   }
-  try
-  {
-      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
-      [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
-      return $WindowsDotnetRuntimes[0]
-  }
-  catch
-  {
-      return "dotnet:8"
+
+  $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
+
+  try {
+    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
+
+    $dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    if ($dotnetRuntimes.Count -gt 0) {
+      Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
+      return $dotnetRuntimes[0]
+    } else {
+      Write-Warning "No .NET runtimes found for $os. Defaulting to $defaultRuntime"
+      return $defaultRuntime
+    }
+  } catch {
+    Write-Warning "Could not retrieve available runtimes for $os. Defaulting to $defaultRuntime"
+    return $defaultRuntime
   }
 }
 
