@@ -154,6 +154,64 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
   $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
 }
 
+function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+  $intendedStack = SelectBestDotNetRuntime -ForLinux $isAppServiceLinux
+
+  if ($isAppServiceLinux) {
+    # This will return a value in form 'DOTNETCORE|10.0'
+    $query = 'linuxFxVersion'
+  } else {
+    # This will return a value in form 'v10.0'
+    $query = 'netFrameworkVersion'
+  }
+
+  $actualStack = Invoke-Az @("webapp", "config", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", $query, "--output", "tsv")
+
+  if ($null -eq $actualStack) {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup does not have a stack configured"
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+    return
+  }
+
+  # We extract the version for the following expected formats
+  # - Windows: 'v10.0'
+  # - Linux: 'DOTNETCORE|10.0'
+  # - Linux: 'DOTNETCORE:10.0' - this should not occur but is the form we use when setting the stack, so we want to be sure to handle it correctly in case it is returned by Azure in some cases
+  # For an unexpected format, the casting might fail
+  try {
+    $actualVersion = [double]($actualStack -replace '(.*\||.*:|^v)')
+  } catch {
+    Write-Warning "Failed to parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  if ($null -eq $actualVersion) {
+    Write-Warning "Could not parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  $intendedVersion = [double]($intendedStack -replace '.*:')
+
+  if ($actualVersion -gt $intendedVersion) {
+    Write-Verbose "The actual stack version $actualVersion is higher than the intended stack version $intendedVersion, skipping stack update to avoid downgrade"
+    return
+  }
+
+  if ($actualVersion -eq $intendedVersion) {
+    Write-Verbose "App Service $AppServiceName in resource group $ResourceGroup has the expected stack $intendedStack"
+  } else {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup is expected to have stack version $intendedVersion but has stack version $actualVersion"
+
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+  }
+}
+
+function Set-AppServiceStack ($AppServiceName, $ResourceGroup, $Stack) {
+  Write-Information "Setting App Service $AppServiceName in resource group $ResourceGroup to stack $Stack"
+  $null = Invoke-Az @("webapp", "config", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--runtime", $Stack)
+}
+
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
   $asp = ExecuteAzCommandRobustly -azCommand "az appservice plan list -g $ResourceGroup --query `"[?name=='$AppServicePlanName']`" --subscription $SubscriptionId" | Convert-LinesToObject
   return $asp
