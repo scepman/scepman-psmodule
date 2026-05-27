@@ -51,6 +51,9 @@ function New-IntermediateCA
 
   $GraphBaseUri = $GraphBaseUri.TrimEnd('/')
 
+  Write-Information "Installing az resource graph extension"
+  az extension add --name resource-graph --only-show-errors
+
   Write-Information "Logging in to az"
   $null = AzLogin
 

@@ -48,7 +48,7 @@ function CheckAzOutput($azOutput, $fThrowOnError, $noSecretLeakageWarning = $fal
                     Write-Information "Could not assign permission, as it does not exist for this application, when executing $azCommand"
                     Write-Output $PERMISSION_DOES_NOT_EXIST
                 }
-                elseif ($outputElement.ToString().EndsWith("does not exist or one of its queried reference-property objects are not present.")) {
+                elseif ($outputElement.ToString().Contains("does not exist or one of its queried reference-property objects are not present.")) {
                     # This indicates we are in a tenant with especially long delays between creation of an object and when it becomes available via Graph (this happens and it seems to be tenant-specific).
                     # Let's go into snail mode and thereby grant Graph more time
                     Write-Warning "Created object is not yet available via MS Graph. Reducing executing speed to give Graph more time."
@@ -247,10 +247,34 @@ function Invoke-Az ($azCommand, $maxRetries = $MAX_RETRY_COUNT) {
     return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively -maxRetries $maxRetries
 }
 
+function WriteToAzStdin($azCommand, [string]$stdinInput) {
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        # PowerShell 7+ handles stdin piping correctly without BOM
+        $previousOutputEncoding = $OutputEncoding
+        $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        try {
+            return $stdinInput | az $azCommand 2>&1
+        } finally {
+            $OutputEncoding = $previousOutputEncoding
+        }
+    }
+
+    # Windows PowerShell 5.1: Piping stdin through batch files (az.cmd) is unreliable.
+    # Instead, write to a temp file and use az CLI's @filepath mechanism.
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($tempFile, $stdinInput, [System.Text.UTF8Encoding]::new($false))
+        $modifiedCommand = $azCommand | ForEach-Object { if ($_ -eq '@-') { "@$tempFile" } else { $_ } }
+        return az $modifiedCommand 2>&1
+    } finally {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # It is intended to use for az cli add permissions and az cli add permissions admin
 # $azCommand - The command to execute.
 # $noSecretLeakageWarning - Pass true if you are sure that the output contains no secrets. This will supress az warnings about leaking secrets in the output.
-function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $maxRetries = $MAX_RETRY_COUNT, [switch]$callAzNatively, [switch]$noSecretLeakageWarning) {
+function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId = $null, $GraphBaseUri = $null, $maxRetries = $MAX_RETRY_COUNT, [switch]$callAzNatively, [switch]$noSecretLeakageWarning, $stdinInput = $null) {
     $azErrorCode = 1234 # A number not null
     $retryCount = 0
     $script:Snail_Mode = $false
@@ -263,7 +287,11 @@ function ExecuteAzCommandRobustly($azCommand, $principalId = $null, $appRoleId =
             $PreviousErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"     # In Windows PowerShell, if this is set to "Stop", az will not return the error code, but instead throw an exception
             $LASTEXITCODE = 0   # Required for unit tests when mocking az
-            if ($callAzNatively) {
+            if ($null -ne $stdinInput) {
+                Write-Debug "Calling az natively with stdin: az $azCommand"
+                $lastAzOutput = WriteToAzStdin -azCommand $azCommand -stdinInput $stdinInput
+            }
+            elseif ($callAzNatively) {
                 Write-Debug "Calling az natively: az $azCommand"
                 $lastAzOutput = az $azCommand 2>&1
             }
