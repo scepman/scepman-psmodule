@@ -490,6 +490,9 @@ function Confirm-ArtifactPlatform {
       $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
       return $true
     }
+
+    # If we should not process, we return true anyway, as we are already on a known channel, just not the intended one for the platform. The user can then decide to switch manually or to stay on the current channel.
+    return $true
   }
 }
 
