@@ -23,9 +23,6 @@
  .Parameter SubscriptionId
   The ID of the Subscription where SCEPman is installed. Can be omitted if it is pre-selected in az already or use the SearchAllSubscriptions flag to search all accessible subscriptions
 
- .Parameter AddAdditionalCertMasterAppRoles
-  Set this flag to add additional app roles to the SCEPman Certificate Master App Service.
-
  .PARAMETER SkipAppRoleAssignments
   Set this flag to skip the app role assignments. This is useful if you don't have Global Administrator permissions. You will have to assign the app roles manually later, but the CMDlet will show which az commands to execute manually for the assignment.
 
@@ -63,7 +60,6 @@ function Complete-SCEPmanInstallation
         [switch]$SearchAllSubscriptions,
         $DeploymentSlotName,
         $SubscriptionId,
-        [switch]$AddAdditionalCertMasterAppRoles,
         [switch]$SkipAppRoleAssignments,
         [switch]$SkipCertificateMaster,
         [switch]$SkipLoggingConfig,
@@ -204,6 +200,24 @@ function Complete-SCEPmanInstallation
         Update-ToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
     }
 
+    Write-Verbose "Checking artifact URL of SCEPman"
+    $runningKnownChannelScepman = Confirm-ArtifactPlatform -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+
+    if ($runningKnownChannelScepman -eq $true) {
+        # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+        Confirm-AppServiceStack -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    }
+
+    if (-not $SkipCertificateMaster) {
+        Write-Verbose "Checking artifact URL of Certificate Master"
+        $runningKnownChannelCertMaster = Confirm-ArtifactPlatform -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+
+        if ($runningKnownChannelCertMaster -eq $true) {
+            # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+            Confirm-AppServiceStack -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+        }
+    }
+
     Write-Information "Connecting Web Apps to Storage Account"
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
@@ -261,7 +275,7 @@ function Complete-SCEPmanInstallation
             $CertMasterBaseURL = $CertMasterBaseURLs[0]
             Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments -AddAdditionalAppRoles $AddAdditionalCertMasterAppRoles
+            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
         }
     }
 

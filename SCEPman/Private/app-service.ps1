@@ -40,17 +40,29 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
 function SelectBestDotNetRuntime ($ForLinux = $false) {
   if ($ForLinux) {
-    return "DOTNETCORE:8.0" # Linux does not include auto-updating inbuilt runtimes. Therefore this should be a self-contained package, but we must still select some dotnet runtime.
+    $runtimePrefix = "DOTNETCORE"
+    $os = "linux"
+  } else {
+    $runtimePrefix = "dotnet"
+    $os = "windows"
   }
-  try
-  {
-      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
-      [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
-      return $WindowsDotnetRuntimes[0]
+
+  $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
+
+  try {
+    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
+
+    [String []]$dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    if ($dotnetRuntimes.Count -gt 0) {
+      Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
+      return $dotnetRuntimes[0]
+    } else {
+      Write-Warning "No .NET runtimes found for $os. Defaulting to $defaultRuntime"
+      return $defaultRuntime
   }
-  catch
-  {
-      return "dotnet:8"
+  } catch {
+    Write-Warning "Could not retrieve available runtimes for $os. Defaulting to $defaultRuntime"
+    return $defaultRuntime
   }
 }
 
@@ -97,6 +109,7 @@ function New-CertMasterAppService {
     Write-Information "User selected to create the app with the name $CertMasterAppServiceName"
 
     $isLinuxAppService = IsAppServiceLinux -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    $platform = if ($isLinuxAppService){ "linux" } else { "windows" }
 
     $runtime = SelectBestDotNetRuntime -ForLinux $isLinuxAppService
     if ($PSCmdlet.ShouldProcess($CertMasterAppServiceName, ("Creating Certificate Master App Service with .NET Runtime {0}" -f $runtime))) {
@@ -110,7 +123,7 @@ function New-CertMasterAppService {
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{
-        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$UpdateChannel];
+        WEBSITE_RUN_FROM_PACKAGE = $Artifacts_Certmaster[$platform][$UpdateChannel];
         "AppConfig:AuthConfig:TenantId" = $TenantId;
         "AppConfig:SCEPman:URL" = "https://$SCEPmanHostname/";
       }
@@ -139,6 +152,73 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
   Write-Verbose 'Configuring SCEPman General web app settings'
   $null = Invoke-Az @("webapp", "config", "set", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
   $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
+}
+
+function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+  $intendedStack = SelectBestDotNetRuntime -ForLinux $isAppServiceLinux
+
+  if ($isAppServiceLinux) {
+    # This will return a value in form 'DOTNETCORE|10.0'
+    $query = 'linuxFxVersion'
+  } else {
+    # This will return a value in form 'v10.0'
+    $query = 'netFrameworkVersion'
+  }
+
+  $actualStack = Invoke-Az @("webapp", "config", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", $query, "--output", "tsv")
+
+  if ([string]::IsNullOrWhiteSpace($actualStack)) {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup does not have a stack configured"
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+    return
+  }
+
+  # We extract the version for the following expected formats
+  # - Windows: 'v10.0'
+  # - Linux: 'DOTNETCORE|10.0'
+  # - Linux: 'DOTNETCORE:10.0' - this should not occur but is the form we use when setting the stack, so we want to be sure to handle it correctly in case it is returned by Azure in some cases
+  # For an unexpected format, the casting might fail
+  try {
+    $actualVersion = [double]($actualStack -replace '(.*\||.*:|^v)')
+  } catch {
+    Write-Warning "Failed to parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  if ($null -eq $actualVersion) {
+    Write-Warning "Could not parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  $intendedVersion = [double]($intendedStack -replace '.*:')
+
+  if ($actualVersion -gt $intendedVersion) {
+    Write-Verbose "The actual stack version $actualVersion is higher than the intended stack version $intendedVersion, skipping stack update to avoid downgrade"
+    return
+  }
+
+  if ($actualVersion -eq $intendedVersion) {
+    Write-Verbose "App Service $AppServiceName in resource group $ResourceGroup has the expected stack $intendedStack"
+  } else {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup is expected to have stack version $intendedVersion but has stack version $actualVersion"
+
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+  }
+}
+
+function Set-AppServiceStack {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  param(
+    [Parameter(Mandatory=$true)][string]$AppServiceName,
+    [Parameter(Mandatory=$true)][string]$ResourceGroup,
+    [Parameter(Mandatory=$true)][string]$Stack
+  )
+
+  Write-Information "Setting App Service $AppServiceName in resource group $ResourceGroup to stack $Stack"
+  if ($PSCmdlet.ShouldProcess($AppServiceName, ("Setting stack to {0}" -f $Stack))) {
+    $null = Invoke-Az @("webapp", "config", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--runtime", $Stack)
+  }
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -331,11 +411,13 @@ function Update-ToConfiguredChannel {
   $intendedChannel = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "list", "--name", $AppServiceName,
     "--resource-group", $ResourceGroup, "--query", "[?name=='Update_Channel'].value | [0]", "--output", "tsv") -callAzNatively -noSecretLeakageWarning
 
+  $platform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
   if (-not [string]::IsNullOrWhiteSpace($intendedChannel) -and "none" -ne $intendedChannel) {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
-    $ArtifactsUrl = $ChannelArtifacts[$intendedChannel]
+    $ArtifactsUrl = $ChannelArtifacts[$platform][$intendedChannel]
     if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
-      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName. Available values: $(Join-String -Separator ',' -InputObject $ChannelArtifacts.Keys)"
+      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $(Join-String -Separator ',' -InputObject $ChannelArtifacts[$platform].Keys)"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
       if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
@@ -343,6 +425,74 @@ function Update-ToConfiguredChannel {
         $null = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings delete --name $AppServiceName --resource-group $ResourceGroup --setting-names ""Update_Channel"""
       }
     }
+  }
+}
+
+function Confirm-ArtifactPlatform {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory=$true)]    [string]$AppServiceName,
+    [Parameter(Mandatory=$true)]    [string]$ResourceGroup,
+    [Parameter(Mandatory=$true)]    [hashtable]$ChannelArtifacts
+  )
+
+  $currentArtifactUrl = ReadAppSetting -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -SettingName "WEBSITE_RUN_FROM_PACKAGE"
+
+  $appPlatform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
+  $knownChannel = $false
+  $artifactPlatform = $null
+  $artifactChannel = $null
+
+  foreach ($platform in $ChannelArtifacts.GetEnumerator()) {
+    foreach ($channel in $platform.Value.GetEnumerator()) {
+        if ($channel.Value -eq $currentArtifactUrl) {
+          # We found the channel that corresponds to the currently set artifact URL
+          # This means that the app is on a known channel
+          $knownChannel = $true
+          $artifactPlatform = $platform.Key
+          $artifactChannel = $channel.Key
+        }
+    }
+  }
+
+  if (-not $knownChannel) {
+    Write-Verbose "Current artifact URL $currentArtifactUrl does not correspond to any known channel. Assume manual update"
+    return $false
+  }
+
+  if ($artifactPlatform -match $appPlatform) {
+    # We are on the right platform on a known channel, nothing to do
+    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"""
+    Write-Verbose "Which matches the actual platform $appPlatform. No need to switch the artifact URL."
+
+    return $true
+  } else {
+    Write-Information "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which does not match the actual platform ""$appPlatform"""
+
+    $intendedPlatformKey = if ($artifactPlatform -match '_alternative') {
+      $appPlatform + "_alternative"
+    } else {
+      $appPlatform
+    }
+
+    $intendedArtifactUrl = $ChannelArtifacts[$intendedPlatformKey][$artifactChannel]
+
+    # Accessing the hashtable on wrong keys should throw already, but we check for null or whitespace just to be sure
+    if ([string]::IsNullOrWhiteSpace($intendedArtifactUrl)) {
+      Write-Warning "Could not determine correct artifact URL for platform ""$artifactPlatform"" and channel ""$artifactChannel"". Expected to find it in ChannelArtifacts with key ""$intendedPlatformKey"" and channel key ""$artifactChannel"". Please check the configuration of ChannelArtifacts."
+      return $false
+    }
+
+    Write-Information "Switching artifact URL to $intendedArtifactUrl to match the platform ""$appPlatform"" of the ""$artifactChannel"" channel"
+    if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching artifact URL to match the platform {0}" -f $appPlatform))) {
+      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
+      return $true
+    }
+
+    # If we should not process, we return true anyway, as we are already on a known channel, just not the intended one for the platform. The user can then decide to switch manually or to stay on the current channel.
+    return $true
   }
 }
 
