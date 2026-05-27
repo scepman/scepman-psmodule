@@ -196,6 +196,24 @@ function Complete-SCEPmanInstallation
         Update-ToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
     }
 
+    Write-Verbose "Checking artifact URL of SCEPman"
+    $runningKnownChannelScepman = Confirm-ArtifactPlatform -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+
+    if ($runningKnownChannelScepman -eq $true) {
+        # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+        Confirm-AppServiceStack -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    }
+
+    if (-not $SkipCertificateMaster) {
+        Write-Verbose "Checking artifact URL of Certificate Master"
+        $runningKnownChannelCertMaster = Confirm-ArtifactPlatform -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+
+        if ($runningKnownChannelCertMaster -eq $true) {
+            # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+            Confirm-AppServiceStack -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+        }
+    }
+
     Write-Information "Connecting Web Apps to Storage Account"
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 

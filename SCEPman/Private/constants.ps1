@@ -233,10 +233,22 @@ New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Valu
     beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Beta.zip"
     internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Intern.zip"
   }
+  windows_alternative = @{
+    prod =  "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts.zip"
+    beta = "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts-Beta.zip"
+    internal = "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts-Intern.zip"
+    deferred = "https://raw.githubusercontent.com/scepman/install/deferred/dist-certmaster/CertMaster-Artifacts.zip"
+  }
   linux = @{
     prod =  "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux.zip"
     beta = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux-Beta.zip"
     internal = "https://raw.githubusercontent.com/scepman/install/master/dist-certmaster/CertMaster-Artifacts-Linux-Internal.zip"
+  }
+  linux_alternative = @{
+    prod =  "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts-Linux.zip"
+    beta = "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts-Linux-Beta.zip"
+    internal = "https://install.scepman.com/dist-certmaster/CertMaster-Artifacts-Linux-Internal.zip"
+    deferred = "https://raw.githubusercontent.com/scepman/install/deferred/dist-certmaster/CertMaster-Artifacts-Linux.zip"
   }
 }
 
@@ -246,10 +258,22 @@ New-Variable -Name "Artifacts_Scepman" -Scope "Script" -Option ReadOnly -Value @
     beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Beta.zip"
     internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Intern.zip"
   }
+  windows_alternative = @{
+    prod =  "https://install.scepman.com/dist/Artifacts.zip"
+    beta = "https://install.scepman.com/dist/Artifacts-Beta.zip"
+    internal = "https://install.scepman.com/dist/Artifacts-Intern.zip"
+    deferred = "https://raw.githubusercontent.com/scepman/install/deferred/dist/Artifacts.zip"
+  }
   linux = @{
     prod =  "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux.zip"
     beta = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux-Beta.zip"
     internal = "https://raw.githubusercontent.com/scepman/install/master/dist/Artifacts-Linux-Internal.zip"
+  }
+  linux_alternative = @{
+    prod =  "https://install.scepman.com/dist/Artifacts-Linux.zip"
+    beta = "https://install.scepman.com/dist/Artifacts-Linux-Beta.zip"
+    internal = "https://install.scepman.com/dist/Artifacts-Linux-Internal.zip"
+    deferred = "https://raw.githubusercontent.com/scepman/install/deferred/dist/Artifacts-Linux.zip"
   }
 }
 
