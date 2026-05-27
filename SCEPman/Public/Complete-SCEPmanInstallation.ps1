@@ -197,18 +197,18 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Verbose "Checking artifact URL of SCEPman"
-    $runningKnownChannel_scepman = Confirm-ArtifactPlatform -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+    $runningKnownChannelScepman = Confirm-ArtifactPlatform -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
 
-    if ($runningKnownChannel_scepman -eq $true) {
+    if ($runningKnownChannelScepman -eq $true) {
         # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
         Confirm-AppServiceStack -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
     }
 
     if (-not $SkipCertificateMaster) {
         Write-Verbose "Checking artifact URL of Certificate Master"
-        $runningKnownChannel_certmaster = Confirm-ArtifactPlatform -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+        $runningKnownChannelCertMaster = Confirm-ArtifactPlatform -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
 
-        if ($runningKnownChannel_certmaster -eq $true) {
+        if ($runningKnownChannelCertMaster -eq $true) {
             # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
             Confirm-AppServiceStack -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
         }
