@@ -59,7 +59,7 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
     } else {
       Write-Warning "No .NET runtimes found for $os. Defaulting to $defaultRuntime"
       return $defaultRuntime
-    }
+  }
   } catch {
     Write-Warning "Could not retrieve available runtimes for $os. Defaulting to $defaultRuntime"
     return $defaultRuntime
@@ -543,6 +543,35 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 
+function RemoveAppSettings($AppServiceName, $ResourceGroup, $SettingNames, $Slot = $null) {
+  # Base command to remove app settings
+  $command = @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup)
+
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+
+  $SettingsToRemove = Foreach($settingName in $SettingNames) {
+    if ($isAppServiceLinux) {
+      if ($settingName.Contains("-")) {
+        Write-Warning "Setting name $settingName contains at least one dash (-), which is unsupported on Linux. Skipping this setting."
+        continue
+      }
+      $settingName = $settingName.Replace(":", "__")
+    }
+    Write-Output $settingName
+  }
+
+  Write-Verbose "Removing app settings $($SettingsToRemove -join ",") from app $AppServiceName in slot [$Slot]"
+
+  $command += @("--setting-names")
+  $command += $SettingsToRemove
+
+  if (-not [String]::IsNullOrEmpty($Slot)) {
+    $command += @('--slot', $Slot)
+  }
+
+  $null = Invoke-Az $command
+}
+
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
   $slotSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?slotSetting]`"" | Convert-LinesToObject
   $unboundSettings = ExecuteAzCommandRobustly -azCommand "az webapp config appsettings list --name $AppServiceName --resource-group $ResourceGroup --query `"[?!slotSetting]`"" | Convert-LinesToObject
@@ -563,7 +592,7 @@ function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $
 
   $azCommand = @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup,
   "--query", "[?name=='$SettingName'].value | [0]")
-  if ($null -ne $Slot) {
+  if (-not [string]::IsNullOrEmpty($Slot)) {
     $azCommand += @("--slot", $Slot)
   }
 
