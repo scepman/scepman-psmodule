@@ -52,6 +52,12 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   try {
     $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
 
+    # TODO:
+    # The output will be changed in next breaking change release(2.87.0) scheduled for June 2026. 
+    # The output will change from a flat list of strings to a structured list of objects with keys: os, runtime, version, config, support, end_of_life.
+    # Update scripts that parse the current string-list output. The new output is a list of dicts with keys: os, runtime, version, config, support, end_of_life.
+    # New --runtime and --support filter parameters will be added. Use -o table for a human-readable view, or -o json and parse the new structured format.
+
     [String []]$dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
     if ($dotnetRuntimes.Count -gt 0) {
       Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
@@ -464,8 +470,7 @@ function Confirm-ArtifactPlatform {
 
   if ($artifactPlatform -match $appPlatform) {
     # We are on the right platform on a known channel, nothing to do
-    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"""
-    Write-Verbose "Which matches the actual platform $appPlatform. No need to switch the artifact URL."
+    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which matches the actual platform $appPlatform. No need to switch the artifact URL."
 
     return $true
   } else {
