@@ -17,13 +17,13 @@ ModuleVersion = '3.0.3.0'
 GUID = '50259d0c-c14e-4762-a2d6-916f38332847'
 
 # Author of this module
-Author = 'glueckkanja-gab'
+Author = 'glueckkanja'
 
 # Company or vendor of this module
-CompanyName = 'glueckkanja-gab'
+CompanyName = 'glueckkanja'
 
 # Copyright statement for this module
-Copyright = '(c) 2026 glueckkanja-gab AG. All rights reserved.'
+Copyright = '(c) 2026 glueckkanja AG. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'CMDlets to manage SCEPman (https://scepman.com/) installations'
