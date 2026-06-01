@@ -80,6 +80,7 @@ This module provides CMDlets to manage installations of the SCEPman, a PKI solut
 - When suggesting code, reference existing cmdlets and follow the repo's PowerShell style.
 - Add file and symbol links in markdown for navigation.
 - For tests, use helpers from `Tests/test-helpers.ps1`. The `CheckAzParameters` function is very helpful when mocking calls to az and must be used instead of checking the parameters otherwise.
+- Avoid temporary files. Try hard to find a solution not involving temporary files.
 
 ## Documentation
 
