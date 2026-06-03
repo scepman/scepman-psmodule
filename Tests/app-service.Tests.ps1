@@ -12,82 +12,38 @@ Describe 'App Service' {
     }
 
     Context 'SelectBestDotNetRuntime' {
-        It 'Finds a good Windows DotNet Runtime (old az output format)' {
-            Mock Invoke-Az {
-                return @(
-                    "dotnet:10",
-                    "dotnet:9",
-                    "ASPNET:V4.8",
-                    "NODE:20LTS"
-                ) | ConvertTo-Json
-            } -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os windows --output json' }
-
-            $runtime = SelectBestDotNetRuntime
-
-            $runtime | Should -Be "dotnet:10"
-            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os windows --output json' }
+        BeforeAll {
+            # Emulates the az output for a list of runtime strings (in "<prefix>:<version>" form) in either
+            # the old format (flat list of strings) or the new format introduced in az 2.87.0 (list of objects with a "config" property using "|").
+            function New-RuntimeListJson ($Runtimes, $Format) {
+                if ($Format -eq 'new') {
+                    $Runtimes = $Runtimes | ForEach-Object { [PSCustomObject]@{ config = ($_ -replace ':', '|') } }
+                }
+                return $Runtimes | ConvertTo-Json
+            }
         }
 
-        It 'Finds a good Linux DotNet Runtime (old az output format)' {
-            Mock Invoke-Az {
-                return @(
-                    "DOTNETCORE:10.0",
-                    "DOTNETCORE:9.0",
-                    "NODE:20-lts"
-                ) | ConvertTo-Json
-            } -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os linux --output json' }
-
-            $runtime = SelectBestDotNetRuntime -ForLinux $true
-
-            $runtime | Should -Be "DOTNETCORE:10.0"
-        }
-
-        It 'Finds a good Windows DotNet Runtime (new az output format)' {
-            Mock Invoke-Az {
-                return @(
-                    [PSCustomObject]@{ config = "dotnet|10"; os = "Windows"; runtime = ".NET"; version = "10.0 (LTS)" },
-                    [PSCustomObject]@{ config = "dotnet|9"; os = "Windows"; runtime = ".NET"; version = "9.0 (STS)" },
-                    [PSCustomObject]@{ config = "ASPNET|V4.8"; os = "Windows"; runtime = ".NET"; version = "4.8" },
-                    [PSCustomObject]@{ config = "NODE|22LTS"; os = "Windows"; runtime = "Node"; version = "22.0 LTS" }
-                ) | ConvertTo-Json
-            } -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os windows --output json' }
-
-            $runtime = SelectBestDotNetRuntime
-
-            $runtime | Should -Be "dotnet:10"
-            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os windows --output json' }
-        }
-
-        It 'Finds a good Linux DotNet Runtime (new az output format)' {
-            Mock Invoke-Az {
-                return @(
-                    [PSCustomObject]@{ config = "DOTNETCORE|10.0"; os = "Linux"; runtime = ".NET"; version = "10.0 (LTS)" },
-                    [PSCustomObject]@{ config = "DOTNETCORE|9.0"; os = "Linux"; runtime = ".NET"; version = "9.0 (STS)" },
-                    [PSCustomObject]@{ config = "NODE|22-lts"; os = "Linux"; runtime = "Node"; version = "22.0 LTS" }
-                ) | ConvertTo-Json
-            } -ParameterFilter { $azCommand -join ' ' -eq 'webapp list-runtimes --os linux --output json' }
-
-            $runtime = SelectBestDotNetRuntime -ForLinux $true
-
-            $runtime | Should -Be "DOTNETCORE:10.0"
-        }
-
-        It 'Falls back to the default runtime if no matching runtime is returned (old az output format)' -ForEach @(
-            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10'; Os = 'windows'; NonDotNetRuntime = 'NODE:20LTS' }
-            @{ ForLinux = $true; ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux'; NonDotNetRuntime = 'NODE:20-lts' }
+        It 'Finds a good <Os> DotNet Runtime (<Format> az output format)' -ForEach @(
+            @{ Os = 'windows'; ForLinux = $false; Expected = 'dotnet:10';      Runtimes = @('dotnet:10', 'dotnet:9', 'ASPNET:V4.8', 'NODE:20LTS'); Format = 'old' }
+            @{ Os = 'windows'; ForLinux = $false; Expected = 'dotnet:10';      Runtimes = @('dotnet:10', 'dotnet:9', 'ASPNET:V4.8', 'NODE:20LTS'); Format = 'new' }
+            @{ Os = 'linux';   ForLinux = $true;  Expected = 'DOTNETCORE:10.0'; Runtimes = @('DOTNETCORE:10.0', 'DOTNETCORE:9.0', 'NODE:20-lts'); Format = 'old' }
+            @{ Os = 'linux';   ForLinux = $true;  Expected = 'DOTNETCORE:10.0'; Runtimes = @('DOTNETCORE:10.0', 'DOTNETCORE:9.0', 'NODE:20-lts'); Format = 'new' }
         ) {
-            Mock Invoke-Az { return @($NonDotNetRuntime) | ConvertTo-Json } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
+            Mock Invoke-Az { return New-RuntimeListJson -Runtimes $Runtimes -Format $Format } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
 
             $runtime = SelectBestDotNetRuntime -ForLinux $ForLinux
 
-            $runtime | Should -Be $ExpectedRuntime
+            $runtime | Should -Be $Expected
+            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
         }
 
-        It 'Falls back to the default runtime if no matching runtime is returned (new az output format)' -ForEach @(
-            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10'; Os = 'windows'; NonDotNetRuntime = 'NODE|20LTS' }
-            @{ ForLinux = $true; ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux'; NonDotNetRuntime = 'NODE|20-lts' }
+        It 'Falls back to the default runtime if no matching runtime is returned (<Format> az output format)' -ForEach @(
+            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10';      Os = 'windows'; NonDotNetRuntime = 'NODE:20LTS';  Format = 'old' }
+            @{ ForLinux = $true;  ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux';   NonDotNetRuntime = 'NODE:20-lts'; Format = 'old' }
+            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10';      Os = 'windows'; NonDotNetRuntime = 'NODE:20LTS';  Format = 'new' }
+            @{ ForLinux = $true;  ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux';   NonDotNetRuntime = 'NODE:20-lts'; Format = 'new' }
         ) {
-            Mock Invoke-Az { return @([PSCustomObject]@{ config = $NonDotNetRuntime; os = $Os; runtime = "Node" }) | ConvertTo-Json } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
+            Mock Invoke-Az { return New-RuntimeListJson -Runtimes @($NonDotNetRuntime) -Format $Format } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
 
             $runtime = SelectBestDotNetRuntime -ForLinux $ForLinux
 
