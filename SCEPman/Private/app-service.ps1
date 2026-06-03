@@ -50,15 +50,23 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
 
   try {
-    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
+    # As of az 2.87.0 (breaking change), the output format changed from a flat list of strings (e.g. "dotnet:10")
+    # to a structured list of objects with keys: os, runtime, version, config, support, end_of_life (e.g. config "dotnet|10").
+    # We use JSON output and handle both formats to remain compatible with old and new az versions.
+    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "json") | Convert-LinesToObject
 
-    # TODO:
-    # The output will be changed in next breaking change release(2.87.0) scheduled for June 2026. 
-    # The output will change from a flat list of strings to a structured list of objects with keys: os, runtime, version, config, support, end_of_life.
-    # Update scripts that parse the current string-list output. The new output is a list of dicts with keys: os, runtime, version, config, support, end_of_life.
-    # New --runtime and --support filter parameters will be added. Use -o table for a human-readable view, or -o json and parse the new structured format.
+    # Normalize both formats into a list of runtime strings in the "<prefix>:<version>" form expected by --runtime.
+    [String []]$runtimeStrings = $runtimes | ForEach-Object {
+      if ($_ -is [string]) {
+        # Old format: a flat list of strings like "dotnet:10"
+        $_
+      } else {
+        # New format: objects with a "config" property like "dotnet|10". The --runtime parameter expects ":" as separator.
+        $_.config -replace '\|', ':'
+      }
+    }
 
-    [String []]$dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    [String []]$dotnetRuntimes = $runtimeStrings | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
     if ($dotnetRuntimes.Count -gt 0) {
       Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
       return $dotnetRuntimes[0]
