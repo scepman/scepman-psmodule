@@ -6,7 +6,7 @@ function Get-SubscriptionDetailsUsingAppName($AppServiceName, $subscriptions) {
         Write-Verbose "App Service $AppServiceName is in subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
         $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
         if ($null -eq $fittingSubscription) {
-            $selectedSubscriptionString = $subscriptions | ForEach-Object { "$($_.id) - $($_.name)" } | Join-String -Separator ', '
+            $selectedSubscriptionString = ($subscriptions | ForEach-Object { "$($_.id) - $($_.name)" }) -join ', '
             $errorMessage = "The subscription $($scWebAppsAcrossAllAccessibleSubscriptions.data[0].subscriptionId) is not among the selected subscriptions: $selectedSubscriptionString"
             Write-Error $errorMessage
             throw $errorMessage
@@ -27,7 +27,7 @@ function Get-SubscriptionDetailsUsingPlanName($AppServicePlanName, $subscription
         Write-Verbose "App Service Plan $AppServicePlanName is in subscription $($scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId)"
         $fittingSubscription = $subscriptions | Where-Object { $_.id -eq $scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId }
         if ($null -eq $fittingSubscription) {
-            $selectedSubscriptionString = $subscriptions | ForEach-Object { "$($_.id) - $($_.name)" } | Join-String -Separator ', '
+            $selectedSubscriptionString = ($subscriptions | ForEach-Object { "$($_.id) - $($_.name)" }) -join ', '
             $errorMessage = "The subscription $($scPlansAcrossAllAccessibleSubscriptions.data[0].subscriptionId) is not among the selected subscriptions: $selectedSubscriptionString"
             Write-Error $errorMessage
             throw $errorMessage
