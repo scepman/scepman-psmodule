@@ -3,14 +3,14 @@ name: Test in Lab
 
 # Controls when the action will run. Workflow runs for production and beta version pushes
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - production
-      - beta
+  workflow_dispatch:  # Currently does not work due to a problem with the test environment
+  # push:
+  #   branches:
+  #     - production
+  #     - beta
 #      - main
-  schedule: 
-    - cron: '10 1 * * 0'
+  # schedule: 
+  #   - cron: '10 1 * * 0'
 
 # The Test requires an AAD App Registration whose Service Principal has permissions to create apps and assign role assignments as well as read and write the SCEPman Azure resources under test. Specifically:
 # - Contributor permissions on the SCEPman resource group
