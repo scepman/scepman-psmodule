@@ -50,9 +50,23 @@ function SelectBestDotNetRuntime ($ForLinux = $false) {
   $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
 
   try {
-    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "tsv")
+    # As of az 2.87.0 (breaking change), the output format changed from a flat list of strings (e.g. "dotnet:10")
+    # to a structured list of objects with keys: os, runtime, version, config, support, end_of_life (e.g. config "dotnet|10").
+    # We use JSON output and handle both formats to remain compatible with old and new az versions.
+    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "json") | Convert-LinesToObject
 
-    [String []]$dotnetRuntimes = $runtimes | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    # Normalize both formats into a list of runtime strings in the "<prefix>:<version>" form expected by --runtime.
+    [String []]$runtimeStrings = $runtimes | ForEach-Object {
+      if ($_ -is [string]) {
+        # Old format: a flat list of strings like "dotnet:10"
+        $_
+      } else {
+        # New format: objects with a "config" property like "dotnet|10". The --runtime parameter expects ":" as separator.
+        $_.config -replace '\|', ':'
+      }
+    }
+
+    [String []]$dotnetRuntimes = $runtimeStrings | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
     if ($dotnetRuntimes.Count -gt 0) {
       Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
       return $dotnetRuntimes[0]
@@ -417,7 +431,7 @@ function Update-ToConfiguredChannel {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
     $ArtifactsUrl = $ChannelArtifacts[$platform][$intendedChannel]
     if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
-      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $(Join-String -Separator ',' -InputObject $ChannelArtifacts[$platform].Keys)"
+      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $($ChannelArtifacts[$platform].Keys -join ',')"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
       if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
@@ -464,8 +478,7 @@ function Confirm-ArtifactPlatform {
 
   if ($artifactPlatform -match $appPlatform) {
     # We are on the right platform on a known channel, nothing to do
-    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"""
-    Write-Verbose "Which matches the actual platform $appPlatform. No need to switch the artifact URL."
+    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which matches the actual platform $appPlatform. No need to switch the artifact URL."
 
     return $true
   } else {

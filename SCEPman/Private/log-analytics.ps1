@@ -135,7 +135,7 @@ function ValidateLogAnalyticsTable($ResourceGroup, $WorkspaceAccount, $Subscript
 
         if ($missingColumns.Count -gt 0) {
             Write-Verbose "Could not find $($missingColumns.Count) columns in table $LogsTableName"
-            Write-Verbose "Missing columns: $($missingColumns | ForEach-Object { $_.name } | Join-String -Separator ', ')"
+            Write-Verbose "Missing columns: $(($missingColumns | ForEach-Object { $_.name }) -join ', ')"
             Write-Information "Updating table schema."
             $azCommandToUpdateWorkspaceTableSchema = @("monitor", "log-analytics", "workspace", "table", "update", "--resource-group", $ResourceGroup, "--workspace-name", $($WorkspaceAccount.name), "--name", $LogsTableName)
             # We add the columns separately as they would end up as a single string in the command otherwise which would fail
