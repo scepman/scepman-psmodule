@@ -1,11 +1,11 @@
-function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServiceName) {
+function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServiceName, $SubscriptionId) {
   #       Criteria:
   #       - Configuration value AppConfig:SCEPman:URL must be present, then it must be a CertMaster
   #       - In a default installation, the URL must contain SCEPman's app service name. We require this.
 
   $strangeCertMasterFound = $false
 
-  $rgwebapps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name") | Convert-LinesToObject
+  $rgwebapps = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name") | Convert-LinesToObject
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
@@ -90,19 +90,20 @@ function New-CertMasterAppService {
     [Parameter(Mandatory=$true)]    [string]$CertMasterResourceGroup,
     [Parameter(Mandatory=$false)][AllowEmptyString()]    [string]$CertMasterAppServiceName,
     [Parameter(Mandatory=$false)]    [string]$DeploymentSlotName,
-    [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod"
+    [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod",
+    [Parameter(Mandatory=$true)]    [string]$SubscriptionId
   )
 
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
-    $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $SubscriptionId
     $ShallCreateCertMasterAppService = [String]::IsNullOrWhiteSpace($CertMasterAppServiceName)
   } else {
     # Check whether a cert master app service with the passed in name exists
-    $CertMasterWebApps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name") | Convert-LinesToObject
+    $CertMasterWebApps = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name") | Convert-LinesToObject
     $ShallCreateCertMasterAppService = 0 -eq $CertMasterWebApps.count
   }
 
-  $scwebapp = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'") | Convert-LinesToObject
+  $scwebapp = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'") | Convert-LinesToObject
 
   if([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = $scwebapp.data.name
@@ -133,7 +134,7 @@ function New-CertMasterAppService {
       # Do all the configuration that the ARM template does normally
       $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
       if (-not [String]::IsNullOrWhiteSpace($DeploymentSlotName)) {
-        $selectedSlot = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'") | Convert-LinesToObject
+        $selectedSlot = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'") | Convert-LinesToObject
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{

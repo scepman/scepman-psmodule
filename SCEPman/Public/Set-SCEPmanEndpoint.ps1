@@ -49,13 +49,13 @@ Function Set-SCEPmanEndpoint {
         Write-Information "Subscription is set to $($subscription.name)"
 
         Write-Information "Setting resource group"
-        if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
+        if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroupName)) {
             # No resource group given, search for it now
-            $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+            $SCEPmanResourceGroupName = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
         }
 
         Write-Information "Getting SCEPman deployment slots"
-        [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroup
+        [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroupName
         Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
 
         if ($DeploymentSlotName) {
@@ -88,7 +88,7 @@ Function Set-SCEPmanEndpoint {
 
         $SetAppSettingsParameters = @{
             AppServiceName = $SCEPmanAppServiceName
-            resourceGroup  = $SCEPmanResourceGroup
+            resourceGroup  = $SCEPmanResourceGroupName
             Settings       = $EndpointSettings
         }
 

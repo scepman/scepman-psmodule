@@ -64,7 +64,7 @@ function New-IntermediateCA
   Write-Information "Setting resource group"
   if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
       # No resource group given, search for it now
-      $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+      $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
       Write-Information "Found resource group $SCEPmanResourceGroup"
   }
 

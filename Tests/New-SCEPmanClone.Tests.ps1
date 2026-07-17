@@ -117,7 +117,7 @@ Describe 'SCEPman Clone' {
                     # Some more are returned in reality
                 }
             } -ParameterFilter { $dataTableEndpoint -eq "storage-account-endpoint" }
-            function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {} # Mocked
+            function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $SubscriptionId) {} # Mocked
             Mock FindConfiguredKeyVault {
                 return @{
                     name = "test-kv-name"

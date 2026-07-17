@@ -104,7 +104,7 @@ Describe 'App Service' {
                                 }
                             }
                         }"
-            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query -q "Resources' -azCommandMidfix "'as-scepman'"}
+            } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query --subscriptions' -azCommandMidfix "'as-scepman'"}
         }
 
         BeforeEach {
@@ -115,7 +115,7 @@ Describe 'App Service' {
             Mock az { return 'app' } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp show' -azCommandSuffix '--output tsv' -azCommandMidfix "--query kind" }
             Mock GetCertMasterAppServiceName { return "as-scepman-cm" }
 
-            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000" -SubscriptionId "00000000-0000-0000-0000-000000000000"
 
             $certMaster | Should -Be "as-scepman-cm"
         }
@@ -132,7 +132,7 @@ Describe 'App Service' {
             Mock az { return $null } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp config set' -azCommandMidfix "--name as-scepman-cm" }
 
             # Act
-            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000"
+            $certMaster = New-CertMasterAppService -SCEPmanResourceGroup "rg-scepman-test" -SCEPmanAppServiceName "as-scepman" -CertMasterResourceGroup "rg-certmaster" -TenantId "00000000-0000-1234-0000-000000000000" -SubscriptionId "00000000-0000-0000-0000-000000000000"
 
             # Assert
             $certMaster | Should -Be "as-scepman-cm"

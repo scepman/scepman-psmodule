@@ -30,7 +30,7 @@ $jsonOfStorageAccount
 ""skip_token"": null,
 ""total_records"": 1
 }"
-     } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query' }
+     } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'graph query --subscriptions' }
     EnsureNoAdditionalAzCalls
     function CheckReturnedStorageAccountMatchesTestValue ($storageAccount) {
       $storageAccount.location | Should -Be "germanywestcentral"
@@ -48,7 +48,7 @@ $jsonOfStorageAccount
 
   It 'Finds an existing Storage Account' {
     # Act
-    $staccount = GetExistingStorageAccount -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+    $staccount = GetExistingStorageAccount -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/' -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299'
 
     # Assert
     CheckReturnedStorageAccountMatchesTestValue -StorageAccount $staccount
@@ -61,7 +61,7 @@ $jsonOfStorageAccount
     mock Read-Host { return "stgxyztest" } -ParameterFilter { ($Prompt -join '').Contains("enter the name of the storage account") }
 
     # Act
-    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+    $staccount = VerifyStorageAccountDoesNotExist -ResourceGroup 'rg-xyz-test' -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299'
 
     # Assert
     CheckReturnedStorageAccountMatchesTestValue -StorageAccount $staccount
@@ -74,7 +74,7 @@ $jsonOfStorageAccount
     mock Read-Host { return "" } -ParameterFilter { ($Prompt -join '').Contains("want to create a new storage account") }
 
     # Act
-    $staccount = VerifyStorageAccountDoesNotExist -dataTableEndpoint 'https://stgxyztest.table.core.windows.net/'
+    $staccount = VerifyStorageAccountDoesNotExist -ResourceGroup 'rg-xyz-test' -SubscriptionId '63ee67fb-aad6-4711-82a9-ff838a489299'
 
     # Assert
     $staccount | Should -Be $null

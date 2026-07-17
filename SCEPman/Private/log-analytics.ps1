@@ -1,12 +1,12 @@
-function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId) {
+function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId, $SubscriptionId) {
     # Try to find by workspace id
     if($null -ne $WorkspaceId) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query","--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and properties.customerId == '$WorkspaceId' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     # Try to find by resource group
     if($null -eq $workspaces -or $workspaces.count -eq 0) {
-        $workspaces = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
+        $workspaces = Invoke-Az @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.operationalinsights/workspaces' and resourceGroup == '$ResourceGroup' | project name, workspaceId = properties.customerId, location, resourceGroup") | Convert-LinesToObject
     }
 
     if($workspaces.count -eq 1) {
@@ -36,17 +36,19 @@ function GetDataCollectionRule {
         [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
         [string]$ResourceGroup,
         [Parameter(Mandatory, ParameterSetName = "ByDcrId")]
-        [string]$DcrId
+        [string]$DcrId,
+        [Parameter(Mandatory)]
+        [string]$SubscriptionId
     )
 
     if($PSCmdlet.ParameterSetName -eq 'ByDcrId') {
         Write-Verbose "Looking for data collection rule with id $DcrId"
-        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
+        $dataCollectionRule = Invoke-Az @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and properties.immutableId == '$DcrId' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
     }
 
     if($PSCmdlet.ParameterSetName -eq 'ByResourceGroup') {
         Write-Verbose "Looking for data collection rules in the resource group $ResourceGroup"
-        $dataCollectionRule = Invoke-Az @("graph", "query", "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
+        $dataCollectionRule = Invoke-Az @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.insights/datacollectionrules' and resourceGroup == '$ResourceGroup' | project id, name, location, resourceGroup, endpoints = properties.endpoints, immutableId = properties.immutableId") | Convert-LinesToObject
 
         if($dataCollectionRule.count -gt 1) {
             Write-Information "Found data collection rules:"
@@ -321,7 +323,7 @@ function Set-LoggingConfigInAppSettings {
     if (-not [string]::IsNullOrEmpty($existingWorkspaceId) -and [string]::IsNullOrEmpty($existingDcrRuleId)) {
         Write-Information "Missing Log Ingestion API configuration detected while using existing log analytics workspace. Proceeding to configure Log Ingestion API resources."
         # Get LAW resource details
-        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $ResourceGroup -WorkspaceId $existingWorkspaceId
+        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $ResourceGroup -WorkspaceId $existingWorkspaceId -SubscriptionId $SubscriptionId
 
         if ($null -eq $workspaceAccount) {
             Write-Warning "Could not find the log analytics workspace with id $existingWorkspaceId. Please check if the workspace still exists or if the app setting is configured correctly. Skipping Log Ingestion API configuration."
@@ -333,7 +335,7 @@ function Set-LoggingConfigInAppSettings {
     } elseif (-not [string]::IsNullOrEmpty($existingDcrRuleId)) {
         Write-Information "Existing Log Ingestion API configuration detected. Validate permissions"
         # Get DCR details
-        $dcrDetails = GetDataCollectionRule -DcrId $existingDcrRuleId
+        $dcrDetails = GetDataCollectionRule -DcrId $existingDcrRuleId -SubscriptionId $SubscriptionId
 
         if ($null -eq $dcrDetails) {
             Write-Warning "Unable to find existing Data Collection Rule with id $existingDcrRuleId"
@@ -343,7 +345,7 @@ function Set-LoggingConfigInAppSettings {
         Write-Information "Neither existing log analytics workspace nor existing Log Ingestion API configuration detected. Check if we have a log analytics workspace in the resource group."
 
         # Try to find LAW in our resource group
-        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $ResourceGroup
+        $workspaceAccount = GetLogAnalyticsWorkspace -ResourceGroup $ResourceGroup -SubscriptionId $SubscriptionId
 
         if ($null -eq $workspaceAccount) {
             Write-Information "No existing log analytics workspace found. Skipping logging configuration."
