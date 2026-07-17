@@ -109,7 +109,7 @@ function New-SCEPmanDeploymentSlot
 
     Write-Information "Adding permissions to Key Vault"
     $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $subscription.Id
-    Write-Verbose "Key Vault $keyvaultname identified"
+    Write-Verbose "Key Vault $($keyvault.name) identified"
     if ($PSCmdlet.ShouldProcess($keyvault.name, "Adding key vault permissions to new deployment slot")) {
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
     }
