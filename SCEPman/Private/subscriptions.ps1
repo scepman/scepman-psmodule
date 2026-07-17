@@ -89,8 +89,8 @@ function GetSubscriptionDetails ([bool]$SearchAllSubscriptions, $SubscriptionId,
   return $potentialSubscription
 }
 
-function GetResourceGroup ($SCEPmanAppServiceName) {
-    $scWebAppsInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '-q', "Resources | where type == 'microsoft.web/sites' and name =~ '$SCEPmanAppServiceName' | project name, resourceGroup") | Convert-LinesToObject
+function GetResourceGroup ($SCEPmanAppServiceName, $SubscriptionId) {
+    $scWebAppsInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '--subscriptions', $SubscriptionId, '-q', "Resources | where type == 'microsoft.web/sites' and name =~ '$SCEPmanAppServiceName' | project name, resourceGroup") | Convert-LinesToObject
     if($null -ne $scWebAppsInTheSubscription -and $($scWebAppsInTheSubscription.count) -eq 1) {
         return $scWebAppsInTheSubscription.data[0].resourceGroup
     }
@@ -98,8 +98,8 @@ function GetResourceGroup ($SCEPmanAppServiceName) {
     throw "Unable to determine the resource group. This generally happens when a wrong name is entered for the SCEPman web app!"
 }
 
-function GetResourceGroupFromPlanName ($AppServicePlanName) {
-    $asplansInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '-q', "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, resourceGroup") | Convert-LinesToObject
+function GetResourceGroupFromPlanName ($AppServicePlanName, $SubscriptionId) {
+    $asplansInTheSubscription = Invoke-Az -azCommand ('graph', 'query', '--subscriptions', $SubscriptionId, '-q', "Resources | where type == 'microsoft.web/serverfarms' and name =~ '$AppServicePlanName' | project name, resourceGroup") | Convert-LinesToObject
     if($null -ne $asplansInTheSubscription -and $($asplansInTheSubscription.count) -eq 1) {
         return $asplansInTheSubscription.data[0].resourceGroup
     }

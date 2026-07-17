@@ -61,7 +61,7 @@ function New-SCEPmanDeploymentSlot
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
         # No resource group given, search for it now
-        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
     }
 
     Write-Information "Getting existing SCEPman deployment slots"
@@ -100,7 +100,7 @@ function New-SCEPmanDeploymentSlot
         $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
         if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
-        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint -SubscriptionId $subscription.Id
         SetStorageAccountPermissions -SubscriptionId $subscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
         } else {
             Write-Warning "No Storage Account found. Not adding any permissions."
@@ -108,8 +108,8 @@ function New-SCEPmanDeploymentSlot
     }
 
     Write-Information "Adding permissions to Key Vault"
-    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
-    Write-Verbose "Key Vault $keyvaultname identified"
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $subscription.Id
+    Write-Verbose "Key Vault $($keyvault.name) identified"
     if ($PSCmdlet.ShouldProcess($keyvault.name, "Adding key vault permissions to new deployment slot")) {
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
     }

@@ -37,20 +37,24 @@ Describe 'Log Analytics' {
         } -ParameterFilter {
             $azCommand[0] -eq 'graph' -and
             $azCommand[1] -eq 'query' -and
-            $azCommand[3].Contains("resourceGroup == 'rg-scepman'")
+            $azCommand[2] -eq '--subscriptions' -and
+            $azCommand[3] -eq 'sub-1' -and
+            $azCommand[5].Contains("resourceGroup == 'rg-scepman'")
         }
         Mock Read-Host {
             return 'law-shared'
         } -ParameterFilter { ($Prompt -join '') -like '*more than one existing log analytics workspace*' }
 
-        $workspace = GetLogAnalyticsWorkspace -ResourceGroup 'rg-scepman'
+        $workspace = GetLogAnalyticsWorkspace -ResourceGroup 'rg-scepman' -SubscriptionId 'sub-1'
 
         $workspace.name | Should -Be 'law-shared'
         $workspace.workspaceId | Should -Be '22222222-2222-2222-2222-222222222222'
         Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
             $azCommand[0] -eq 'graph' -and
             $azCommand[1] -eq 'query' -and
-            $azCommand[3].Contains("resourceGroup == 'rg-scepman'")
+            $azCommand[2] -eq '--subscriptions' -and
+            $azCommand[3] -eq 'sub-1' -and
+            $azCommand[5].Contains("resourceGroup == 'rg-scepman'")
         }
     }
 
