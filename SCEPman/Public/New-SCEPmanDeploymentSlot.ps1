@@ -61,7 +61,7 @@ function New-SCEPmanDeploymentSlot
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
         # No resource group given, search for it now
-        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
     }
 
     Write-Information "Getting existing SCEPman deployment slots"

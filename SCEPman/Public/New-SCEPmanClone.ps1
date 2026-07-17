@@ -75,7 +75,7 @@ function New-SCEPmanClone
     Write-Information "Setting source resource group"
     if ([String]::IsNullOrWhiteSpace($SourceResourceGroup)) {
         # No resource group given, search for it now
-        $SourceResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SourceAppServiceName
+        $SourceResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SourceAppServiceName -SubscriptionId $sourceSubscription.id
     }
 
     Write-Information "Checking VNET integration of SCEPman"
@@ -107,7 +107,7 @@ function New-SCEPmanClone
 
     Write-Information "Searching for target App Service Plan"
     if ([String]::IsNullOrWhiteSpace($TargetResourceGroup)) {
-        $TargetResourceGroup = GetResourceGroupFromPlanName -AppServicePlanName $TargetAppServicePlan
+        $TargetResourceGroup = GetResourceGroupFromPlanName -AppServicePlanName $TargetAppServicePlan -SubscriptionId $targetSubscription.id
         Write-Information "Using Resource Group $TargetResourceGroup (same as app service plan $TargetAppServicePlan)"
     }
     $trgtAsp = GetAppServicePlan -AppServicePlanName $TargetAppServicePlan -ResourceGroup $TargetResourceGroup -SubscriptionId $targetSubscription.Id
