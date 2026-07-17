@@ -150,10 +150,10 @@ Describe 'Key Vault' {
                 'skip_token': null,
                 'total_records': 1
             }"
-        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "graph query" -azCommandMidfix "Resources | where type == 'microsoft.keyvault/vaults'" }
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "graph query --subscriptions" -azCommandMidfix "Resources | where type == 'microsoft.keyvault/vaults'" }
 
         # Act
-        $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup "test-rg" -SCEPmanAppServiceName "test-app-service"
+        $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup "test-rg" -SCEPmanAppServiceName "test-app-service" -SubscriptionId "83804974-c230-4240-b384-0c4d3b7ef201"
 
         # Assert
         $keyVault.name | Should -Be $keyVaultName
