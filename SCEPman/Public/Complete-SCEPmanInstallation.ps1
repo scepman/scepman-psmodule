@@ -133,7 +133,7 @@ function Complete-SCEPmanInstallation
 
     if (-not $SkipCertificateMaster.IsPresent) {
         Write-Information "Getting Certificate Master web app"
-        $CertMasterAppServiceName = New-CertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+        $CertMasterAppServiceName = New-CertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SubscriptionId $subscription.id
 
         if ("Skipped" -eq $CertMasterAppServiceName) {
             $SkipCertificateMaster = $true
@@ -234,7 +234,7 @@ function Complete-SCEPmanInstallation
     }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
-    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.Id
     foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         if ($PSCmdlet.ShouldProcess($keyVault.name, "Adding permissions for SCEPman on the Key Vault")) {
             AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal

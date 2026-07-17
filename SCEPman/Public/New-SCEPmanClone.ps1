@@ -92,13 +92,13 @@ function New-SCEPmanClone
     $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
     if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
-        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint -SubscriptionId $sourceSubscription.Id
     } else {
         Write-Warning "No Storage Account found. Not adding any permissions."
     }
 
     Write-Information "Reading Key Vault registration from source"
-    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup -SubscriptionId $sourceSubscription.Id
     Write-Verbose "Key Vault $($keyvault.name) identified"
 
     Write-Information "Getting target subscription details"
@@ -137,7 +137,7 @@ function New-SCEPmanClone
         $DcrId = $SCEPmanSourceSettings.settings | Where-Object name -match 'AppConfig(:|__)LoggingConfig(:|__)RuleId' | Select-Object -ExpandProperty value
         if ($DcrId) {
             Write-Information "Found configured data collection rule. Confirm resource and add permission."
-            $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId
+            $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId -SubscriptionId $sourceSubscription.Id
 
             AddAppRoleAssignmentsForLogIngestionAPI -DcrResourceId $DataCollectionRule.id -ServicePrincipal $serviceprincipalsc.principalId
         }

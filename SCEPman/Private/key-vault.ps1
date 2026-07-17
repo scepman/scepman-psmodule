@@ -18,10 +18,10 @@ function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
   }
 }
 
-function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName) {
+function FindConfiguredKeyVault ($SCEPmanResourceGroup, $SCEPmanAppServiceName, $SubscriptionId) {
   [uri]$configuredKeyVaultURL = FindConfiguredKeyVaultUrl -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
 
-  $keyVault = Invoke-az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name,subscriptionId,properties.enableRbacAuthorization,id") | Convert-LinesToObject
+  $keyVault = Invoke-az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.keyvault/vaults' and properties.vaultUri startswith '$configuredKeyVaultURL' | project name,subscriptionId,properties.enableRbacAuthorization,id") | Convert-LinesToObject
 
   if($keyVault.count -eq 1) {
     return $keyVault.data

@@ -100,7 +100,7 @@ function New-SCEPmanDeploymentSlot
         $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
         if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
-        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint -SubscriptionId $subscription.Id
         SetStorageAccountPermissions -SubscriptionId $subscription.Id -ScStorageAccount $ScStorageAccount -servicePrincipals $servicePrincipals
         } else {
             Write-Warning "No Storage Account found. Not adding any permissions."
@@ -108,7 +108,7 @@ function New-SCEPmanDeploymentSlot
     }
 
     Write-Information "Adding permissions to Key Vault"
-    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -SubscriptionId $subscription.Id
     Write-Verbose "Key Vault $keyvaultname identified"
     if ($PSCmdlet.ShouldProcess($keyvault.name, "Adding key vault permissions to new deployment slot")) {
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
