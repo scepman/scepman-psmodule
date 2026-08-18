@@ -20,6 +20,7 @@ jobs:
         output: results.sarif
 
     - name: Upload PowerShell SARIF file
+      if: github.ref == 'refs/heads/main'
       uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
       with:
         # Path to SARIF file relative to the root of the repository
