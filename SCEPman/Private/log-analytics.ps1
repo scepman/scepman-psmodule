@@ -32,6 +32,7 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId, $SubscriptionId
 }
 
 function GetDataCollectionRule {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
         [string]$ResourceGroup,
