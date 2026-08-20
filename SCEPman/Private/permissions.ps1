@@ -44,7 +44,7 @@ function SetManagedIdentityPermissions($principalId, $resourcePermissions, $Grap
             $bodyToAddPermission = "{'principalId': '$principalId','resourceId': '$($resourcePermission.resourceId)','appRoleId':'$($resourcePermission.appRoleId)'}"
             $azCommand = @("rest", "--method", "post", "--uri", $graphEndpointForAppRoleAssignments, "--body", $bodyToAddPermission, "--headers", "Content-Type=application/json")
             if ($SkipAppRoleAssignments) {
-                Write-Warning "Skipping app role assignment (please execute manually): az $($azCommand -join ' ')"
+                Write-Warning "Skipping app role assignment (please execute manually): az $(Format-AzCommandForDisplay -azCommand $azCommand)"
                 if ($resourcePermission.permissionLevel -lt $permissionLevelFail) {
                     $permissionLevelFail = $resourcePermission.permissionLevel
                 }
@@ -160,7 +160,7 @@ function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
             $azGrantPermissionCommand += @('--expires', 'never')
         }
         if ($SkipAutoGrant) {
-            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: az $($azGrantPermissionCommand -join ' ')"
+            Write-Warning "Please execute the following command manually to grant CertMaster the delegated permission User.Read: az $(Format-AzCommandForDisplay -azCommand $azGrantPermissionCommand)"
         } else {
             $null = Invoke-Az -azCommand $azGrantPermissionCommand
         }

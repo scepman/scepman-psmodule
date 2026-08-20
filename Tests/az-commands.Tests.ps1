@@ -10,6 +10,22 @@ Describe 'az-commands' {
         $isAzureCloudShell | Should -Be $false
     }
 
+    It 'Should leave plain az arguments unquoted when formatting commands for display' {
+        $command = @('rest', '--method', 'post', '--resource-group', 'rg-scepman-01')
+
+        $formattedCommand = Format-AzCommandForDisplay -azCommand $command
+
+        $formattedCommand | Should -Be 'rest --method post --resource-group rg-scepman-01'
+    }
+
+    It 'Should quote only az arguments that likely need escaping when formatting commands for display' {
+        $command = @('role', 'assignment', 'create', '--role', 'Monitoring Metrics Publisher', '--headers', 'Content-Type=application/json', '--scope', '/subscriptions/test/resourceGroups/rg scepman', '--body', '{"key":"value with spaces"}')
+
+        $formattedCommand = Format-AzCommandForDisplay -azCommand $command
+
+        $formattedCommand | Should -Be 'role assignment create --role "Monitoring Metrics Publisher" --headers "Content-Type=application/json" --scope "/subscriptions/test/resourceGroups/rg scepman" --body "{"key":"value with spaces"}"'
+    }
+
     Context 'AzLogin' {
         BeforeAll {
             # Arrange

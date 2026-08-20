@@ -247,6 +247,23 @@ function Invoke-Az ($azCommand, $maxRetries = $MAX_RETRY_COUNT) {
     return ExecuteAzCommandRobustly -azCommand $azCommand -callAzNatively -maxRetries $maxRetries
 }
 
+function Format-AzCommandArgumentForDisplay($azCommandArgument) {
+    if ($null -eq $azCommandArgument) {
+        return '""'
+    }
+
+    $argument = $azCommandArgument.ToString()
+    if ($argument -cmatch '^[A-Za-z0-9-]+$') {
+        return $argument
+    }
+
+    return "`"$($argument.Replace('`', '``').Replace('"', '`"'))`""
+}
+
+function Format-AzCommandForDisplay($azCommand) {
+    return (@($azCommand) | ForEach-Object { Format-AzCommandArgumentForDisplay -azCommandArgument $_ }) -join ' '
+}
+
 function WriteToAzStdin($azCommand, [string]$stdinInput) {
     if ($PSVersionTable.PSVersion.Major -ge 7) {
         # PowerShell 7+ handles stdin piping correctly without BOM

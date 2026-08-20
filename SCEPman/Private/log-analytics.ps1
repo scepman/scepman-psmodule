@@ -295,7 +295,7 @@ function ConfigureLogIngestionAPIResources() {
 function AddAppRoleAssignmentsForLogIngestionAPI($DcrResourceId, $ServicePrincipal, $SkipAppRoleAssignments = $false) {
     $azCommandToAssignRole = @("role", "assignment", "create", "--role", "Monitoring Metrics Publisher", "--assignee-object-id", $ServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $DcrResourceId)
     if($SkipAppRoleAssignments) {
-        Write-Warning "Skipping app role assignment (please execute manually): az $($azCommandToAssignRole -join ' ')"
+        Write-Warning "Skipping app role assignment (please execute manually): az $(Format-AzCommandForDisplay -azCommand $azCommandToAssignRole)"
         return
     }
     $null = Invoke-Az -azCommand $azCommandToAssignRole
