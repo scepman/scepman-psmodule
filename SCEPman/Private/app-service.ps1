@@ -201,11 +201,6 @@ function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
     return
   }
 
-  if ($null -eq $actualVersion) {
-    Write-Warning "Could not parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
-    return
-  }
-
   $intendedVersion = [double]($intendedStack -replace '.*:')
 
   if ($actualVersion -gt $intendedVersion) {
@@ -500,7 +495,7 @@ function Confirm-ArtifactPlatform {
 
     Write-Information "Switching artifact URL to $intendedArtifactUrl to match the platform ""$appPlatform"" of the ""$artifactChannel"" channel"
     if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching artifact URL to match the platform {0}" -f $appPlatform))) {
-      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
+      $null = Invoke-Az -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl")
       return $true
     }
 
