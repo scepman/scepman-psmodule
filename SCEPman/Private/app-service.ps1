@@ -1,11 +1,11 @@
-function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServiceName) {
+function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServiceName, $SubscriptionId) {
   #       Criteria:
   #       - Configuration value AppConfig:SCEPman:URL must be present, then it must be a CertMaster
   #       - In a default installation, the URL must contain SCEPman's app service name. We require this.
 
   $strangeCertMasterFound = $false
 
-  $rgwebapps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name") | Convert-LinesToObject
+  $rgwebapps = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name !~ '$SCEPmanAppServiceName' | project name") | Convert-LinesToObject
   Write-Information "$($rgwebapps.count) web apps found in the resource group $CertMasterResourceGroup (excluding SCEPman). We are finding if the CertMaster app is already created"
   if($rgwebapps.count -gt 0) {
     ForEach($potentialcmwebapp in $rgwebapps.data) {
@@ -40,17 +40,43 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
 function SelectBestDotNetRuntime ($ForLinux = $false) {
   if ($ForLinux) {
-    return "DOTNETCORE:8.0" # Linux does not include auto-updating inbuilt runtimes. Therefore this should be a self-contained package, but we must still select some dotnet runtime.
+    $runtimePrefix = "DOTNETCORE"
+    $os = "linux"
+  } else {
+    $runtimePrefix = "dotnet"
+    $os = "windows"
   }
-  try
-  {
-      $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", "windows")
-      [String []]$WindowsDotnetRuntimes = $runtimes | Where-Object { $_.ToLower().startswith("dotnet:") }
-      return $WindowsDotnetRuntimes[0]
+
+  $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
+
+  try {
+    # As of az 2.87.0 (breaking change), the output format changed from a flat list of strings (e.g. "dotnet:10")
+    # to a structured list of objects with keys: os, runtime, version, config, support, end_of_life (e.g. config "dotnet|10").
+    # We use JSON output and handle both formats to remain compatible with old and new az versions.
+    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "json") | Convert-LinesToObject
+
+    # Normalize both formats into a list of runtime strings in the "<prefix>:<version>" form expected by --runtime.
+    [String []]$runtimeStrings = $runtimes | ForEach-Object {
+      if ($_ -is [string]) {
+        # Old format: a flat list of strings like "dotnet:10"
+        $_
+      } else {
+        # New format: objects with a "config" property like "dotnet|10". The --runtime parameter expects ":" as separator.
+        $_.config -replace '\|', ':'
+      }
+    }
+
+    [String []]$dotnetRuntimes = $runtimeStrings | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
+    if ($dotnetRuntimes.Count -gt 0) {
+      Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
+      return $dotnetRuntimes[0]
+    } else {
+      Write-Warning "No .NET runtimes found for $os. Defaulting to $defaultRuntime"
+      return $defaultRuntime
   }
-  catch
-  {
-      return "dotnet:8"
+  } catch {
+    Write-Warning "Could not retrieve available runtimes for $os. Defaulting to $defaultRuntime"
+    return $defaultRuntime
   }
 }
 
@@ -64,19 +90,20 @@ function New-CertMasterAppService {
     [Parameter(Mandatory=$true)]    [string]$CertMasterResourceGroup,
     [Parameter(Mandatory=$false)][AllowEmptyString()]    [string]$CertMasterAppServiceName,
     [Parameter(Mandatory=$false)]    [string]$DeploymentSlotName,
-    [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod"
+    [Parameter(Mandatory=$false)]    [string]$UpdateChannel = "prod",
+    [Parameter(Mandatory=$true)]    [string]$SubscriptionId
   )
 
   if ([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
-    $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $CertMasterAppServiceName = GetCertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $SubscriptionId
     $ShallCreateCertMasterAppService = [String]::IsNullOrWhiteSpace($CertMasterAppServiceName)
   } else {
     # Check whether a cert master app service with the passed in name exists
-    $CertMasterWebApps = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name") | Convert-LinesToObject
+    $CertMasterWebApps = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$CertMasterResourceGroup' and name =~ '$CertMasterAppServiceName' | project name") | Convert-LinesToObject
     $ShallCreateCertMasterAppService = 0 -eq $CertMasterWebApps.count
   }
 
-  $scwebapp = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'") | Convert-LinesToObject
+  $scwebapp = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName'") | Convert-LinesToObject
 
   if([String]::IsNullOrWhiteSpace($CertMasterAppServiceName)) {
     $CertMasterAppServiceName = $scwebapp.data.name
@@ -107,7 +134,7 @@ function New-CertMasterAppService {
       # Do all the configuration that the ARM template does normally
       $SCEPmanHostname = $scwebapp.data.properties.defaultHostName
       if (-not [String]::IsNullOrWhiteSpace($DeploymentSlotName)) {
-        $selectedSlot = Invoke-Az -azCommand @("graph", "query", "-q", "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'") | Convert-LinesToObject
+        $selectedSlot = Invoke-Az -azCommand @("graph", "query", "--subscriptions", $SubscriptionId, "-q", "Resources | where type == 'microsoft.web/sites/slots' and resourceGroup == '$SCEPmanResourceGroup' and name =~ '$SCEPmanAppServiceName/$DeploymentSlotName'") | Convert-LinesToObject
         $SCEPmanHostname = $selectedSlot.data.properties.defaultHostName
       }
       $CertmasterAppSettingsTable = @{
@@ -140,6 +167,73 @@ function CreateSCEPmanAppService ( $SCEPmanResourceGroup, $SCEPmanAppServiceName
   Write-Verbose 'Configuring SCEPman General web app settings'
   $null = Invoke-Az @("webapp", "config", "set", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--use-32bit-worker-process", "false", "--ftps-state", "Disabled", "--always-on", "true")
   $null = Invoke-Az @("webapp", "update", "--name", $SCEPmanAppServiceName, "--resource-group", $SCEPmanResourceGroup, "--client-affinity-enabled", "false")
+}
+
+function Confirm-AppServiceStack ($AppServiceName, $ResourceGroup) {
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+  $intendedStack = SelectBestDotNetRuntime -ForLinux $isAppServiceLinux
+
+  if ($isAppServiceLinux) {
+    # This will return a value in form 'DOTNETCORE|10.0'
+    $query = 'linuxFxVersion'
+  } else {
+    # This will return a value in form 'v10.0'
+    $query = 'netFrameworkVersion'
+  }
+
+  $actualStack = Invoke-Az @("webapp", "config", "show", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", $query, "--output", "tsv")
+
+  if ([string]::IsNullOrWhiteSpace($actualStack)) {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup does not have a stack configured"
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+    return
+  }
+
+  # We extract the version for the following expected formats
+  # - Windows: 'v10.0'
+  # - Linux: 'DOTNETCORE|10.0'
+  # - Linux: 'DOTNETCORE:10.0' - this should not occur but is the form we use when setting the stack, so we want to be sure to handle it correctly in case it is returned by Azure in some cases
+  # For an unexpected format, the casting might fail
+  try {
+    $actualVersion = [double]($actualStack -replace '(.*\||.*:|^v)')
+  } catch {
+    Write-Warning "Failed to parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  if ($null -eq $actualVersion) {
+    Write-Warning "Could not parse actual stack version from stack string '$actualStack' for App Service $AppServiceName in resource group $ResourceGroup. Skipping stack check to avoid potential misconfiguration."
+    return
+  }
+
+  $intendedVersion = [double]($intendedStack -replace '.*:')
+
+  if ($actualVersion -gt $intendedVersion) {
+    Write-Verbose "The actual stack version $actualVersion is higher than the intended stack version $intendedVersion, skipping stack update to avoid downgrade"
+    return
+  }
+
+  if ($actualVersion -eq $intendedVersion) {
+    Write-Verbose "App Service $AppServiceName in resource group $ResourceGroup has the expected stack $intendedStack"
+  } else {
+    Write-Information "App Service $AppServiceName in resource group $ResourceGroup is expected to have stack version $intendedVersion but has stack version $actualVersion"
+
+    Set-AppServiceStack -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -Stack $intendedStack
+  }
+}
+
+function Set-AppServiceStack {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  param(
+    [Parameter(Mandatory=$true)][string]$AppServiceName,
+    [Parameter(Mandatory=$true)][string]$ResourceGroup,
+    [Parameter(Mandatory=$true)][string]$Stack
+  )
+
+  Write-Information "Setting App Service $AppServiceName in resource group $ResourceGroup to stack $Stack"
+  if ($PSCmdlet.ShouldProcess($AppServiceName, ("Setting stack to {0}" -f $Stack))) {
+    $null = Invoke-Az @("webapp", "config", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--runtime", $Stack)
+  }
 }
 
 function GetAppServicePlan ( $AppServicePlanName, $ResourceGroup, $SubscriptionId) {
@@ -337,7 +431,7 @@ function Update-ToConfiguredChannel {
     Write-Information "Switching app $AppServiceName to update channel $intendedChannel"
     $ArtifactsUrl = $ChannelArtifacts[$platform][$intendedChannel]
     if ([string]::IsNullOrWhiteSpace($ArtifactsUrl)) {
-      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $(Join-String -Separator ',' -InputObject $ChannelArtifacts[$platform].Keys)"
+      Write-Warning "Could not find Artifacts URL for Channel $intendedChannel of App Service $AppServiceName on platform $platform. Available channels: $($ChannelArtifacts[$platform].Keys -join ',')"
     } else {
       Write-Verbose "Artifacts URL is $ArtifactsUrl"
       if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching App Service to channel {0}" -f $intendedChannel))) {
@@ -345,6 +439,73 @@ function Update-ToConfiguredChannel {
         $null = Invoke-Az @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--setting-names", "Update_Channel")
       }
     }
+  }
+}
+
+function Confirm-ArtifactPlatform {
+  [CmdletBinding(SupportsShouldProcess=$true)]
+  [OutputType([bool])]
+  param (
+    [Parameter(Mandatory=$true)]    [string]$AppServiceName,
+    [Parameter(Mandatory=$true)]    [string]$ResourceGroup,
+    [Parameter(Mandatory=$true)]    [hashtable]$ChannelArtifacts
+  )
+
+  $currentArtifactUrl = ReadAppSetting -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup -SettingName "WEBSITE_RUN_FROM_PACKAGE"
+
+  $appPlatform = if (IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup){ "linux" } else { "windows" }
+
+  $knownChannel = $false
+  $artifactPlatform = $null
+  $artifactChannel = $null
+
+  foreach ($platform in $ChannelArtifacts.GetEnumerator()) {
+    foreach ($channel in $platform.Value.GetEnumerator()) {
+        if ($channel.Value -eq $currentArtifactUrl) {
+          # We found the channel that corresponds to the currently set artifact URL
+          # This means that the app is on a known channel
+          $knownChannel = $true
+          $artifactPlatform = $platform.Key
+          $artifactChannel = $channel.Key
+        }
+    }
+  }
+
+  if (-not $knownChannel) {
+    Write-Verbose "Current artifact URL $currentArtifactUrl does not correspond to any known channel. Assume manual update"
+    return $false
+  }
+
+  if ($artifactPlatform -match $appPlatform) {
+    # We are on the right platform on a known channel, nothing to do
+    Write-Verbose "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which matches the actual platform $appPlatform. No need to switch the artifact URL."
+
+    return $true
+  } else {
+    Write-Information "Current artifact URL $currentArtifactUrl corresponds to channel ""$artifactChannel"" on platform ""$artifactPlatform"", which does not match the actual platform ""$appPlatform"""
+
+    $intendedPlatformKey = if ($artifactPlatform -match '_alternative') {
+      $appPlatform + "_alternative"
+    } else {
+      $appPlatform
+    }
+
+    $intendedArtifactUrl = $ChannelArtifacts[$intendedPlatformKey][$artifactChannel]
+
+    # Accessing the hashtable on wrong keys should throw already, but we check for null or whitespace just to be sure
+    if ([string]::IsNullOrWhiteSpace($intendedArtifactUrl)) {
+      Write-Warning "Could not determine correct artifact URL for platform ""$artifactPlatform"" and channel ""$artifactChannel"". Expected to find it in ChannelArtifacts with key ""$intendedPlatformKey"" and channel key ""$artifactChannel"". Please check the configuration of ChannelArtifacts."
+      return $false
+    }
+
+    Write-Information "Switching artifact URL to $intendedArtifactUrl to match the platform ""$appPlatform"" of the ""$artifactChannel"" channel"
+    if ($PSCmdlet.ShouldProcess($AppServiceName, ("Switching artifact URL to match the platform {0}" -f $appPlatform))) {
+      $null = ExecuteAzCommandRobustly -azCommand @("webapp", "config", "appsettings", "set", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--settings", "WEBSITE_RUN_FROM_PACKAGE=$intendedArtifactUrl") -callAzNatively
+      return $true
+    }
+
+    # If we should not process, we return true anyway, as we are already on a known channel, just not the intended one for the platform. The user can then decide to switch manually or to stay on the current channel.
+    return $true
   }
 }
 
@@ -395,6 +556,35 @@ function SetAppSettings($AppServiceName, $ResourceGroup, $Settings, $Slot = $nul
   #$null = az webapp config appsettings set --name $AppServiceName --resource-group $ResourceGroup --settings (ConvertTo-Json($Settings) -Compress).Replace('"','\"')
 }
 
+function RemoveAppSettings($AppServiceName, $ResourceGroup, $SettingNames, $Slot = $null) {
+  # Base command to remove app settings
+  $command = @("webapp", "config", "appsettings", "delete", "--name", $AppServiceName, "--resource-group", $ResourceGroup)
+
+  $isAppServiceLinux = IsAppServiceLinux -AppServiceName $AppServiceName -ResourceGroup $ResourceGroup
+
+  $SettingsToRemove = Foreach($settingName in $SettingNames) {
+    if ($isAppServiceLinux) {
+      if ($settingName.Contains("-")) {
+        Write-Warning "Setting name $settingName contains at least one dash (-), which is unsupported on Linux. Skipping this setting."
+        continue
+      }
+      $settingName = $settingName.Replace(":", "__")
+    }
+    Write-Output $settingName
+  }
+
+  Write-Verbose "Removing app settings $($SettingsToRemove -join ",") from app $AppServiceName in slot [$Slot]"
+
+  $command += @("--setting-names")
+  $command += $SettingsToRemove
+
+  if (-not [String]::IsNullOrEmpty($Slot)) {
+    $command += @('--slot', $Slot)
+  }
+
+  $null = Invoke-Az $command
+}
+
 function ReadAppSettings($AppServiceName, $ResourceGroup) {
   $slotSettings = Invoke-Az @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", "[?slotSetting]") | Convert-LinesToObject
   $unboundSettings = Invoke-Az @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup, "--query", "[?!slotSetting]") | Convert-LinesToObject
@@ -415,7 +605,7 @@ function ReadAppSetting($AppServiceName, $ResourceGroup, $SettingName, $Slot = $
 
   $azCommand = @("webapp", "config", "appsettings", "list", "--name", $AppServiceName, "--resource-group", $ResourceGroup,
   "--query", "[?name=='$SettingName'].value | [0]")
-  if ($null -ne $Slot) {
+  if (-not [string]::IsNullOrEmpty($Slot)) {
     $azCommand += @("--slot", $Slot)
   }
 

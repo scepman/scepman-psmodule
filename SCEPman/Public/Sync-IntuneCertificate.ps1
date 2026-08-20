@@ -46,7 +46,7 @@ function Sync-IntuneCertificate
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($CertMasterResourceGroup)) {
         # No resource group given, search for it now
-        $CertMasterResourceGroup = GetResourceGroup -SCEPmanAppServiceName $CertMasterAppServiceName
+        $CertMasterResourceGroup = GetResourceGroup -SCEPmanAppServiceName $CertMasterAppServiceName -SubscriptionId $subscription.id
     }
 
     Write-Information "Finding API endpoint of Certificate Master"

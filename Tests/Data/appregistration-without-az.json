@@ -77,6 +77,18 @@
         "isEnabled": true,
         "origin": "Application",
         "value": "CSR.Request"
+      },
+      {
+        "allowedMemberTypes": [
+          "User",
+          "Application"
+        ],
+        "description": "Search and revoke all issued certificates",
+        "displayName": "Manage All",
+        "id": "6b1e2c51-1d36-4bdb-90ee-f4b2df2d34ff",
+        "isEnabled": true,
+        "origin": "Application",
+        "value": "Manage.All"
       }
     ],
     "applicationTemplateId": null,

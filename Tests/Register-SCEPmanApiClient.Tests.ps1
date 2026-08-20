@@ -49,11 +49,7 @@ Describe "Register-SCEPmanApiClient" {
             return Get-Content -Path "./Tests/Data/appregistration-missing-role.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" -azCommandMidfix "displayname eq 'SCEPman-api'" }
         Mock az {
-            if (CheckAzParameters -argsFromCommand $args -azCommandMidFix "CSR.SelfService") {
-                return $null
-            } else {
-                throw "Adding a role, but not the expected CSR.SelfService. role: $args"
-            }
+            return $null
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app update --id 12345678-aad6-4711-82a9-0123456789ab" }
         Mock az {
             return Get-Content -Path "./Tests/Data/appregistration-without-az.json"

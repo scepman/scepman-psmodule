@@ -75,7 +75,7 @@ function New-SCEPmanClone
     Write-Information "Setting source resource group"
     if ([String]::IsNullOrWhiteSpace($SourceResourceGroup)) {
         # No resource group given, search for it now
-        $SourceResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SourceAppServiceName
+        $SourceResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SourceAppServiceName -SubscriptionId $sourceSubscription.id
     }
 
     Write-Information "Checking VNET integration of SCEPman"
@@ -92,13 +92,13 @@ function New-SCEPmanClone
     $storageAccountTableEndpoint = $existingTableStorageEndpointSetting.Trim('"')
     if(-not [string]::IsNullOrEmpty($storageAccountTableEndpoint)) {
         Write-Verbose "Storage Account Table Endpoint $storageAccountTableEndpoint found"
-        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint
+        $ScStorageAccount = GetExistingStorageAccount -dataTableEndpoint $storageAccountTableEndpoint -SubscriptionId $sourceSubscription.Id
     } else {
         Write-Warning "No Storage Account found. Not adding any permissions."
     }
 
     Write-Information "Reading Key Vault registration from source"
-    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup
+    $keyvault = FindConfiguredKeyVault -SCEPmanAppServiceName $SourceAppServiceName -SCEPmanResourceGroup $SourceResourceGroup -SubscriptionId $sourceSubscription.Id
     Write-Verbose "Key Vault $($keyvault.name) identified"
 
     Write-Information "Getting target subscription details"
@@ -107,7 +107,7 @@ function New-SCEPmanClone
 
     Write-Information "Searching for target App Service Plan"
     if ([String]::IsNullOrWhiteSpace($TargetResourceGroup)) {
-        $TargetResourceGroup = GetResourceGroupFromPlanName -AppServicePlanName $TargetAppServicePlan
+        $TargetResourceGroup = GetResourceGroupFromPlanName -AppServicePlanName $TargetAppServicePlan -SubscriptionId $targetSubscription.id
         Write-Information "Using Resource Group $TargetResourceGroup (same as app service plan $TargetAppServicePlan)"
     }
     $trgtAsp = GetAppServicePlan -AppServicePlanName $TargetAppServicePlan -ResourceGroup $TargetResourceGroup -SubscriptionId $targetSubscription.Id
@@ -133,6 +133,14 @@ function New-SCEPmanClone
 
         Write-Information "Adding permissions to Key Vault"
         AddSCEPmanPermissionsToKeyVault -KeyVault $keyvault -PrincipalId $serviceprincipalsc.principalId
+
+        $DcrId = $SCEPmanSourceSettings.settings | Where-Object name -match 'AppConfig(:|__)LoggingConfig(:|__)RuleId' | Select-Object -ExpandProperty value
+        if ($DcrId) {
+            Write-Information "Found configured data collection rule. Confirm resource and add permission."
+            $DataCollectionRule = GetDataCollectionRule -DcrId $DcrId -SubscriptionId $sourceSubscription.Id
+
+            AddAppRoleAssignmentsForLogIngestionAPI -DcrResourceId $DataCollectionRule.id -ServicePrincipal $serviceprincipalsc.principalId
+        }
     }
 
     if ($null -ne $scepManVnetId) {

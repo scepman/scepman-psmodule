@@ -29,6 +29,9 @@
  .PARAMETER SkipCertificateMaster
   Set this flag to skip configuration of the Certificate Master App Service. This is useful for SCEPman clones, where the Certificate Master App Service already exists next to the main instance.
 
+ .PARAMETER SkipLoggingConfig
+  Set this flag to skip configuration of Log Analytics integration.
+
  .Parameter AzureADAppNameForSCEPman
   Name of the Azure AD app registration for SCEPman
 
@@ -59,6 +62,7 @@ function Complete-SCEPmanInstallation
         $SubscriptionId,
         [switch]$SkipAppRoleAssignments,
         [switch]$SkipCertificateMaster,
+        [switch]$SkipLoggingConfig,
         $AzureADAppNameForSCEPman = 'SCEPman-api',
         $AzureADAppNameForCertMaster = 'SCEPman-CertMaster',
         $GraphBaseUri = 'https://graph.microsoft.com'
@@ -106,7 +110,7 @@ function Complete-SCEPmanInstallation
     Write-Information "Setting resource group"
     if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroup)) {
         # No resource group given, search for it now
-        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+        $SCEPmanResourceGroup = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
     }
 
     if ([String]::IsNullOrWhiteSpace($CertMasterResourceGroup)) {
@@ -129,7 +133,7 @@ function Complete-SCEPmanInstallation
 
     if (-not $SkipCertificateMaster.IsPresent) {
         Write-Information "Getting Certificate Master web app"
-        $CertMasterAppServiceName = New-CertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName
+        $CertMasterAppServiceName = New-CertMasterAppService -TenantId $subscription.tenantId -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SubscriptionId $subscription.id
 
         if ("Skipped" -eq $CertMasterAppServiceName) {
             $SkipCertificateMaster = $true
@@ -196,14 +200,41 @@ function Complete-SCEPmanInstallation
         Update-ToConfiguredChannel -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
     }
 
+    Write-Verbose "Checking artifact URL of SCEPman"
+    $runningKnownChannelScepman = Confirm-ArtifactPlatform -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -ChannelArtifacts $Artifacts_Scepman
+
+    if ($runningKnownChannelScepman -eq $true) {
+        # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+        Confirm-AppServiceStack -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup
+    }
+
+    if (-not $SkipCertificateMaster) {
+        Write-Verbose "Checking artifact URL of Certificate Master"
+        $runningKnownChannelCertMaster = Confirm-ArtifactPlatform -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ChannelArtifacts $Artifacts_Certmaster
+
+        if ($runningKnownChannelCertMaster -eq $true) {
+            # Only confirm the stack if we are on a known channel, otherwise we might break instances on custom images
+            Confirm-AppServiceStack -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup
+        }
+    }
+
     Write-Information "Connecting Web Apps to Storage Account"
     Set-TableStorageEndpointsInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -servicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
 
-    Write-Information "Connecting Web Apps to Log Analytics"
-    Set-LoggingConfigInScAndCmAppSettings -SubscriptionId $subscription.Id -SCEPmanAppServiceName $SCEPmanAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup -CertMasterAppServiceName $CertMasterAppServiceName -CertMasterResourceGroup $CertMasterResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -DeploymentSlots $deploymentSlotsSc
+    if (-not $SkipLoggingConfig.IsPresent) {
+        Write-Information "Connecting SCEPman to Log Analytics"
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -ServicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+    } else {
+        Write-Information "Skipping Log Analytics configuration as -SkipLoggingConfig is set"
+    }
+
+    if (-not $SkipLoggingConfig.IsPresent -and -not $SkipCertificateMaster) {
+        Write-Information "Connecting Certificate Master to Log Analytics"
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ServicePrincipals @($serviceprincipalcm.principalId) -SkipAppRoleAssignments:$SkipAppRoleAssignments
+    }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
-    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName
+    $keyVault = FindConfiguredKeyVault -SCEPmanResourceGroup $SCEPmanResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.Id
     foreach ($scepmanServicePrincipal in $serviceprincipalOfScDeploymentSlots) {
         if ($PSCmdlet.ShouldProcess($keyVault.name, "Adding permissions for SCEPman on the Key Vault")) {
             AddSCEPmanPermissionsToKeyVault -KeyVault $keyVault -PrincipalId $scepmanServicePrincipal

@@ -29,14 +29,14 @@ jobs:
       CODE_SIGN_CERTIFICATE_NAME: scepman # name of Azure Key Vault HSM certificate to use for signing      
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.inputs.channel == 'none' && 'main' || github.event.inputs.channel }}  # Use the main branch if no channel is specified
       - name: Install AzureSignTool
         run: dotnet tool install --no-cache --global AzureSignTool
 
       - name: Azure CLI login
-        uses: azure/login@v3
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           tenant-id: ${{ env.CODE_SIGN_TENANT_ID }}
           client-id: ${{ env.CODE_SIGN_CLIENT_ID }}
@@ -62,7 +62,7 @@ jobs:
             -ifl .\input.txt
 
       - name: Upload signed module to artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Signed Module
           path: ./SCEPman
@@ -81,7 +81,7 @@ jobs:
     needs: code-sign-scepman
     steps:
       - name: Checkout
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Signed Module
           path: ./SCEPman

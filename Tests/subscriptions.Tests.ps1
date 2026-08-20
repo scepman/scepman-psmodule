@@ -171,3 +171,73 @@ Describe 'GetSubscriptionDetails' {
     # TODO: how to simulate user input inline??
     # Write-Output 1 | GetSubscriptionDetails
 }
+
+Describe 'GetResourceGroup' {
+    BeforeAll {
+        $singleWebAppResult = '{
+            "count": 1,
+            "data": [ { "name": "as-scepman", "resourceGroup": "rg-scepman" } ],
+            "skip_token": null,
+            "total_records": 1
+        }'
+    }
+
+    It 'Returns the resource group and scopes the graph query to the subscription' {
+        Mock Invoke-Az {
+            return $singleWebAppResult
+        } -ParameterFilter { $azCommand[0] -eq 'graph' -and $azCommand[1] -eq 'query' }
+
+        $resourceGroup = GetResourceGroup -SCEPmanAppServiceName 'as-scepman' -SubscriptionId 'sub-1'
+
+        $resourceGroup | Should -Be 'rg-scepman'
+        Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
+            $azCommand[0] -eq 'graph' -and
+            $azCommand[1] -eq 'query' -and
+            $azCommand -contains '--subscriptions' -and
+            $azCommand -contains 'sub-1'
+        }
+    }
+
+    It 'Throws when the resource group cannot be uniquely determined' {
+        Mock Invoke-Az {
+            return '{ "count": 0, "data": [], "skip_token": null, "total_records": 0 }'
+        } -ParameterFilter { $azCommand[0] -eq 'graph' -and $azCommand[1] -eq 'query' }
+
+        { GetResourceGroup -SCEPmanAppServiceName 'as-scepman' -SubscriptionId 'sub-1' 2>$null } | Should -Throw
+    }
+}
+
+Describe 'GetResourceGroupFromPlanName' {
+    BeforeAll {
+        $singlePlanResult = '{
+            "count": 1,
+            "data": [ { "name": "asp-scepman", "resourceGroup": "rg-scepman" } ],
+            "skip_token": null,
+            "total_records": 1
+        }'
+    }
+
+    It 'Returns the resource group and scopes the graph query to the subscription' {
+        Mock Invoke-Az {
+            return $singlePlanResult
+        } -ParameterFilter { $azCommand[0] -eq 'graph' -and $azCommand[1] -eq 'query' }
+
+        $resourceGroup = GetResourceGroupFromPlanName -AppServicePlanName 'asp-scepman' -SubscriptionId 'sub-1'
+
+        $resourceGroup | Should -Be 'rg-scepman'
+        Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
+            $azCommand[0] -eq 'graph' -and
+            $azCommand[1] -eq 'query' -and
+            $azCommand -contains '--subscriptions' -and
+            $azCommand -contains 'sub-1'
+        }
+    }
+
+    It 'Throws when the resource group cannot be uniquely determined' {
+        Mock Invoke-Az {
+            return '{ "count": 0, "data": [], "skip_token": null, "total_records": 0 }'
+        } -ParameterFilter { $azCommand[0] -eq 'graph' -and $azCommand[1] -eq 'query' }
+
+        { GetResourceGroupFromPlanName -AppServicePlanName 'asp-scepman' -SubscriptionId 'sub-1' 2>$null } | Should -Throw
+    }
+}
