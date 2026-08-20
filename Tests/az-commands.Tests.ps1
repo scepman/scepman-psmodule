@@ -23,7 +23,15 @@ Describe 'az-commands' {
 
         $formattedCommand = Format-AzCommandForDisplay -azCommand $command
 
-        $formattedCommand | Should -Be 'role assignment create --role "Monitoring Metrics Publisher" --headers "Content-Type=application/json" --scope "/subscriptions/test/resourceGroups/rg scepman" --body "{"key":"value with spaces"}"'
+        $formattedCommand | Should -Be 'role assignment create --role "Monitoring Metrics Publisher" --headers "Content-Type=application/json" --scope "/subscriptions/test/resourceGroups/rg scepman" --body "{`"key`":`"value with spaces`"}"'
+    }
+
+    It 'Should escape backticks and quotes when formatting commands for display' {
+        $command = @('--body', 'a `b "c"')
+
+        $formattedCommand = Format-AzCommandForDisplay -azCommand $command
+
+        $formattedCommand | Should -Be '--body "a ``b `"c`""'
     }
 
     Context 'AzLogin' {

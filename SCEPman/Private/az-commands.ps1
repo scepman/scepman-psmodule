@@ -257,7 +257,9 @@ function Format-AzCommandArgumentForDisplay($azCommandArgument) {
         return $argument
     }
 
-    return "`"$($argument.Replace('`', '``').Replace('"', '`"'))`""
+    # Escaping must happen outside the double-quoted string, otherwise its parser eats the backticks
+    $escapedArgument = $argument.Replace('`', '``').Replace('"', '`"')
+    return "`"$escapedArgument`""
 }
 
 function Format-AzCommandForDisplay($azCommand) {
