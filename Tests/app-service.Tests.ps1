@@ -72,7 +72,7 @@ Describe 'App Service' {
             return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
 
-        $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
+        $slots = GetDeploymentSlots -appServiceName "as-scepman" -resourceGroup "rg-scepman-test"
 
         $slots.Count | Should -Be 1
         $slots[0].Name | Should -Be "ds1"
@@ -190,14 +190,14 @@ Describe 'App Service' {
         It 'Switches artifact URL when known channel does not match platform' {
             Mock ReadAppSetting { return $Artifacts_Scepman.windows.beta }
             Mock IsAppServiceLinux { return $true }
-            Mock ExecuteAzCommandRobustly { return $null } -ParameterFilter {
-                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            Mock Invoke-Az { return $null } -ParameterFilter {
+                CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)"
             }
 
             Confirm-ArtifactPlatform -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
 
-            Should -Invoke ExecuteAzCommandRobustly -Exactly 1 -ParameterFilter {
-                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
+                CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)"
             }
         }
     }

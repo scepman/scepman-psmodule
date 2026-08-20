@@ -1,5 +1,5 @@
 function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true) {
-  $azureAdAppReg = Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
+  $azureAdAppReg = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "list", "--filter", "displayname eq '$name'", "--query", "[0]", "--only-show-errors"))
 
   if($null -eq $azureAdAppReg) {
     if ($createIfNotExists) {
@@ -83,7 +83,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
           # ExecuteAzCommandRobustly -callAzNatively -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--web-home-page-url", $homepage, "--web-redirect-uris", $allReplyUrls)
         }
         $azCommandToAddReplyUrls += $existingReplyUrls + $replyUrlsToAdd
-        ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommandToAddReplyUrls
+        Invoke-Az -azCommand $azCommandToAddReplyUrls
       }
     }
     $azureAdAppReg.web.redirectUris
@@ -100,7 +100,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   $servicePrincipalScepmanId = CreateServicePrincipal -appId $($appregsc.appId)
 
   # Expose SCEPman API
-  ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
+  Invoke-Az -azCommand @("ad", "app", "update", "--id", $appregsc.appId, "--identifier-uris", "api://$($appregsc.appId)")
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
@@ -127,7 +127,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   # Expose CertMaster API
-  ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregcm.appId) --identifier-uris `"api://$($appregcm.appId)`""
+  Invoke-Az -azCommand @("ad", "app", "update", "--id", $appregcm.appId, "--identifier-uris", "api://$($appregcm.appId)")
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
   # Add Microsoft Graph's User.Read as delegated permission for CertMaster
@@ -148,7 +148,7 @@ function Add-AzAsTrustedClientApplication {
   param(
     [Parameter(Mandatory=$true)]$AppId
   )
-  $AppJson = ExecuteAzCommandRobustly -callAzNatively -azCommand @('ad', 'app', 'show', '--id', $AppId)
+  $AppJson = Invoke-Az -azCommand @('ad', 'app', 'show', '--id', $AppId)
   $AppObject = Convert-LinesToObject -Lines $AppJson
 
   $existingAzAuthorization = $AppObject.api.preAuthorizedApplications | Where-Object { $_.appId -eq $AzAppId }
@@ -163,7 +163,7 @@ function Add-AzAsTrustedClientApplication {
     $preAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($preAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
     if ($PSCmdlet.ShouldProcess("Application with id $($AppObject.id)", "Add az (App Id: $AzAppId) as authorized application")) {
-      $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $preAuthorizationsBody, '--headers', 'Content-Type=application/json')
+      $null = Invoke-Az -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $preAuthorizationsBody, '--headers', 'Content-Type=application/json')
     }
 
     return $true
@@ -191,6 +191,6 @@ function Remove-AzAsTrustedClientApplication {
   $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
   if ($PSCmdlet.ShouldProcess("Application with id $($AppObject.id)", "Remove az (App Id: $AzAppId) as authorized application")) {
-    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+    $null = Invoke-Az -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
   }
 }

@@ -106,6 +106,11 @@ Describe 'GetSubscriptionDetails' {
                 return Get-Content -Path "./Tests/Data/subscriptions.json"
             }
 
+            if ($azCommand[0] -eq "account" -and $azCommand[1] -eq "set")
+            {
+                return $null
+            }
+
             throw "Unexpected command: $azCommand"
         }
     }

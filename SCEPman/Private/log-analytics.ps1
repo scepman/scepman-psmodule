@@ -32,6 +32,7 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId, $SubscriptionId
 }
 
 function GetDataCollectionRule {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
         [string]$ResourceGroup,
@@ -292,12 +293,12 @@ function ConfigureLogIngestionAPIResources() {
 }
 
 function AddAppRoleAssignmentsForLogIngestionAPI($DcrResourceId, $ServicePrincipal, $SkipAppRoleAssignments = $false) {
-    $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($ServicePrincipal) --assignee-principal-type ServicePrincipal --scope $DcrResourceId"
+    $azCommandToAssignRole = @("role", "assignment", "create", "--role", "Monitoring Metrics Publisher", "--assignee-object-id", $ServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $DcrResourceId)
     if($SkipAppRoleAssignments) {
-        Write-Warning "Skipping app role assignment (please execute manually): $azCommandToAssignRole"
+        Write-Warning "Skipping app role assignment (please execute manually): az $(Format-AzCommandForDisplay -azCommand $azCommandToAssignRole)"
         return
     }
-    $null = ExecuteAzCommandRobustly -azCommand $azCommandToAssignRole
+    $null = Invoke-Az -azCommand $azCommandToAssignRole
     Write-Verbose "Role 'Monitoring Metrics Publisher' assigned to service principal $ServicePrincipal for the scope of the Data Collection Rule with resource id $DcrResourceId"
 }
 
