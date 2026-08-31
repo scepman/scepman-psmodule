@@ -225,6 +225,27 @@ New-Variable -Name "CertmasterManifest" -Scope "Script" -Option ReadOnly -Value 
   'displayName' = 'Request Server (Form)'
   'isEnabled' = $true
   'value' = 'Request.Server.Form'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Let user request user certificates for themselves using CSR or form"
+  'displayName' = 'Request User Self-Service'
+  'isEnabled' = $true
+  'value' = 'Request.User.SelfService'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Let user request user certificates for themselves using CSR"
+  'displayName' = 'Request User Self-Service (CSR)'
+  'isEnabled' = $true
+  'value' = 'Request.User.SelfService.Csr'
+},
+@{
+  'allowedMemberTypes' = @( 'User' )
+  'description' = "Let user request user certificates for themselves using form"
+  'displayName' = 'Request User Self-Service (Form)'
+  'isEnabled' = $true
+  'value' = 'Request.User.SelfService.Form'
 })
 
 New-Variable -Name "Artifacts_Certmaster" -Scope "Script" -Option ReadOnly -Value @{
