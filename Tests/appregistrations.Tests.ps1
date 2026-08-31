@@ -64,6 +64,75 @@ Describe 'RegisterAzureADApp' {
     }
 }
 
+Describe 'RegisterAzureADApp adds missing app roles' {
+    BeforeAll {
+        function GetOutdatedCertMasterAppRegistration {   # CertMaster app registration from before the self-service roles were introduced
+            $outdatedAppRoles = $CertmasterManifest | Where-Object { -not $_.value.StartsWith('Request.User.SelfService') }
+            return @{
+                'appId' = '12345678-aad6-4711-82a9-0123456789ab'
+                'id' = 'd14ee50a-dc6d-4f7e-b054-98e9acf31f0a'
+                'displayName' = 'SCEPman-CertMaster'
+                'appRoles' = @($outdatedAppRoles)
+                'web' = @{ 'redirectUris' = @() }
+            } | ConvertTo-Json -Depth 10
+        }
+
+        MockAzVersion
+    }
+
+    BeforeEach {
+        $script:appRolesSentToAz = $null
+
+        Mock az {
+            return GetOutdatedCertMasterAppRegistration
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+        Mock az {
+            return GetOutdatedCertMasterAppRegistration   # The reload after the update; content is irrelevant for this test
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app show" }
+        Mock WriteToAzStdin {
+            $script:appRolesSentToAz = $stdinInput
+            return $null
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix "ad app update" }
+        EnsureNoAdditionalAzCalls
+    }
+
+    It 'adds the self-service roles to an existing CertMaster app registration' {
+        RegisterAzureADApp -name "SCEPman-CertMaster" -appRoleAssignments $CertmasterManifest
+
+        Should -Invoke WriteToAzStdin -Exactly 1
+        $updatedAppRoles = Convert-LinesToObject -lines $script:appRolesSentToAz
+        $updatedAppRoles.value | Should -Contain 'Request.User.SelfService'
+        $updatedAppRoles.value | Should -Contain 'Request.User.SelfService.Csr'
+        $updatedAppRoles.value | Should -Contain 'Request.User.SelfService.Form'
+    }
+
+    It 'keeps all previously existing app roles' {
+        RegisterAzureADApp -name "SCEPman-CertMaster" -appRoleAssignments $CertmasterManifest
+
+        $updatedAppRoles = Convert-LinesToObject -lines $script:appRolesSentToAz
+        $updatedAppRoles.Count | Should -Be $CertmasterManifest.Count
+        foreach ($expectedAppRole in $CertmasterManifest) {
+            $updatedAppRoles.value | Should -Contain $expectedAppRole.value
+        }
+    }
+
+    It 'does not update the app registration if all roles are already present' {
+        Mock az {
+            return @{
+                'appId' = '12345678-aad6-4711-82a9-0123456789ab'
+                'id' = 'd14ee50a-dc6d-4f7e-b054-98e9acf31f0a'
+                'displayName' = 'SCEPman-CertMaster'
+                'appRoles' = @($CertmasterManifest)
+                'web' = @{ 'redirectUris' = @() }
+            } | ConvertTo-Json -Depth 10
+        } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix "ad app list" }
+
+        RegisterAzureADApp -name "SCEPman-CertMaster" -appRoleAssignments $CertmasterManifest
+
+        Should -Invoke WriteToAzStdin -Exactly 0
+    }
+}
+
 Describe 'Create SCEPman App Registrations' {
     BeforeAll {
         #Az calls in create ScepmanAppRegistration
