@@ -178,6 +178,11 @@ Describe 'Create SCEPman App Registrations' {
         Should -Invoke RegisterAzureADApp -Exactly 1 -ParameterFilter { $SkipAppRoleAssignments -eq $true }
     }
 
+    It 'passes SkipAppRoleAssignments to SetManagedIdentityPermissions' {
+        CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman 'appname' -CertMasterServicePrincipalId 'id' -GraphBaseUri 'uri' -SkipAppRoleAssignments $true
+        Should -Invoke SetManagedIdentityPermissions -Exactly 1 -ParameterFilter { $SkipAppRoleAssignments -eq $true }
+    }
+
     It 'has expected output' {
         $result = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman 'appname' -CertMasterServicePrincipalId 'id' -GraphBaseUri 'uri'
         $result.ToString() | Should -Be $(Convert-LinesToObject $(Get-Content -Path "./Tests/Data/applist.json"))[0].ToString()

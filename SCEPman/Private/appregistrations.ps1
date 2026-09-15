@@ -116,7 +116,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   }
 
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);'permissionLevel'=0})
-  $null = SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
+  $null = SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
 
   return $appregsc
 }
