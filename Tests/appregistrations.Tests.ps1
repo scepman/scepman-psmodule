@@ -131,6 +131,15 @@ Describe 'RegisterAzureADApp adds missing app roles' {
 
         Should -Invoke WriteToAzStdin -Exactly 0
     }
+
+    It 'does not add missing app roles when SkipAppRoleAssignments is set' {
+        Mock Write-Warning { }
+
+        RegisterAzureADApp -name "SCEPman-CertMaster" -appRoleAssignments $CertmasterManifest -SkipAppRoleAssignments $true
+
+        Should -Invoke WriteToAzStdin -Exactly 0
+        Should -Invoke Write-Warning -Exactly 1 -ParameterFilter { $Message -like '*Skipping addition of missing app roles*' }
+    }
 }
 
 Describe 'Create SCEPman App Registrations' {
@@ -162,6 +171,11 @@ Describe 'Create SCEPman App Registrations' {
     It 'calls RegisterAzureADApp' {
         CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman 'appname' -CertMasterServicePrincipalId 'id' -GraphBaseUri 'uri'
         Should -Invoke RegisterAzureADApp
+    }
+
+    It 'passes SkipAppRoleAssignments to RegisterAzureADApp' {
+        CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman 'appname' -CertMasterServicePrincipalId 'id' -GraphBaseUri 'uri' -SkipAppRoleAssignments $true
+        Should -Invoke RegisterAzureADApp -Exactly 1 -ParameterFilter { $SkipAppRoleAssignments -eq $true }
     }
 
     It 'has expected output' {
@@ -210,6 +224,11 @@ Describe 'Create Cert Master App Registrations' {
     It 'calls RegisterAzureADApp' {
         CreateCertMasterAppRegistration -AzureADAppNameForCertMaster 'appname' -CertMasterBaseURLs 'https://scepman-cm.com'
         Should -Invoke RegisterAzureADApp
+    }
+
+    It 'passes SkipAppRoleAssignments to RegisterAzureADApp' {
+        CreateCertMasterAppRegistration -AzureADAppNameForCertMaster 'appname' -CertMasterBaseURLs 'https://scepman-cm.com' -SkipAppRoleAssignments $true
+        Should -Invoke RegisterAzureADApp -Exactly 1 -ParameterFilter { $SkipAppRoleAssignments -eq $true }
     }
 }
 

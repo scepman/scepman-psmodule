@@ -1,4 +1,4 @@
-function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true) {
+function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true, $SkipAppRoleAssignments = $false) {
   $azureAdAppReg = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "list", "--filter", "displayname eq '$name'", "--query", "[0]", "--only-show-errors"))
 
   if($null -eq $azureAdAppReg) {
@@ -50,23 +50,29 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
 
     # check whether we need to update the roles
     $anything2Update = $false
+    $missingAppRoleValues = @()
     $updatedAppRoles = $azureAdAppReg.appRoles
     foreach ($requiredAppRole in $appRoleAssignments) {
       $role2Update = $updatedAppRoles.Where({ $_.value -eq $requiredAppRole.value}, "First")
       if ($role2Update.Count -eq 0) {
         $anything2Update = $true
+        $missingAppRoleValues += $requiredAppRole.value
         Write-Verbose "Required role $($requiredAppRole.displayName) will be added to existing app registration"
         $updatedAppRoles += ,$requiredAppRole
       }
     }
 
     if ($anything2Update) {
-      Write-Information "Adding new roles to app registration $name"
-      $appRolesJson = ConvertTo-Json -Compress -InputObject $updatedAppRoles -Depth 10
-      ExecuteAzCommandRobustly -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", "@-") -stdinInput $appRolesJson
+      if ($SkipAppRoleAssignments) {
+        Write-Warning "Skipping addition of missing app roles to app registration $name due to -SkipAppRoleAssignments. Please add these roles manually later: $([string]::Join(', ', $missingAppRoleValues))"
+      } else {
+        Write-Information "Adding new roles to app registration $name"
+        $appRolesJson = ConvertTo-Json -Compress -InputObject $updatedAppRoles -Depth 10
+        ExecuteAzCommandRobustly -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", "@-") -stdinInput $appRolesJson
 
-        # Reload app registration with new roles
-      $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
+          # Reload app registration with new roles
+        $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
+      }
     }
 
     if ($null -ne $replyUrls) {
@@ -92,10 +98,10 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
   return $azureAdAppReg
 }
 
-function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri) {
+function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri, $SkipAppRoleAssignments = $false) {
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
-  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true
+  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true -SkipAppRoleAssignments $SkipAppRoleAssignments
 
   $servicePrincipalScepmanId = CreateServicePrincipal -appId $($appregsc.appId)
 
@@ -115,7 +121,7 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false, $SkipAppRoleAssignments = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
@@ -123,7 +129,7 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true -SkipAppRoleAssignments $SkipAppRoleAssignments
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   # Expose CertMaster API

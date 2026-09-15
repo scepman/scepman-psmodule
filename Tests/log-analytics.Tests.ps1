@@ -266,4 +266,28 @@ Describe 'Log Analytics' {
         Should -Invoke SetAppSettings -Exactly 2
         Should -Invoke AddAppRoleAssignmentsForLogIngestionAPI -Exactly 2 -ParameterFilter { $DcrResourceId -eq $dcrDetails.id }
     }
+
+    It 'always assigns the Monitoring Metrics Publisher role for Log Ingestion API' {
+        Mock Invoke-Az { } -ParameterFilter {
+            $azCommand[0] -eq 'role' -and
+            $azCommand[1] -eq 'assignment' -and
+            $azCommand[2] -eq 'create' -and
+            $azCommand -contains '--role' -and
+            $azCommand -contains 'Monitoring Metrics Publisher' -and
+            $azCommand -contains '--scope' -and
+            $azCommand -contains '/subscriptions/sub-1/resourceGroups/rg-scepman/providers/Microsoft.Insights/dataCollectionRules/dcr-scepmanlogs'
+        }
+
+        AddAppRoleAssignmentsForLogIngestionAPI -DcrResourceId '/subscriptions/sub-1/resourceGroups/rg-scepman/providers/Microsoft.Insights/dataCollectionRules/dcr-scepmanlogs' -ServicePrincipal 'sp-scepman'
+
+        Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
+            $azCommand[0] -eq 'role' -and
+            $azCommand[1] -eq 'assignment' -and
+            $azCommand[2] -eq 'create' -and
+            $azCommand -contains '--role' -and
+            $azCommand -contains 'Monitoring Metrics Publisher' -and
+            $azCommand -contains '--assignee-object-id' -and
+            $azCommand -contains 'sp-scepman'
+        }
+    }
 }

@@ -223,14 +223,14 @@ function Complete-SCEPmanInstallation
 
     if (-not $SkipLoggingConfig.IsPresent) {
         Write-Information "Connecting SCEPman to Log Analytics"
-        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -SkipAppRoleAssignments:$SkipAppRoleAssignments -ServicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $SCEPmanAppServiceName -ResourceGroup $SCEPmanResourceGroup -DeploymentSlotName $DeploymentSlotName -ServicePrincipals $servicePrincipals -DeploymentSlots $deploymentSlotsSc
     } else {
         Write-Information "Skipping Log Analytics configuration as -SkipLoggingConfig is set"
     }
 
     if (-not $SkipLoggingConfig.IsPresent -and -not $SkipCertificateMaster) {
         Write-Information "Connecting Certificate Master to Log Analytics"
-        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ServicePrincipals @($serviceprincipalcm.principalId) -SkipAppRoleAssignments:$SkipAppRoleAssignments
+        Set-LoggingConfigInAppSettings -SubscriptionId $subscription.Id -AppServiceName $CertMasterAppServiceName -ResourceGroup $CertMasterResourceGroup -ServicePrincipals @($serviceprincipalcm.principalId)
     }
 
     Write-Information "Adding permissions for SCEPman on the Key Vault"
@@ -268,14 +268,14 @@ function Complete-SCEPmanInstallation
             $permissionLevelCertMaster = SetManagedIdentityPermissions -principalId $serviceprincipalcm.principalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
             Write-Information "Certificate Master's permission level is $permissionLevelCertMaster"
 
-            $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri
+            $appregsc = CreateSCEPmanAppRegistration -AzureADAppNameForSCEPman $AzureADAppNameForSCEPman -CertMasterServicePrincipalId $serviceprincipalcm.principalId -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
 
             $CertMasterHostNames = GetAppServiceHostNames -appServiceName $CertMasterAppServiceName -SCEPmanResourceGroup $SCEPmanResourceGroup
             $CertMasterBaseURLs = @($CertMasterHostNames | ForEach-Object { "https://$_" })
             $CertMasterBaseURL = $CertMasterBaseURLs[0]
             Write-Verbose "CertMaster web app url are $CertMasterBaseURL"
 
-            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments
+            $appregcm = CreateCertMasterAppRegistration -AzureADAppNameForCertMaster $AzureADAppNameForCertMaster -CertMasterBaseURLs $CertMasterBaseURLs -SkipAutoGrant $SkipAppRoleAssignments -SkipAppRoleAssignments $SkipAppRoleAssignments
         }
     }
 
