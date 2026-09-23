@@ -40,43 +40,9 @@ function GetCertMasterAppServiceName ($CertMasterResourceGroup, $SCEPmanAppServi
 
 function SelectBestDotNetRuntime ($ForLinux = $false) {
   if ($ForLinux) {
-    $runtimePrefix = "DOTNETCORE"
-    $os = "linux"
+    return "DOTNETCORE:10.0"
   } else {
-    $runtimePrefix = "dotnet"
-    $os = "windows"
-  }
-
-  $defaultRuntime = if ($ForLinux) { "DOTNETCORE:10.0" } else { "dotnet:10" }
-
-  try {
-    # As of az 2.87.0 (breaking change), the output format changed from a flat list of strings (e.g. "dotnet:10")
-    # to a structured list of objects with keys: os, runtime, version, config, support, end_of_life (e.g. config "dotnet|10").
-    # We use JSON output and handle both formats to remain compatible with old and new az versions.
-    $runtimes = Invoke-Az @("webapp", "list-runtimes", "--os", $os, "--output", "json") | Convert-LinesToObject
-
-    # Normalize both formats into a list of runtime strings in the "<prefix>:<version>" form expected by --runtime.
-    [String []]$runtimeStrings = $runtimes | ForEach-Object {
-      if ($_ -is [string]) {
-        # Old format: a flat list of strings like "dotnet:10"
-        $_
-      } else {
-        # New format: objects with a "config" property like "dotnet|10". The --runtime parameter expects ":" as separator.
-        $_.config -replace '\|', ':'
-      }
-    }
-
-    [String []]$dotnetRuntimes = $runtimeStrings | Where-Object { $_.ToLower().StartsWith($runtimePrefix.ToLower()) }
-    if ($dotnetRuntimes.Count -gt 0) {
-      Write-Verbose "Available .NET runtimes for $os : $($dotnetRuntimes -join ", ")"
-      return $dotnetRuntimes[0]
-    } else {
-      Write-Warning "No .NET runtimes found for $os. Defaulting to $defaultRuntime"
-      return $defaultRuntime
-  }
-  } catch {
-    Write-Warning "Could not retrieve available runtimes for $os. Defaulting to $defaultRuntime"
-    return $defaultRuntime
+    return "dotnet:10"
   }
 }
 
