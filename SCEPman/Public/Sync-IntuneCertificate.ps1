@@ -69,7 +69,7 @@ function Sync-IntuneCertificate
     # Expose CertMaster API
     Write-Information "Making sure that Certificate Master exposes its API"
     if ($PSCmdlet.ShouldProcess("Certificate Master App Registration ($CertMasterAppId)", "Expose its API")) {
-      ExecuteAzCommandRobustly -azCommand "az ad app update --id $CertMasterAppId --identifier-uris `"api://$CertMasterAppId`""
+      Invoke-Az -azCommand @("ad", "app", "update", "--id", $CertMasterAppId, "--identifier-uris", "api://$CertMasterAppId")
     }
 
     # Add az as Client Application to SCEPman-CertMaster

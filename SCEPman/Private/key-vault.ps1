@@ -12,9 +12,9 @@ function AddSCEPmanPermissionsToKeyVault ($KeyVault, $PrincipalId) {
     $null = Invoke-Az @("role", "assignment", "create", "--role", "Key Vault Secrets User", "--assignee-object-id", $PrincipalId, "--assignee-principal-type", "ServicePrincipal", "--scope", $KeyVault.id)
   } else {
     Write-Information "Setting policy permissions for Key Vault"
-    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --key-permissions get create unwrapKey sign"
-    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --secret-permissions get list"
-    $null = ExecuteAzCommandRobustly -azCommand "az keyvault set-policy --name $($KeyVault.Name) --object-id $PrincipalId --subscription $($KeyVault.SubscriptionId) --certificate-permissions get list create managecontacts"
+    $null = Invoke-Az @("keyvault", "set-policy", "--name", $KeyVault.Name, "--object-id", $PrincipalId, "--subscription", $KeyVault.SubscriptionId, "--key-permissions", "get", "create", "unwrapKey", "sign")
+    $null = Invoke-Az @("keyvault", "set-policy", "--name", $KeyVault.Name, "--object-id", $PrincipalId, "--subscription", $KeyVault.SubscriptionId, "--secret-permissions", "get", "list")
+    $null = Invoke-Az @("keyvault", "set-policy", "--name", $KeyVault.Name, "--object-id", $PrincipalId, "--subscription", $KeyVault.SubscriptionId, "--certificate-permissions", "get", "list", "create", "managecontacts")
   }
 }
 
@@ -67,8 +67,8 @@ function New-IntermediateCaCsr {
     #az keyvault certificate create --policy @C:\temp\certs\keyvault\rsa-policy.json --vault-name $vaultName --name $certificateName
 
       # The direct graph call instead works
-    $creationResponseLines = ExecuteAzCommandRobustly -azCommand @("rest", "--method", "post", "--uri", "$($vaultUrl)certificates/$certificateName/create?api-version=7.0",
-    "--headers", "Content-Type=application/json", "--resource", $vaultDomain, "--body", $caPolicyJson) -callAzNatively
+    $creationResponseLines = Invoke-Az -azCommand @("rest", "--method", "post", "--uri", "$($vaultUrl)certificates/$certificateName/create?api-version=7.0",
+    "--headers", "Content-Type=application/json", "--resource", $vaultDomain, "--body", $caPolicyJson)
     $creationResponse = Convert-LinesToObject -lines $creationResponseLines
 
     Write-Information "Created a CSR with Request ID $($creationResponse.request_id)"

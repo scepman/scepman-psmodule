@@ -12,53 +12,13 @@ Describe 'App Service' {
     }
 
     Context 'SelectBestDotNetRuntime' {
-        BeforeAll {
-            # Emulates the az output for a list of runtime strings (in "<prefix>:<version>" form) in either
-            # the old format (flat list of strings) or the new format introduced in az 2.87.0 (list of objects with a "config" property using "|").
-            function New-RuntimeListJson ($Runtimes, $Format) {
-                if ($Format -eq 'new') {
-                    $Runtimes = $Runtimes | ForEach-Object { [PSCustomObject]@{ config = ($_ -replace ':', '|') } }
-                }
-                return $Runtimes | ConvertTo-Json
-            }
-        }
-
-        It 'Finds a good <Os> DotNet Runtime (<Format> az output format)' -ForEach @(
-            @{ Os = 'windows'; ForLinux = $false; Expected = 'dotnet:10';      Runtimes = @('dotnet:10', 'dotnet:9', 'ASPNET:V4.8', 'NODE:20LTS'); Format = 'old' }
-            @{ Os = 'windows'; ForLinux = $false; Expected = 'dotnet:10';      Runtimes = @('dotnet:10', 'dotnet:9', 'ASPNET:V4.8', 'NODE:20LTS'); Format = 'new' }
-            @{ Os = 'linux';   ForLinux = $true;  Expected = 'DOTNETCORE:10.0'; Runtimes = @('DOTNETCORE:10.0', 'DOTNETCORE:9.0', 'NODE:20-lts'); Format = 'old' }
-            @{ Os = 'linux';   ForLinux = $true;  Expected = 'DOTNETCORE:10.0'; Runtimes = @('DOTNETCORE:10.0', 'DOTNETCORE:9.0', 'NODE:20-lts'); Format = 'new' }
+        It 'Returns the .NET 10 LTS runtime for <Os>' -ForEach @(
+            @{ Os = 'Windows'; ForLinux = $false; Expected = 'dotnet:10' }
+            @{ Os = 'Linux';   ForLinux = $true;  Expected = 'DOTNETCORE:10.0' }
         ) {
-            Mock Invoke-Az { return New-RuntimeListJson -Runtimes $Runtimes -Format $Format } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
-
             $runtime = SelectBestDotNetRuntime -ForLinux $ForLinux
 
             $runtime | Should -Be $Expected
-            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
-        }
-
-        It 'Falls back to the default runtime if no matching runtime is returned (<Format> az output format)' -ForEach @(
-            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10';      Os = 'windows'; NonDotNetRuntime = 'NODE:20LTS';  Format = 'old' }
-            @{ ForLinux = $true;  ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux';   NonDotNetRuntime = 'NODE:20-lts'; Format = 'old' }
-            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10';      Os = 'windows'; NonDotNetRuntime = 'NODE:20LTS';  Format = 'new' }
-            @{ ForLinux = $true;  ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux';   NonDotNetRuntime = 'NODE:20-lts'; Format = 'new' }
-        ) {
-            Mock Invoke-Az { return New-RuntimeListJson -Runtimes @($NonDotNetRuntime) -Format $Format } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
-
-            $runtime = SelectBestDotNetRuntime -ForLinux $ForLinux
-
-            $runtime | Should -Be $ExpectedRuntime
-        }
-
-        It 'Falls back to the default runtime if runtime retrieval fails' -ForEach @(
-            @{ ForLinux = $false; ExpectedRuntime = 'dotnet:10'; Os = 'windows' }
-            @{ ForLinux = $true; ExpectedRuntime = 'DOTNETCORE:10.0'; Os = 'linux' }
-        ) {
-            Mock Invoke-Az { throw 'az failed' } -ParameterFilter { $azCommand -join ' ' -eq "webapp list-runtimes --os $Os --output json" }
-
-            $runtime = SelectBestDotNetRuntime -ForLinux $ForLinux
-
-            $runtime | Should -Be $ExpectedRuntime
         }
     }
 
@@ -72,7 +32,7 @@ Describe 'App Service' {
             return Get-Content -Path "./Tests/Data/webapp-deployment-slot-list.json"
         } -ParameterFilter { CheckAzParameters -argsFromCommand $args -azCommandPrefix 'webapp deployment slot list' }
 
-        $slots = GetDeploymentSlots -ResourceGroupName "rg-scepman-test" -AppName "as-scepman"
+        $slots = GetDeploymentSlots -appServiceName "as-scepman" -resourceGroup "rg-scepman-test"
 
         $slots.Count | Should -Be 1
         $slots[0].Name | Should -Be "ds1"
@@ -190,14 +150,14 @@ Describe 'App Service' {
         It 'Switches artifact URL when known channel does not match platform' {
             Mock ReadAppSetting { return $Artifacts_Scepman.windows.beta }
             Mock IsAppServiceLinux { return $true }
-            Mock ExecuteAzCommandRobustly { return $null } -ParameterFilter {
-                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            Mock Invoke-Az { return $null } -ParameterFilter {
+                CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)"
             }
 
             Confirm-ArtifactPlatform -AppServiceName "as-scepman" -ResourceGroup "rg-scepman-test" -ChannelArtifacts $Artifacts_Scepman
 
-            Should -Invoke ExecuteAzCommandRobustly -Exactly 1 -ParameterFilter {
-                $callAzNatively -and (CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)")
+            Should -Invoke Invoke-Az -Exactly 1 -ParameterFilter {
+                CheckAzParameters -argsFromCommand $azCommand -azCommandPrefix 'webapp config appsettings set' -azCommandMidfix "WEBSITE_RUN_FROM_PACKAGE=$($Artifacts_Scepman.linux.beta)"
             }
         }
     }

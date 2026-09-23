@@ -1,5 +1,5 @@
-function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true) {
-  $azureAdAppReg = Convert-LinesToObject -lines $(az ad app list --filter "displayname eq '$name'" --query "[0]" --only-show-errors)
+function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $homepage = $null, $EnableIdToken = $false, $createIfNotExists = $true, $SkipAppRoleAssignments = $false) {
+  $azureAdAppReg = Convert-LinesToObject -lines $(Invoke-Az @("ad", "app", "list", "--filter", "displayname eq '$name'", "--query", "[0]", "--only-show-errors"))
 
   if($null -eq $azureAdAppReg) {
     if ($createIfNotExists) {
@@ -50,23 +50,29 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
 
     # check whether we need to update the roles
     $anything2Update = $false
+    $missingAppRoleValues = @()
     $updatedAppRoles = $azureAdAppReg.appRoles
     foreach ($requiredAppRole in $appRoleAssignments) {
       $role2Update = $updatedAppRoles.Where({ $_.value -eq $requiredAppRole.value}, "First")
       if ($role2Update.Count -eq 0) {
         $anything2Update = $true
+        $missingAppRoleValues += $requiredAppRole.value
         Write-Verbose "Required role $($requiredAppRole.displayName) will be added to existing app registration"
         $updatedAppRoles += ,$requiredAppRole
       }
     }
 
     if ($anything2Update) {
-      Write-Information "Adding new roles to app registration $name"
-      $appRolesJson = ConvertTo-Json -Compress -InputObject $updatedAppRoles -Depth 10
-      ExecuteAzCommandRobustly -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", "@-") -stdinInput $appRolesJson
+      if ($SkipAppRoleAssignments) {
+        Write-Warning "Skipping addition of missing app roles to app registration $name due to -SkipAppRoleAssignments. Please add these roles manually later: $([string]::Join(', ', $missingAppRoleValues))"
+      } else {
+        Write-Information "Adding new roles to app registration $name"
+        $appRolesJson = ConvertTo-Json -Compress -InputObject $updatedAppRoles -Depth 10
+        ExecuteAzCommandRobustly -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--app-roles", "@-") -stdinInput $appRolesJson
 
-        # Reload app registration with new roles
-      $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
+          # Reload app registration with new roles
+        $azureAdAppReg = Invoke-Az -azCommand $('ad', 'app', 'show', '--id', $azureAdAppReg.id) | Convert-LinesToObject
+      }
     }
 
     if ($null -ne $replyUrls) {
@@ -83,7 +89,7 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
           # ExecuteAzCommandRobustly -callAzNatively -azCommand @("ad", "app", "update", "--id", $azureAdAppReg.appId, "--web-home-page-url", $homepage, "--web-redirect-uris", $allReplyUrls)
         }
         $azCommandToAddReplyUrls += $existingReplyUrls + $replyUrlsToAdd
-        ExecuteAzCommandRobustly -callAzNatively -azCommand $azCommandToAddReplyUrls
+        Invoke-Az -azCommand $azCommandToAddReplyUrls
       }
     }
     $azureAdAppReg.web.redirectUris
@@ -92,15 +98,15 @@ function RegisterAzureADApp($name, $appRoleAssignments, $replyUrls = $null, $hom
   return $azureAdAppReg
 }
 
-function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri) {
+function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterServicePrincipalId, $GraphBaseUri, $SkipAppRoleAssignments = $false) {
   Write-Information "Getting Azure AD app registration for SCEPman"
   # Register SCEPman App
-  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true
+  $appregsc = RegisterAzureADApp -name $AzureADAppNameForSCEPman -appRoleAssignments $ScepmanManifest -hideApp $true -SkipAppRoleAssignments $SkipAppRoleAssignments
 
   $servicePrincipalScepmanId = CreateServicePrincipal -appId $($appregsc.appId)
 
   # Expose SCEPman API
-  ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregsc.appId) --identifier-uris `"api://$($appregsc.appId)`""
+  Invoke-Az -azCommand @("ad", "app", "update", "--id", $appregsc.appId, "--identifier-uris", "api://$($appregsc.appId)")
 
   Write-Information "Allowing CertMaster to submit CSR requests to SCEPman API"
   $ScepManSubmitCSRPermission = $appregsc.appRoles.Where({ $_.value -eq "CSR.Request"}, "First")
@@ -110,12 +116,12 @@ function CreateSCEPmanAppRegistration ($AzureADAppNameForSCEPman, $CertMasterSer
   }
 
   $resourcePermissionsForCertMaster = @([pscustomobject]@{'resourceId'=$servicePrincipalScepmanId;'appRoleId'=$($ScepManSubmitCSRPermission.id);'permissionLevel'=0})
-  $null = SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri
+  $null = SetManagedIdentityPermissions -principalId $CertMasterServicePrincipalId -resourcePermissions $resourcePermissionsForCertMaster -GraphBaseUri $GraphBaseUri -SkipAppRoleAssignments $SkipAppRoleAssignments
 
   return $appregsc
 }
 
-function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false) {
+function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMasterBaseURLs, $SkipAutoGrant = $false, $SkipAppRoleAssignments = $false) {
 
   Write-Information "Getting Azure AD app registration for CertMaster"
   ### CertMaster App Registration
@@ -123,11 +129,11 @@ function CreateCertMasterAppRegistration ($AzureADAppNameForCertMaster, $CertMas
   $spaceSeparatedSignInUrls = $signInUrlArray -join " "
 
   # Register CertMaster App
-  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true
+  $appregcm = RegisterAzureADApp -name $AzureADAppNameForCertMaster -appRoleAssignments $CertmasterManifest -replyUrls $spaceSeparatedSignInUrls -hideApp $false -homepage $CertMasterBaseURLs[0] -EnableIdToken $true -SkipAppRoleAssignments $SkipAppRoleAssignments
   $null = CreateServicePrincipal -appId $($appregcm.appId)
 
   # Expose CertMaster API
-  ExecuteAzCommandRobustly -azCommand "az ad app update --id $($appregcm.appId) --identifier-uris `"api://$($appregcm.appId)`""
+  Invoke-Az -azCommand @("ad", "app", "update", "--id", $appregcm.appId, "--identifier-uris", "api://$($appregcm.appId)")
 
   Write-Verbose "Adding Delegated permission to CertMaster App Registration"
   # Add Microsoft Graph's User.Read as delegated permission for CertMaster
@@ -148,7 +154,7 @@ function Add-AzAsTrustedClientApplication {
   param(
     [Parameter(Mandatory=$true)]$AppId
   )
-  $AppJson = ExecuteAzCommandRobustly -callAzNatively -azCommand @('ad', 'app', 'show', '--id', $AppId)
+  $AppJson = Invoke-Az -azCommand @('ad', 'app', 'show', '--id', $AppId)
   $AppObject = Convert-LinesToObject -Lines $AppJson
 
   $existingAzAuthorization = $AppObject.api.preAuthorizedApplications | Where-Object { $_.appId -eq $AzAppId }
@@ -163,7 +169,7 @@ function Add-AzAsTrustedClientApplication {
     $preAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($preAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
     if ($PSCmdlet.ShouldProcess("Application with id $($AppObject.id)", "Add az (App Id: $AzAppId) as authorized application")) {
-      $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $preAuthorizationsBody, '--headers', 'Content-Type=application/json')
+      $null = Invoke-Az -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $preAuthorizationsBody, '--headers', 'Content-Type=application/json')
     }
 
     return $true
@@ -191,6 +197,6 @@ function Remove-AzAsTrustedClientApplication {
   $previousPreAuthorizationsBody = "{'api':{'preAuthorizedApplications':$($previousPreAuthorizationsInner.Replace("delegatedPermissionIds", "permissionIds").Replace('"', "'"))}}"
 
   if ($PSCmdlet.ShouldProcess("Application with id $($AppObject.id)", "Remove az (App Id: $AzAppId) as authorized application")) {
-    $null = ExecuteAzCommandRobustly -callAzNatively -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
+    $null = Invoke-Az -azCommand @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/beta/applications/$($AppObject.id)", '--body', $previousPreAuthorizationsBody, '--headers', 'Content-Type=application/json')
   }
 }

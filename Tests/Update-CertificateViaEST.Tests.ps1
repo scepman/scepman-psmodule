@@ -170,7 +170,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                     $HttpMessageHandler.ClientCertificates | Should -HaveCount 1
 
                     $clientMock = New-MockObject -Type System.Net.Http.HttpClient -Methods @{
-                        Send = {
+                        SendAsync = {
                             param([System.Net.Http.HttpRequestMessage]$request)
 
                             $request | Should -Not -BeNull
@@ -189,7 +189,7 @@ Describe 'SimpleReenrollmentTools' -Skip:(-not $IsWindows) {
                             $response = New-Object System.Net.Http.HttpResponseMessage 200
                             $response.Content = New-Object System.Net.Http.StringContent $b64Cert
 
-                            return $response
+                            return [System.Threading.Tasks.Task]::FromResult($response)
                         }
                         Dispose = { }
                     }

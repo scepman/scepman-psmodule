@@ -32,6 +32,7 @@ function GetLogAnalyticsWorkspace ($ResourceGroup, $WorkspaceId, $SubscriptionId
 }
 
 function GetDataCollectionRule {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory, ParameterSetName = "ByResourceGroup")]
         [string]$ResourceGroup,
@@ -291,13 +292,9 @@ function ConfigureLogIngestionAPIResources() {
     return $dcrDetails
 }
 
-function AddAppRoleAssignmentsForLogIngestionAPI($DcrResourceId, $ServicePrincipal, $SkipAppRoleAssignments = $false) {
-    $azCommandToAssignRole = "az role assignment create --role 'Monitoring Metrics Publisher' --assignee-object-id $($ServicePrincipal) --assignee-principal-type ServicePrincipal --scope $DcrResourceId"
-    if($SkipAppRoleAssignments) {
-        Write-Warning "Skipping app role assignment (please execute manually): $azCommandToAssignRole"
-        return
-    }
-    $null = ExecuteAzCommandRobustly -azCommand $azCommandToAssignRole
+function AddAppRoleAssignmentsForLogIngestionAPI($DcrResourceId, $ServicePrincipal) {
+    $azCommandToAssignRole = @("role", "assignment", "create", "--role", "Monitoring Metrics Publisher", "--assignee-object-id", $ServicePrincipal, "--assignee-principal-type", "ServicePrincipal", "--scope", $DcrResourceId)
+    $null = Invoke-Az -azCommand $azCommandToAssignRole
     Write-Verbose "Role 'Monitoring Metrics Publisher' assigned to service principal $ServicePrincipal for the scope of the Data Collection Rule with resource id $DcrResourceId"
 }
 
@@ -312,8 +309,7 @@ function Set-LoggingConfigInAppSettings {
         [Parameter(Mandatory=$true)]        [string]$AppServiceName,
         [Parameter(Mandatory=$false)]        [System.Collections.IList]$servicePrincipals,
         [Parameter(Mandatory=$false)]        [string]$DeploymentSlotName,
-        [Parameter(Mandatory=$false)]        [System.Collections.IList]$DeploymentSlots,
-        [switch]$SkipAppRoleAssignments
+        [Parameter(Mandatory=$false)]        [System.Collections.IList]$DeploymentSlots
     )
     # Check if we have an existing logging configuration
     $existingWorkspaceId = ReadAppSetting -ResourceGroup $ResourceGroup -AppServiceName $AppServiceName -SettingName "AppConfig:LoggingConfig:WorkspaceId" -Slot $DeploymentSlotName
@@ -390,7 +386,7 @@ function Set-LoggingConfigInAppSettings {
     if($servicePrincipals) {
         Foreach($principal in $servicePrincipals) {
             if ($PSCmdlet.ShouldProcess($principal, "Adding app role assignment for Monitoring Metrics Publisher role")) {
-                AddAppRoleAssignmentsForLogIngestionAPI -DcrResourceId $dcrDetails.id -ServicePrincipal $principal -SkipAppRoleAssignments $SkipAppRoleAssignments
+                AddAppRoleAssignmentsForLogIngestionAPI -DcrResourceId $dcrDetails.id -ServicePrincipal $principal
             }
         }
     }
