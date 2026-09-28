@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
         # This step is always skipped, as winget is not available on the Window Server like windows-latest and therefore we cannot use this method to install PowerShell
       - name: Install PowerShell Preview for Windows
@@ -116,11 +118,13 @@ jobs:
           cd SCEPman
           Import-Module ./SCEPman.psd1
           $RandomAppRegNumber = Get-Random
-          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName $env:VARS_APP_SERVICE_NAME -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
           $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $certmasterappid
+        env:
+          VARS_APP_SERVICE_NAME: ${{ vars.APP_SERVICE_NAME }}
 
       - name: Complete SCEPman installation in PowerShell 5
         if: matrix.psver == 'windows'
@@ -135,8 +139,10 @@ jobs:
           cd SCEPman
           Import-Module ./SCEPman.psd1
           $RandomAppRegNumber = Get-Random
-          Complete-SCEPmanInstallation -SCEPmanAppServiceName ${{ vars.APP_SERVICE_NAME }} -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
+          Complete-SCEPmanInstallation -SCEPmanAppServiceName $env:VARS_APP_SERVICE_NAME -AzureADAppNameForSCEPman "scepman-api-ghtest-$RandomAppRegNumber" -AzureADAppNameForCertMaster "scepman-certmaster-ghtest-$RandomAppRegNumber" -SearchAllSubscriptions -Verbose 6>&1
           $scepmanappid = az ad app list --display-name "scepman-api-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $scepmanappid
           $certmasterappid = az ad app list --display-name "scepman-certmaster-ghtest-$RandomAppRegNumber" -o tsv --query "[].id"
           az ad app delete --id $certmasterappid
+        env:
+          VARS_APP_SERVICE_NAME: ${{ vars.APP_SERVICE_NAME }}
