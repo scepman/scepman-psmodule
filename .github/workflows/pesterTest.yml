@@ -2,6 +2,9 @@ name: Pester Unit Test
 
 on: push
 
+permissions:
+  contents: read  # Required for actions/checkout
+
 jobs:
     pester-test:
       name: Pester test

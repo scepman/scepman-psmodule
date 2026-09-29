@@ -35,7 +35,8 @@ jobs:
     environment: AzureLab
     runs-on: ${{ matrix.os }}
       # containers only run on Linux, this weird syntax seems to do it
-    container: ${{ matrix.os == 'ubuntu-latest' && format('mcr.microsoft.com/powershell:{0}', matrix.psver) || null }}
+      # The image tag is intentionally floating: the whole point of this job is to test against the current latest/preview PowerShell
+    container: ${{ matrix.os == 'ubuntu-latest' && format('mcr.microsoft.com/powershell:{0}', matrix.psver) || null }} # zizmor: ignore[unpinned-images]
     permissions:
       id-token: write
       contents: read

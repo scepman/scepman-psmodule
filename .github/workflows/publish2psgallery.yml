@@ -13,6 +13,8 @@ on:
           - beta
           - none
 
+permissions: {}  # Jobs opt in to the permissions they need
+
 jobs:
   code-sign-scepman:
     name: Code Sign SCEPMan PowerShell Module
