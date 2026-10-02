@@ -1,5 +1,8 @@
 Function Set-SCEPmanEndpoint {
     [CmdletBinding(SupportsShouldProcess)]
+    # EncryptedPassword is not a credential but an already encrypted blob that is only passed through to an app setting
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUsernameAndPasswordParams", "")]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "EncryptedPassword")]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
@@ -94,6 +97,8 @@ Function Set-SCEPmanEndpoint {
 
         if ($DeploymentSlotName) { $SetAppSettingsParameters.DeploymentSlotName = $DeploymentSlotName }
 
-        SetAppSettings @SetAppSettingsParameters
+        if ($PSCmdlet.ShouldProcess($SCEPmanAppServiceName, "Configuring $Endpoint endpoint settings")) {
+            SetAppSettings @SetAppSettingsParameters
+        }
     }
 }

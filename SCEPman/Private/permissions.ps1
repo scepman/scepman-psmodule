@@ -167,7 +167,11 @@ function AddDelegatedPermissionToCertMasterApp($appId, $SkipAutoGrant) {
     }
 }
 
-function Get-AccessTokenForApp($scope) {
+function Get-AccessTokenForApp {
+    # az CLI can only return the token as plaintext, so converting it into a SecureString is the hardening step here, not the leak
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText", "")]
+    param($scope)
+
     Write-Warning "Acquiring token for scope $scope. This can expose unencrypted token information in memory or verbose logs. Please use with caution."
     return Invoke-Az -azCommand @('account', 'get-access-token', '--scope', $scope, '--query', 'accessToken', '--output', 'tsv') | ConvertTo-SecureString -AsPlainText -Force
 }
