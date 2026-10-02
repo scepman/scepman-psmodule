@@ -100,109 +100,101 @@ Function New-SCEPmanADPrincipal {
 
     )
 
-    Begin {
-        # State to only proceed if all prerequisites are met
-        # Required as return statements will only proceed to Process block
-        $PrerequisitesOk = $false
-
-        if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
-            Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
-            $InformationPreference = 'Continue'
-        }
-
-        # Make sure we have RSAT tools
-        if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
-            throw "ActiveDirectory module not found. Install RSAT or run on a DC."
-        }
-        Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
-
-        # Validate tooling
-        if (-not (Get-Command ktpass -ErrorAction SilentlyContinue)) {
-            throw "ktpass.exe not found in PATH. Copy ktpass to PATH or run this on a DC"
-        }
-
-        if ($SCEPmanAppServiceName -and -not (Get-Command 'az')) {
-            throw "App service parameter found but az CLI not found in PATH. Ensure Azure CLI is installed and accessible."
-        }
-
-        # Ensure we have loaded assembly for enveloped CMS
-        try {
-            Add-Type -AssemblyName System.Security
-        } catch {
-            throw "Could not load System.Security assembly: $_"
-        }
-
-        if (-not $Domain) {
-            Write-Verbose "No domain provided, getting information for current domain."
-            $domainInfo = Get-ADDomain
-        } Else {
-            Write-Verbose "Getting information for provided domain: $Domain"
-            $domainInfo = Get-ADDomain $Domain
-        }
-
-        $domainFQDN = $domainInfo.DNSRoot
-        $domainNetBIOS = $domainInfo.NetBIOSName
-        Write-Information "Using domain FQDN: $domainFQDN"
-
-        if ($null -eq $domainFQDN -or $null -eq $domainNetBIOS) {
-            throw "Could not retrieve domain information for domain '$Domain'. Please check the domain name and your connectivity to the domain."
-        }
-
-        # Make sure we have a SPN
-        if (-not $SPN) {
-            $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + '@' + $domainFQDN.ToUpper()
-            Write-Information "No SPN provided. Using default: $SPN"
-        }
-
-        # Make sure we have an OU to create the principal in
-        if (-not $OU -and -not $SkipObjectCreation) {
-            Write-Verbose "No OU provided. Ask for confirmation to create in default Computers container."
-            # Take default Computers container if no OU provided
-            $OU = $domainInfo.ComputersContainer
-
-            if ($Force) {
-                Write-Information "No OU provided and -Force specified. Please specify an OU or remove -Force to confirm default Computers container."
-                return
-            }
-
-            if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
-                Write-Information "Operation cancelled by user."
-                return
-            }
-        }
-
-        # Ensure we have a certificate to encrypt the keytab
-        if (-not $CaCertificate) {
-            Write-Verbose "No CA certificate provided. Fetch from app service"
-            $CaUri = ($AppServiceUrl -replace '/+$') + $CaEndpoint
-            $Response = Invoke-WebRequest -Uri $CaUri -UseBasicParsing -ErrorAction Stop
-            $RecipientCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]$Response.Content
-        } else {
-            Write-Verbose "Loading CA certificate from file $CaCertificate"
-            try {
-                $absolutePath = (Get-Item -Path $CaCertificate).FullName
-                $RecipientCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromCertFile($absolutePath)
-            } catch {
-                throw "Could not load DER certificate from file '$CaCertificate': $_"
-            }
-        }
-
-        if ($null -eq $RecipientCert) {
-            throw "Could not obtain recipient certificate for keytab encryption."
-        }
-
-        $PrerequisitesOk = $true
+    if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+        Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+        $InformationPreference = 'Continue'
     }
 
-    Process {
-        if (-not $PrerequisitesOk) {
-            Write-Verbose "Prerequisites not met. Aborting operation."
+    # --- Prerequisites: tooling, domain information, SPN, OU and encryption certificate ---
+
+    # Make sure we have RSAT tools
+    if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+        throw "ActiveDirectory module not found. Install RSAT or run on a DC."
+    }
+    Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
+
+    # Validate tooling
+    if (-not (Get-Command ktpass -ErrorAction SilentlyContinue)) {
+        throw "ktpass.exe not found in PATH. Copy ktpass to PATH or run this on a DC"
+    }
+
+    if ($SCEPmanAppServiceName -and -not (Get-Command 'az')) {
+        throw "App service parameter found but az CLI not found in PATH. Ensure Azure CLI is installed and accessible."
+    }
+
+    # Ensure we have loaded assembly for enveloped CMS
+    try {
+        Add-Type -AssemblyName System.Security
+    } catch {
+        throw "Could not load System.Security assembly: $_"
+    }
+
+    if (-not $Domain) {
+        Write-Verbose "No domain provided, getting information for current domain."
+        $domainInfo = Get-ADDomain
+    } Else {
+        Write-Verbose "Getting information for provided domain: $Domain"
+        $domainInfo = Get-ADDomain $Domain
+    }
+
+    $domainFQDN = $domainInfo.DNSRoot
+    $domainNetBIOS = $domainInfo.NetBIOSName
+    Write-Information "Using domain FQDN: $domainFQDN"
+
+    if ($null -eq $domainFQDN -or $null -eq $domainNetBIOS) {
+        throw "Could not retrieve domain information for domain '$Domain'. Please check the domain name and your connectivity to the domain."
+    }
+
+    # Make sure we have a SPN
+    if (-not $SPN) {
+        $SPN = 'HTTP/' + ($AppServiceUrl -replace 'https?://' -replace '/+$') + '@' + $domainFQDN.ToUpper()
+        Write-Information "No SPN provided. Using default: $SPN"
+    }
+
+    # Make sure we have an OU to create the principal in
+    if (-not $OU -and -not $SkipObjectCreation) {
+        Write-Verbose "No OU provided. Ask for confirmation to create in default Computers container."
+        # Take default Computers container if no OU provided
+        $OU = $domainInfo.ComputersContainer
+
+        if ($Force) {
+            Write-Information "No OU provided and -Force specified. Please specify an OU or remove -Force to confirm default Computers container."
             return
         }
 
-        # Hold state to determine if we need to clean up
-        $ExecutionSuccessful = $false
+        if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
+            Write-Information "Operation cancelled by user."
+            return
+        }
+    }
 
+    # Ensure we have a certificate to encrypt the keytab
+    if (-not $CaCertificate) {
+        Write-Verbose "No CA certificate provided. Fetch from app service"
+        $CaUri = ($AppServiceUrl -replace '/+$') + $CaEndpoint
+        $Response = Invoke-WebRequest -Uri $CaUri -UseBasicParsing -ErrorAction Stop
+        $RecipientCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]$Response.Content
+    } else {
+        Write-Verbose "Loading CA certificate from file $CaCertificate"
+        try {
+            $absolutePath = (Get-Item -Path $CaCertificate).FullName
+            $RecipientCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromCertFile($absolutePath)
+        } catch {
+            throw "Could not load DER certificate from file '$CaCertificate': $_"
+        }
+    }
+
+    if ($null -eq $RecipientCert) {
+        throw "Could not obtain recipient certificate for keytab encryption."
+    }
+
+    # --- Create the AD object, its keytab and optionally configure the App Service ---
+
+    # Hold state to determine if we need to clean up
+    $SCEPmanADObject = $null
+    $ExecutionSuccessful = $false
+
+    try {
         if($SkipObjectCreation) {
             Write-Verbose "Skipping AD object creation as per parameter."
         } else {
@@ -284,8 +276,7 @@ Function New-SCEPmanADPrincipal {
 
         $ExecutionSuccessful = $true
     }
-
-    End {
+    finally {
         # Check if we need to clean up created object
         if ($SCEPmanADObject -and $ExecutionSuccessful -eq $false) {
             # Ask for confirmation as we are deleting an object that was just created
