@@ -66,7 +66,7 @@
 
 Function New-SCEPmanADPrincipal {
     [CmdletBinding(SupportsShouldProcess)]
-    # Confirmation happens via ShouldProcess in the called private functions, which PSScriptAnalyzer does not detect
+    # Confirmation happens via ShouldProcess in the called private functions, which PSScriptAnalyzer does not detect, as they are in different files
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "")]
     param(
         [Parameter(Mandatory)]
