@@ -152,4 +152,14 @@ Describe "New-SCEPmanADPrincipal Processing" {
         $result | Should -Not -Be $null
         $result | Should -BeOfType [string]
     }
+
+    It "Stops silently after the skipped object creation with -WhatIf" {
+        Mock New-SCEPmanADObject { return $null }
+
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force -WhatIf
+
+        $result | Should -Be $null
+        Should -Invoke New-SCEPmanADKeyTab -Exactly 0
+        Should -Invoke Write-Error -Exactly 0
+    }
 }

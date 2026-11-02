@@ -66,6 +66,8 @@
 
 Function New-SCEPmanADPrincipal {
     [CmdletBinding(SupportsShouldProcess)]
+    # Confirmation happens via ShouldProcess in the called private functions, which PSScriptAnalyzer does not detect
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "")]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
@@ -162,9 +164,12 @@ Function New-SCEPmanADPrincipal {
             return
         }
 
-        if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
-            Write-Information "Operation cancelled by user."
-            return
+        # ShouldContinue is not suppressed by -WhatIf, so do not prompt when nothing will be changed anyway
+        if (-not $WhatIfPreference) {
+            if($PSCmdlet.ShouldContinue($OU, "No OU provided. Create in default Computers container?") -eq $false) {
+                Write-Information "Operation cancelled by user."
+                return
+            }
         }
     }
 
@@ -205,7 +210,10 @@ Function New-SCEPmanADPrincipal {
 
             $SCEPmanADObject = New-SCEPmanADObject -Name $Name -OU $OU -Description $Description
             if($null -eq $SCEPmanADObject) {
-                Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
+                # Under -WhatIf nothing was created on purpose, so this is not an error
+                if (-not $WhatIfPreference) {
+                    Write-Error "Failed to create computer account '$Name' in '$OU'.`nMake sure you have the necessary permissions and the object does not already exist."
+                }
                 return
             } else {
                 Write-Information "Successfully created computer account '$Name' in '$OU'."
@@ -215,7 +223,9 @@ Function New-SCEPmanADPrincipal {
         try {
             $keyTabData = New-SCEPmanADKeyTab -DownlevelLogonName "$domainNetBIOS\$Name" -ServicePrincipalName $SPN -ShowKtpassOutput:$ShowKtpassOutput
             if ($null -eq $keyTabData) {
-                Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+                if (-not $WhatIfPreference) {
+                    Write-Error "Failed to create keytab for principal '$SPN'`nMake sure that you have the necessary permissions and that the SPN is unique."
+                }
                 return
             }
         } catch {
