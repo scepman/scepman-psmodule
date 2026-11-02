@@ -19,14 +19,12 @@ Function New-SCEPmanADObject {
         }
     }
 
-    try {
-        if ($PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU'")) {
-            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true -Description $Description
-        } else {
-            # Shorter version for WhatIf
-            New-ADComputer -Name $Name -SamAccountName $Name -Path $OU
-        }
+    if (-not $PSCmdlet.ShouldProcess("Computer account '$Name' in '$OU'")) {
+        return $null
+    }
 
+    try {
+        New-ADComputer -Name $Name -SamAccountName $Name -Path $OU -Enabled $true -AccountNotDelegated $true -KerberosEncryptionType AES256 -TrustedForDelegation $false -CannotChangePassword $true -Description $Description
     } catch {
         throw "$($MyInvocation.MyCommand): An error occurred while creating account: $_"
     }
@@ -73,6 +71,11 @@ Function New-SCEPmanADKeyTab {
         [string]$ktpassPath = "ktpass.exe",
         [switch]$ShowKtpassOutput
     )
+
+    # ktpass resets the account password, so it must not run during a -WhatIf pass
+    if (-not $PSCmdlet.ShouldProcess($ServicePrincipalName, "Create keytab and reset the password of '$DownlevelLogonName'")) {
+        return $null
+    }
 
     # Use for temporary keytab storage
     $tempFile = Get-TempFilePath
