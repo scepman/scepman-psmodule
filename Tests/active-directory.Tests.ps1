@@ -100,6 +100,14 @@ Describe 'New-SCEPmanADObject' {
 
         { New-SCEPmanADObject -Name $Name -OU $OU } | Should -Throw "*An error occurred while validating account*"
     }
+
+    It "Creates nothing with -WhatIf" {
+        $result = New-SCEPmanADObject -Name $Name -OU $OU -WhatIf
+
+        # Assert
+        $result | Should -BeNullOrEmpty
+        Should -Invoke New-ADComputer -Exactly 0
+    }
 }
 
 Describe 'Get-TempFilePath' {
@@ -276,6 +284,14 @@ Describe 'New-SCEPmanADKeyTab' {
 
         # Assert
         $result | Should -BeNullOrEmpty
+    }
+
+    It "Does not run ktpass with -WhatIf" {
+        $result = New-SCEPmanADKeyTab -DownlevelLogonName $DownlevelLogonName -ServicePrincipalName $ServicePrincipalName -WhatIf
+
+        # Assert
+        $result | Should -BeNullOrEmpty
+        Should -Invoke New-Object -Exactly 0 -ParameterFilter { $TypeName -eq 'System.Diagnostics.Process' }
     }
 }
 

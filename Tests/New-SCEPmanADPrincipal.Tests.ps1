@@ -19,7 +19,7 @@ BeforeAll {
         }
     }
 
-    Function New-InMemoryCertificate {
+    Function NewInMemoryCertificate {
         $rsa = [System.Security.Cryptography.RSA]::Create(1024)
 
         $csr = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest(
@@ -36,7 +36,7 @@ BeforeAll {
 
     # Return a valid certificate
     Mock Invoke-WebRequest {
-        $cert = New-InMemoryCertificate
+        $cert = NewInMemoryCertificate
         $derBytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
 
         return @{
@@ -44,12 +44,12 @@ BeforeAll {
         }
     }
 
-    $PrincipalName = 'STEPman'
-    $AppServiceUrl = 'scepman.contoso.com'
-    $SCEPmanAppServiceName = 'app-scepman-contoso'
-    $OU = 'OU=test,DC=contoso,DC=local'
+    $script:PrincipalName = 'STEPman'
+    $script:AppServiceUrl = 'scepman.contoso.com'
+    $script:SCEPmanAppServiceName = 'app-scepman-contoso'
+    $script:OU = 'OU=test,DC=contoso,DC=local'
 
-    $ValidPath = [System.IO.Path]::GetTempFileName()
+    $script:ValidPath = [System.IO.Path]::GetTempFileName()
 }
 
 Describe "New-SCEPmanADPrincipal Prerequisites" {
@@ -151,5 +151,15 @@ Describe "New-SCEPmanADPrincipal Processing" {
 
         $result | Should -Not -Be $null
         $result | Should -BeOfType [string]
+    }
+
+    It "Stops silently after the skipped object creation with -WhatIf" {
+        Mock New-SCEPmanADObject { return $null }
+
+        $result = New-SCEPmanADPrincipal -Name $PrincipalName -AppServiceUrl $AppServiceUrl -OU $OU -Force -WhatIf
+
+        $result | Should -Be $null
+        Should -Invoke New-SCEPmanADKeyTab -Exactly 0
+        Should -Invoke Write-Error -Exactly 0
     }
 }

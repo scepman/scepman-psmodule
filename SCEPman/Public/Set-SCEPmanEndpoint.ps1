@@ -1,5 +1,8 @@
 Function Set-SCEPmanEndpoint {
     [CmdletBinding(SupportsShouldProcess)]
+    # EncryptedPassword is not a credential but an already encrypted blob that is only passed through to an app setting
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUsernameAndPasswordParams", "")]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "EncryptedPassword")]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
@@ -23,77 +26,79 @@ Function Set-SCEPmanEndpoint {
         [switch]$SearchAllSubscriptions
     )
 
-    Begin {
-        if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
-            Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
-            $InformationPreference = 'Continue'
-        }
+    if(-not $PSBoundParameters.ContainsKey('InformationAction')) {
+        Write-Debug "Setting InformationAction to 'Continue' for this cmdlet as no user preference was set."
+        $InformationPreference = 'Continue'
+    }
 
-        $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
-        Write-Verbose "Invoked $($MyInvocation.MyCommand)"
-        Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
+    # --- Prerequisites: az environment, subscription, resource group and deployment slots ---
 
-        $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
-        Write-Information "Detected az version: $cliVersion"
+    $version = $MyInvocation.MyCommand.ScriptBlock.Module.Version
+    Write-Verbose "Invoked $($MyInvocation.MyCommand)"
+    Write-Information "SCEPman Module version $version on PowerShell $($PSVersionTable.PSVersion)"
 
-        Write-Information "Installing az resource graph extension"
-        az extension add --name resource-graph --only-show-errors
+    $cliVersion = [Version]::Parse((GetAzVersion).'azure-cli')
+    Write-Information "Detected az version: $cliVersion"
 
-        Write-Information "Configuring SCEPman"
+    Write-Information "Installing az resource graph extension"
+    az extension add --name resource-graph --only-show-errors
 
-        Write-Information "Logging in to az"
-        $null = AzLogin
+    Write-Information "Configuring SCEPman"
 
-        Write-Information "Getting subscription details"
-        $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
-        Write-Information "Subscription is set to $($subscription.name)"
+    Write-Information "Logging in to az"
+    $null = AzLogin
 
-        Write-Information "Setting resource group"
-        if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroupName)) {
-            # No resource group given, search for it now
-            $SCEPmanResourceGroupName = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
-        }
+    Write-Information "Getting subscription details"
+    $subscription = GetSubscriptionDetails -AppServiceName $SCEPmanAppServiceName -SearchAllSubscriptions $SearchAllSubscriptions.IsPresent -SubscriptionId $SubscriptionId
+    Write-Information "Subscription is set to $($subscription.name)"
 
-        Write-Information "Getting SCEPman deployment slots"
-        [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroupName
-        Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
+    Write-Information "Setting resource group"
+    if ([String]::IsNullOrWhiteSpace($SCEPmanResourceGroupName)) {
+        # No resource group given, search for it now
+        $SCEPmanResourceGroupName = GetResourceGroup -SCEPmanAppServiceName $SCEPmanAppServiceName -SubscriptionId $subscription.id
+    }
 
-        if ($DeploymentSlotName) {
-            if (($deploymentSlotsSc | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
-                Write-Information "Updating only deployment slot $DeploymentSlotName"
-                $deploymentSlotsSc = @($DeploymentSlotName)
-            } else {
-                Write-Error "Only $DeploymentSlotName should be updated, but it was not found among the deployment slots: $([string]::join($deploymentSlotsSc))"
-                throw "Only $DeploymentSlotName should be updated, but it was not found"
-            }
+    Write-Information "Getting SCEPman deployment slots"
+    [array]$deploymentSlotsSc = GetDeploymentSlots -appServiceName $SCEPmanAppServiceName -resourceGroup $SCEPmanResourceGroupName
+    Write-Information "$($deploymentSlotsSc.Count) deployment slots found"
+
+    if ($DeploymentSlotName) {
+        if (($deploymentSlotsSc | Where-Object { $_ -eq $DeploymentSlotName }).Count -gt 0) {
+            Write-Information "Updating only deployment slot $DeploymentSlotName"
+            $deploymentSlotsSc = @($DeploymentSlotName)
+        } else {
+            Write-Error "Only $DeploymentSlotName should be updated, but it was not found among the deployment slots: $([string]::join($deploymentSlotsSc))"
+            throw "Only $DeploymentSlotName should be updated, but it was not found"
         }
     }
 
-    Process {
-        If($Endpoint -eq "ActiveDirectory") {
-            Write-Information "Configuring AD endpoint"
+    # --- Apply the endpoint configuration ---
 
-            $EndpointSettings = @(
-                @{ Name = "AppConfig:ActiveDirectory:Enabled"; Value = 'true' }
-            )
+    If($Endpoint -eq "ActiveDirectory") {
+        Write-Information "Configuring AD endpoint"
 
-            if ($EncryptedKeyTab) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:KeyTab"; Value = $EncryptedKeyTab } }
-            if ($EncryptedPassword) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:EncryptedPassword"; Value = $EncryptedPassword } }
-            if ($GroupFilter) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:GroupFilter"; Value = $GroupFilter } }
+        $EndpointSettings = @(
+            @{ Name = "AppConfig:ActiveDirectory:Enabled"; Value = 'true' }
+        )
 
-            if ($EnableUser) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:User:Enabled"; Value = 'true' } }
-            if ($EnableComputer) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:Computer:Enabled"; Value = 'true' } }
-            if ($EnableDC) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:DC:Enabled"; Value = 'true' } }
-        }
+        if ($EncryptedKeyTab) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:KeyTab"; Value = $EncryptedKeyTab } }
+        if ($EncryptedPassword) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:EncryptedPassword"; Value = $EncryptedPassword } }
+        if ($GroupFilter) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:GroupFilter"; Value = $GroupFilter } }
 
-        $SetAppSettingsParameters = @{
-            AppServiceName = $SCEPmanAppServiceName
-            resourceGroup  = $SCEPmanResourceGroupName
-            Settings       = $EndpointSettings
-        }
+        if ($EnableUser) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:User:Enabled"; Value = 'true' } }
+        if ($EnableComputer) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:Computer:Enabled"; Value = 'true' } }
+        if ($EnableDC) { $EndpointSettings += @{ Name = "AppConfig:ActiveDirectory:DC:Enabled"; Value = 'true' } }
+    }
 
-        if ($DeploymentSlotName) { $SetAppSettingsParameters.DeploymentSlotName = $DeploymentSlotName }
+    $SetAppSettingsParameters = @{
+        AppServiceName = $SCEPmanAppServiceName
+        resourceGroup  = $SCEPmanResourceGroupName
+        Settings       = $EndpointSettings
+    }
 
+    if ($DeploymentSlotName) { $SetAppSettingsParameters.DeploymentSlotName = $DeploymentSlotName }
+
+    if ($PSCmdlet.ShouldProcess($SCEPmanAppServiceName, "Configuring $Endpoint endpoint settings")) {
         SetAppSettings @SetAppSettingsParameters
     }
 }
